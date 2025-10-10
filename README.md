@@ -16,7 +16,8 @@ Make sure you have the following software installed on your system:
 
 -MySQL Server: Or another MySQL-compatible database.
 
-Git: For version control.
+-Git: For version control.
+
 
 Installation & Setup 📦
 Clone the repository to your local machine (in your local disk C or in your desktop):
