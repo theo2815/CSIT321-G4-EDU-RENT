@@ -59,7 +59,7 @@ Open a terminal and navigate to the backend directory:
 
 Bash
 
-cd src
+cd CSIT321-G4-EDU-RENT
 
 Run the application using Maven:
 
