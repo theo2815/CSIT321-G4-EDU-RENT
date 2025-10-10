@@ -24,24 +24,33 @@ Clone the repository to your local machine (in your local disk C or in your desk
 when you are in your folder right click and open Git Bash here and type:
 
 git clone https://github.com/YourUsername/CSIT321-G4-EDU-RENT.git
+
 (Remember to replace YourUsername with your actual GitHub username.)
 
 Set up the database:
+
 -Open your MySQL client (like MySQL Workbench).
+
 -Create a new database for the project:
+
 -SQL
+
 -CREATE DATABASE edu_rent_db;
 
 Configure the backend connection:
+
 -Navigate to the backend's configuration file at edurentbackend/src/main/resources/application.properties.
+
 -Update the database username and password to match your local MySQL credentials:
 
 Properties
 
 -spring.datasource.username=your_mysql_username
+
 -spring.datasource.password=your_mysql_password
 
 How to Run the Project
+
 You will need to run two separate processes in two separate terminals: one for the backend and one for the frontend.
 
 1. Run the Backend (Spring Boot)
