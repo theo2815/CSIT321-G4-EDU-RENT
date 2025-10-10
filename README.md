@@ -7,9 +7,13 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 Prerequisites 🔧
 Make sure you have the following software installed on your system:
+
 -Java Development Kit (JDK): Version 17 or later.
+
 -Apache Maven: To build and run the backend.
+
 -Node.js and npm: To run the frontend.
+
 -MySQL Server: Or another MySQL-compatible database.
 
 Git: For version control.
@@ -18,6 +22,7 @@ Installation & Setup 📦
 Clone the repository to your local machine (in your local disk C or in your desktop):
 
 when you are in your folder right click and open Git Bash here and type:
+
 git clone https://github.com/YourUsername/CSIT321-G4-EDU-RENT.git
 (Remember to replace YourUsername with your actual GitHub username.)
 
