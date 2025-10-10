@@ -40,7 +40,7 @@ Set up the database:
 
 Configure the backend connection:
 
--Navigate to the backend's configuration file at edurentbackend/src/main/resources/application.properties.
+-Navigate to the backend's configuration file at src/main/resources/application.properties.
 
 -Update the database username and password to match your local MySQL credentials:
 
@@ -59,7 +59,7 @@ Open a terminal and navigate to the backend directory:
 
 Bash
 
-cd edurentbackend
+cd crc
 Run the application using Maven:
 
 Bash
