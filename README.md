@@ -81,6 +81,16 @@ Install the necessary project dependencies:
 Bash
 
 npm install
+
+if you see 9 vulnerabilities (3 moderate, 6 high)
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details
+
+just ignore it
+
 Start the React development server:
 
 Bash
