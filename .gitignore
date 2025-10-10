@@ -1,0 +1,20 @@
+# IDE and OS files
+.vscode/
+.idea/
+*.DS_Store
+
+# Java / Maven / Spring Boot
+target/
+.mvn/
+*.jar
+*.war
+*.log
+
+# Node / React
+edurentfrontend/node_modules/
+edurentfrontend/build/
+edurentfrontend/.pnp.js
+edurentfrontend/.pnp.loader.mjs
+
+# Environment variables
+.env
