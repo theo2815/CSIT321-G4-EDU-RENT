@@ -59,12 +59,14 @@ Open a terminal and navigate to the backend directory:
 
 Bash
 
-cd crc
+cd src
+
 Run the application using Maven:
 
 Bash
 
 mvn spring-boot:run
+
 The backend server will start and be available at http://localhost:8080.
 
 2. Run the Frontend (React)
@@ -73,6 +75,7 @@ Open a new terminal and navigate to the frontend directory:
 Bash
 
 cd edurentfrontend
+
 Install the necessary project dependencies:
 
 Bash
@@ -83,4 +86,5 @@ Start the React development server:
 Bash
 
 npm start
+
 Your browser will automatically open to http://localhost:3000, and you can now use the application.
