@@ -27,6 +27,11 @@ export const registerUser = (userData) => {
   return apiClient.post('/users', userData);
 };
 
+// It sends the user's credentials to the new login endpoint.
+export const loginUser = (credentials) => {
+  return apiClient.post('/users/login', credentials);
+};
+
 // You can add more functions here as you build out your backend
 // For example, for logging in or registering:
 /*

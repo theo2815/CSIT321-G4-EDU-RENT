@@ -1,71 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import { getProducts } from '../services/api';
+import logo from '../assets/edurentlogo.png';
+import { Link } from 'react-router-dom';
+import './Dashboard.css';
+import Header from './Header';
 
-function Dashboard() {
+function Dashboard({ user, handleLogout }) {
   const [products, setProducts] = useState([]);
   const [error, setError] = useState('');
+  // --- State to manage the dropdown visibility ---
+  const [isDropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await getProducts();
-        setProducts(response.data);
-      } catch (err) {
-        console.error("Error fetching products:", err);
-        setError("Failed to load products from the server.");
-      }
-    };
-    fetchProducts();
-  }, []);
-
-  // Simple logout by reloading the page, which resets our app's state
-  const handleLogout = () => {
-    window.location.reload();
-  };
-  
-  // Helper to get the right CSS class for product status
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'available':
-        return 'status-available';
-      case 'rented':
-        return 'status-rented';
-      case 'sold':
-        return 'status-sold';
-      default:
-        return '';
+    // This is a common pattern to close the dropdown if you click outside of it.
+    const closeDropdown = () => setDropdownOpen(false);
+    if (isDropdownOpen) {
+      window.addEventListener('click', closeDropdown);
     }
+    // Cleanup function to remove the listener
+    return () => window.removeEventListener('click', closeDropdown);
+  }, [isDropdownOpen]);
+
+
+  const getFirstName = (fullName) => {
+    if (!fullName) return 'Guest';
+    return fullName.split(' ')[0];
+  };
+
+  // Prevents the window listener from firing when we click the button itself
+  const toggleDropdown = (e) => {
+    e.stopPropagation();
+    setDropdownOpen(!isDropdownOpen);
   };
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header">
-        <h2>Marketplace</h2>
-        <button onClick={handleLogout} className="logout-btn">Logout</button>
-      </div>
+    <div className="dashboard-page">
+      {/* --- Use the reusable Header component --- */}
+      <Header user={user} handleLogout={handleLogout} />
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {/* --- Main Body Content (no changes here) --- */}
+      <main className="dashboard-main">
+        {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
+        
+        <section className="hero-section">
+          <h1>Your Campus Marketplace for Students</h1>
+          <p>Find great deals on textbooks, electronics, and dorm essentials from fellow students right here on campus.</p>
+          <button className="sell-button">Browse Listings</button>
+        </section>
 
-      <div className="product-grid">
-        {products.length > 0 ? (
-          products.map((product) => (
-            <div key={product.productId} className="product-card">
-              <h4>{product.name}</h4>
-              <p>{product.description}</p>
-              <p><strong>Price:</strong> ${product.price.toFixed(2)}</p>
-              <p>
-                <strong>Status:</strong>
-                <span className={`product-status ${getStatusClass(product.status)}`}>
-                  {product.status}
-                </span>
-              </p>
-              <small>Posted on: {new Date(product.postDate).toLocaleDateString()}</small>
-            </div>
-          ))
-        ) : (
-          <p>No products found or still loading...</p>
-        )}
-      </div>
+        <section className="listings-section">
+          <h2 className="section-title">All Listings</h2>
+          <div className="product-grid-placeholder">
+            {products.length > 0 ? (
+              products.map((product) => (
+                <div key={product.productId} className="product-card-placeholder">
+                  Product Placeholder
+                </div>
+              ))
+            ) : (
+              <p>Loading listings...</p>
+            )}
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
