@@ -110,6 +110,7 @@ If vulnerabilities appear, you may ignore them during development.
 
 
 Start the frontend:
+    npm install
     npm start
 Frontend runs at: http://localhost:3000
 -----
