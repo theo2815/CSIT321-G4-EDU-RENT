@@ -90,9 +90,13 @@ Replace `YourUsername` with your GitHub username.
 ### ✅ Step 3: Configure Backend Database
 Navigate to:  
 edurentbackend/src/main/resources/application.properties  
+
 Update credentials:
+
     spring.datasource.username=your_mysql_username
+    
     spring.datasource.password=your_mysql_password
+    
 -----
 
 ## ▶️ How to Run the Project
