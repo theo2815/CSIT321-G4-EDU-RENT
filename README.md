@@ -1,100 +1,166 @@
-# CSIT321-G4-EDU-RENT
+# 🛒 CSIT321-G4-EDU-RENT / Edu-Rent
+<div align="center">
+  <h3>A Campus-Wide E-Commerce Platform for Students</h3>
+  <p>Rent, Sell, and Buy Items Easily Within Your School Community</p>
+</div>
+-----
 
-Edu-rent is campus wide E-commerce website. For Students looking to rent, sell, and buy items from other fellow Students. Eliminating the need to look for sellers that are too far away or arent compliant. And Students won't have to go through different platforms to find what they need. 
+## 📖 Table of Contents
+- [Overview](#-overview)
+- [Purpose](#-purpose)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Prerequisites](#-prerequisites)
+- [Setup & Installation](#-setup--installation)
+- [How to Run the Project](#-how-to-run-the-project)
+- [Usage Guide](#-usage-guide)
+- [Project Structure](#-project-structure)
+- [Team Members](#-team-members)
+- [License](#-license)
+- [Deployment](#-deployment)
+-----
 
-Getting Started 🚀
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
+## 🌟 Overview
+Edu-Rent is a campus-based e-commerce platform where students can rent, sell, and buy items from fellow students. It eliminates the need to use multiple platforms or deal with distant or unreliable sellers. Everything happens within the school community, ensuring convenience, accessibility, and trust.
+-----
 
-Prerequisites 🔧
-Make sure you have the following software installed on your system:
+## 🎯 Purpose
+The purpose of Edu-Rent is to:
+- Provide a centralized marketplace for students
+- Improve accessibility to needed items on campus
+- Simplify renting, selling, and buying
+- Promote student-to-student trust and convenience
+-----
 
--Java Development Kit (JDK): Version 17 or later.
+## ✨ Features
+### 🧑‍🎓 Student Marketplace
+- Browse available items
+- Rent, buy, or sell products
+- Upload item listings with images and descriptions
 
--Apache Maven: To build and run the backend.
+### 🔐 Account & Profile Management
+- Register/Login
+- Manage personal listings
+- View rental or purchase history
 
--Node.js and npm: To run the frontend.
+### 📊 Admin Dashboard (Future Scope)
+- Approve suspicious listings
+- Manage users and transactions
 
--MySQL Server: Or another MySQL-compatible database.
+### 🔎 Search & Filter
+- Search items by category, price, or availability
+-----
 
--Git: For version control.
+## 🛠 Tech Stack
+*Backend*  
+- Java Spring Boot  
+- Maven  
+- RESTful APIs  
+
+*Frontend*  
+- React  
+- Node.js  
+- npm  
+
+*Database*  
+- MySQL (or compatible)
+
+*Version Control*  
+- Git & GitHub
+-----
+
+## 📋 Prerequisites
+Before running the project, make sure you have:
+- Java Development Kit (JDK 17+)
+- Apache Maven
+- Node.js & npm
+- MySQL Server
+- Git
+-----
+
+## ⚙️ Setup & Installation
+### ✅ Step 1: Clone the Repository
+    git clone https://github.com/YourUsername/CSIT321-G4-EDU-RENT.git
+Replace `YourUsername` with your GitHub username.
 
 
-Installation & Setup 📦
-Clone the repository to your local machine (in your local disk C or in your desktop):
+### ✅ Step 2: Create the Database
+    CREATE DATABASE edu_rent_db;
 
-when you are in your folder right click and open Git Bash here and type:
+### ✅ Step 3: Configure Backend Database
+Navigate to:  
+edurentbackend/src/main/resources/application.properties  
 
-git clone https://github.com/YourUsername/CSIT321-G4-EDU-RENT.git
+Update credentials:
 
-(Remember to replace YourUsername with your actual GitHub username.)
+    spring.datasource.username=your_mysql_username
+    
+    spring.datasource.password=your_mysql_password
+    
+-----
 
-Set up the database:
+## ▶️ How to Run the Project
+You will run two terminals: one for the backend and one for the frontend.
 
--Open your MySQL client (like MySQL Workbench).
+### ✅ 1. Run the Backend (Spring Boot)
+    cd edurentbackend
+    mvn spring-boot:run
+Backend runs at: http://localhost:8080
 
--Create a new database for the project:
+### ✅ 2. Run the Frontend (React)
+    cd edurentfrontend
+    npm install
+    npm start
+If vulnerabilities appear, you may ignore them during development.
 
--SQL
 
--CREATE DATABASE edu_rent_db;
+Start the frontend:
+    npm install
+    npm start
+Frontend runs at: http://localhost:3000
+-----
 
-Configure the backend connection:
+## 🧪 Usage Guide
+1. Open your browser  
+2. Visit http://localhost:3000  
+3. Register or log in  
+4. Browse, add, rent, sell, or buy items  
+-----
 
--Navigate to the backend's configuration file at src/main/resources/application.properties.
+## 📁 Project Structure
+    CSIT321-G4-EDU-RENT/
+    │
+    ├── edurentbackend/        # Spring Boot backend
+    │   └── src/main/java/
+    │   └── src/main/resources/
+    │
+    ├── edurentfrontend/       # React frontend
+    │   └── src/
+    │
+    └── README.md
+-----
 
--Update the database username and password to match your local MySQL credentials:
+## 👥 Team Members
+| Name | Role |
+|------|------|
+| *Theo Cedric Chan* |  Developer |
+| *Andre Codilla* |  Developer |
+| *Ken Patrick Ranis* |  Developer |
+-----
 
-Properties
+## 📄 License
+This project is licensed under the *MIT License*.  
+You are free to use, modify, and distribute with proper credit.
+-----
 
--spring.datasource.username=your_mysql_username
+## 🌐 Deployment
+### 🚧 Status: In Development
+This project is currently intended for local development. Deployment steps will be added later.
+-----
 
--spring.datasource.password=your_mysql_password
-
-How to Run the Project
-
-You will need to run two separate processes in two separate terminals: one for the backend and one for the frontend.
-
-1. Run the Backend (Spring Boot)
-Open a terminal and navigate to the backend directory:
-
-Bash
-
-cd edurentbackend
-
-Run the application using Maven:
-
-Bash
-
-mvn spring-boot:run
-
-The backend server will start and be available at http://localhost:8080.
-
-2. Run the Frontend (React)
-Open a new terminal and navigate to the frontend directory:
-
-Bash
-
-cd edurentfrontend
-
-Install the necessary project dependencies:
-
-Bash
-
-npm install
-
-if you see 9 vulnerabilities (3 moderate, 6 high)
-
-To address all issues (including breaking changes), run:
-  npm audit fix --force
-
-Run `npm audit` for details
-
-just ignore it
-
-Start the React development server:
-
-Bash
-
-npm start
-
-Your browser will automatically open to http://localhost:3000, and you can now use the application.
+<div align="center">
+  <p>Made with ❤️ by the Edu-Rent Team</p>
+  <p>© 2025 Edu-Rent. All rights reserved.</p>
+  <br>
+  <a href="#-csit321-g4-edu-rent--edu-rent">Back to Top ⬆️</a>
+</div>
