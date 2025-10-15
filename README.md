@@ -110,6 +110,7 @@ Backend runs at: http://localhost:8080
 ### ✅ 2. Run the Frontend (React)
     cd edurentfrontend
     npm install
+    npm start
 If vulnerabilities appear, you may ignore them during development.
 
 
