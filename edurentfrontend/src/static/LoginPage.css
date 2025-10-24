@@ -1,0 +1,99 @@
+/* Base styles for the login page */
+.login-page {
+  display: flex;
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+/* Left Column (Logo and Text) */
+.login-left-column {
+  flex: 1;
+  display: none; /* Hidden on small screens */
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #4f46e5; /* Indigo color */
+  padding: 3rem;
+  text-align: center;
+  color: #ffffff;
+}
+
+/* Show left column on medium screens and up */
+@media (min-width: 768px) {
+  .login-left-column {
+    display: flex;
+  }
+}
+
+.login-logo {
+  font-size: 2.25rem; /* text-4xl */
+  font-weight: 800;
+  margin-bottom: 1rem;
+}
+
+.login-tagline {
+  font-size: 1.125rem; /* text-lg */
+  font-weight: 500;
+  max-width: 80%;
+}
+
+/* Right Column (Form) */
+.login-right-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem 1.5rem; /* py-12 px-6 */
+}
+
+.login-form-container {
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  max-width: 24rem; /* sm:max-w-sm */
+}
+
+.login-title {
+  text-align: center;
+  font-size: 1.875rem; /* text-3xl */
+  font-weight: 800; /* font-extrabold */
+  color: #111827; /* text-gray-900 */
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* space-y-6 */
+  margin-top: 2rem;
+}
+
+.forgot-password-link {
+  font-size: 0.875rem; /* text-sm */
+  font-weight: 500; /* font-medium */
+  color: #4f46e5; /* text-indigo-600 */
+  text-decoration: none;
+  align-self: flex-end; /* Aligns link to the right */
+}
+
+.forgot-password-link:hover {
+  text-decoration: underline;
+  color: #4338ca; /* hover:text-indigo-500 */
+}
+
+.signup-link-container {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.875rem; /* text-sm */
+  color: #6b7280; /* text-gray-500 */
+}
+
+.signup-link {
+  font-weight: 500; /* font-medium */
+  color: #4f46e5; /* text-indigo-600 */
+  text-decoration: none;
+}
+
+.signup-link:hover {
+  text-decoration: underline;
+  color: #4338ca; /* hover:text-indigo-500 */
+}

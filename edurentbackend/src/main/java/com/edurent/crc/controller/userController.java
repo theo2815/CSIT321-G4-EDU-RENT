@@ -1,52 +1,47 @@
 package com.edurent.crc.controller;
 
-import java.util.List;
-
+import com.edurent.crc.entity.UserEntity; // Updated
+import com.edurent.crc.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.edurent.crc.dto.LoginRequest;
-import com.edurent.crc.entity.userEntity;
-import com.edurent.crc.service.userService;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
-@RequestMapping("/api/users") // Base URL: /api/users
-@CrossOrigin(origins = "http://localhost:3000")
-public class userController {
+@RequestMapping("/api/v1/users")
+@CrossOrigin(origins = "*")
+public class UserController {
 
     @Autowired
-    private userService userService;
+    private UserService userService;
 
-    // API to get all users (for testing)
-    @GetMapping 
-    public List<userEntity> getAllUsers() {
-        return userService.findAllUsers();
+    @GetMapping
+    public List<UserEntity> getAllUsers() { // Updated
+        return userService.getAllUsers();
     }
-    
-    // You would add methods for login, register, etc., here later!
-    // This is the registration API. It listens for POST requests.
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UserEntity> getUserById(@PathVariable Long id) { // Updated
+        return userService.getUserById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping
-    public userEntity registerUser(@RequestBody userEntity newUser) {
-        return userService.saveUser(newUser);
-    }
-
-     @PostMapping("/login")
-    public ResponseEntity<userEntity> loginUser(@RequestBody LoginRequest loginRequest) {
-        userEntity authenticatedUser = userService.loginUser(loginRequest.getEmail(), loginRequest.getPassword());
-        
-        if (authenticatedUser != null) {
-            // If login is successful, return the user data with a 200 OK status
-            return ResponseEntity.ok(authenticatedUser);
-        } else {
-            // If login fails, return a 401 Unauthorized status
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    public ResponseEntity<UserEntity> createUser(@RequestBody UserEntity user, @RequestParam Long schoolId) { // Updated
+        try {
+            UserEntity newUser = userService.createUser(user, schoolId); // Updated
+            return new ResponseEntity<>(newUser, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(null);
         }
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
 }
+
