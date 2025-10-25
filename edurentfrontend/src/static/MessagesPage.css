@@ -1,0 +1,472 @@
+/* --- Base Layout (Mobile-First) --- */
+.messages-page-container {
+  display: block; /* MODIFIED: Default to block layout */
+  height: calc(100vh - 60px); /* Full height below header */
+  overflow: hidden; /* Prevent scrolling on the main container */
+  background-color: var(--bg-light); /* White background */
+}
+
+/* --- Left Sidebar (Conversations List) --- */
+.conversations-sidebar {
+  width: 100%; /* MODIFIED: Full width on mobile */
+  height: 100%; /* MODIFIED: Full height on mobile */
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: transform 0.3s ease-in-out; /* For potential future slide-out */
+}
+
+/* NEW: Class to hide sidebar on mobile */
+.conversations-sidebar.mobile-hidden {
+  display: none;
+}
+
+.conversations-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.conversations-title {
+  font-size: 1.5rem; /* Larger title */
+  font-weight: 700;
+  color: var(--text-color);
+  margin-bottom: 0.75rem;
+}
+
+/* Reusing search bar styles */
+.conversation-search-bar {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-color); /* Light gray */
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  /* border: 1px solid var(--border-color); Optional border */
+}
+
+.conversation-search-icon {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin-right: 0.75rem; /* Increased spacing */
+  line-height: 1; /* Fix alignment */
+}
+
+.conversation-search-input {
+  flex-grow: 1;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+  background: none;
+  color: var(--text-color);
+}
+
+.conversation-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.conversations-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto; /* Allow list to scroll */
+  flex-grow: 1;
+}
+
+.conversation-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0; /* Lighter separator */
+  transition: background-color 0.15s;
+}
+
+.conversation-list-item:hover {
+  background-color: #f8f9fa; /* Light hover */
+}
+
+.conversation-list-item.active {
+  background-color: #e7f5ff; /* Light blue for selected */
+}
+
+.conversation-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--border-color); /* Placeholder */
+  flex-shrink: 0;
+  /* Add styles for img inside if needed */
+}
+
+.conversation-details {
+  flex-grow: 1;
+  overflow: hidden; /* Prevent text overflow */
+}
+
+.conversation-user-name {
+  font-weight: 600;
+  color: var(--text-color);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conversation-preview {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.1rem;
+}
+
+/* --- Right Side (Chat Area) --- */
+.chat-area {
+  display: none; /* MODIFIED: Hide chat area by default on mobile */
+  flex-grow: 1;
+  flex-direction: column;
+  overflow: hidden; /* Prevent overall scrolling */
+  height: 100%; /* MODIFIED: Take full height when visible */
+}
+
+/* NEW: Class to show chat area on mobile */
+.chat-area.mobile-visible {
+  display: flex;
+  width: 100%;
+}
+
+/* Hide the "no conversation" placeholder on mobile if a chat *is* visible */
+.chat-area.no-chat-selected.mobile-visible {
+  display: none;
+}
+
+
+/* Chat Header */
+.chat-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between; /* Align product info */
+  align-items: center;
+  flex-shrink: 0;
+  background-color: #fdfdfd; /* Slightly off-white */
+}
+
+/* NEW: Back button for mobile */
+.chat-back-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-color);
+  padding: 0.5rem;
+  margin-left: -0.5rem;
+  margin-right: 0.5rem;
+  display: block; /* Show on mobile */
+}
+
+.chat-user-info {
+  display: flex; /* Allow user info to grow */
+  flex-grow: 1;
+  overflow: hidden;
+}
+.chat-user-info .user-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-product-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: var(--bg-color);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  max-width: 50%; /* Prevent it from taking too much space */
+  flex-shrink: 0; /* Don't let product info shrink */
+}
+
+.product-info-icon { /* Placeholder for image */
+  width: 30px;
+  height: 30px;
+  font-size: 1.5rem;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.product-info-details {
+  overflow: hidden;
+}
+
+.product-info-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.product-info-price {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Chat Content / Messages */
+.chat-content {
+  flex-grow: 1;
+  overflow-y: auto; /* Allow messages to scroll */
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column; /* Messages stack vertically */
+}
+
+/* NEW: Wrapper for bubble + timestamp */
+.message-bubble-wrapper {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%; /* Widen max width slightly */
+  margin-bottom: 0.25rem;
+}
+
+.message-bubble {
+  max-width: 100%; /* Bubble takes width of wrapper */
+  padding: 0.6rem 1rem;
+  border-radius: 18px; /* Bubble shape */
+  font-size: 0.9rem;
+  line-height: 1.5;
+  word-wrap: break-word; /* Allow long words to break */
+}
+
+/* NEW: Timestamp styling */
+.message-timestamp {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 0.25rem 0.5rem;
+}
+
+.message-bubble-wrapper.sent {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.message-bubble-wrapper.received {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.message-bubble-wrapper.sent .message-bubble {
+  background-color: var(--primary-color); /* Blue for sent */
+  color: white;
+  border-bottom-right-radius: 4px; /* Flat corner */
+}
+.message-bubble-wrapper.received .message-bubble {
+  background-color: #e9ecef; /* Gray for received */
+  color: var(--text-color);
+  border-bottom-left-radius: 4px; /* Flat corner */
+}
+.message-bubble-wrapper.sent .message-timestamp {
+  text-align: right;
+}
+.message-bubble-wrapper.received .message-timestamp {
+  text-align: left;
+}
+
+
+/* Chat Input Area */
+.chat-input-area {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  background-color: #f8f9fa; /* Slightly different background */
+  display: flex;
+  align-items: flex-end; /* MODIFIED: Align to bottom for multi-line */
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.chat-input {
+  flex-grow: 1;
+  border: 1px solid var(--border-color);
+  border-radius: 20px; /* Pill shape */
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  outline: none;
+  resize: none; /* Prevent manual resize */
+  line-height: 1.5;
+  
+  /* --- MODIFIED: Auto-grow styles --- */
+  min-height: 24px; /* Matches line-height + padding */
+  max-height: 120px; /* Limit height to ~5 rows */
+  overflow-y: auto; /* Show scrollbar if max-height is reached */
+}
+
+.chat-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
+}
+
+/* NEW: Styles for SVG buttons */
+.icon-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem; /* Icon size */
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.5rem; /* Clickable area */
+  line-height: 1;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+.icon-button:hover {
+  background-color: #e9ecef;
+}
+.send-button {
+  color: var(--primary-color);
+}
+.send-button:hover {
+  background-color: #e7f5ff; /* Light blue hover */
+}
+
+
+/* Placeholder for no conversation selected */
+.no-conversation-selected {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.no-conversation-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* --- Messages Page Skeleton --- */
+.messages-skeleton-container {
+  display: block; /* Mobile-first */
+  height: calc(100vh - 60px); /* Match page layout height */
+  overflow: hidden;
+}
+
+/* Skeleton Sidebar */
+.skeleton-conversations-sidebar {
+  width: 100%;
+  height: 100%;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding: 1rem 1.5rem; /* Match header padding */
+}
+
+.skeleton-conversation-header {
+  height: 2rem; /* Title height */
+  width: 60%;
+  margin-bottom: 1rem;
+}
+
+.skeleton-conversation-search {
+  height: 40px; /* Search bar height */
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.skeleton-conversation-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0; /* Vertical padding */
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.skeleton-conversation-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.skeleton-conversation-details {
+  flex-grow: 1;
+}
+
+.skeleton-conversation-line {
+  height: 0.8rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+/* Skeleton Chat Area */
+.skeleton-chat-area {
+  display: none; /* Hide on mobile */
+  justify-content: center;
+  align-items: center;
+  background-color: #f8f9fa; /* Slightly different background */
+  color: var(--text-muted);
+}
+
+/* Ensure skeleton animation is defined (copy if not global) */
+.skeleton {
+  background: linear-gradient(90deg, #e9ecef 25%, #f0f2f5 50%, #e9ecef 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+
+/* --- Desktop Layout (>= 768px) --- */
+@media (min-width: 768px) {
+  .messages-page-container {
+    display: flex; /* MODIFIED: Back to flex layout */
+  }
+
+  .conversations-sidebar {
+    width: 320px; /* MODIFIED: Restore fixed width */
+    height: 100%;
+  }
+
+  /* NEW: Make sure sidebar is *always* visible on desktop */
+  .conversations-sidebar.mobile-hidden {
+    display: flex;
+  }
+
+  .chat-area {
+    display: flex; /* MODIFIED: Always show chat area */
+    width: auto; /* Allow it to flex-grow */
+  }
+
+  /* NEW: Hide the mobile back button on desktop */
+  .chat-back-button {
+    display: none;
+  }
+
+  /* Skeleton desktop layout */
+  .messages-skeleton-container {
+    display: flex;
+  }
+  .skeleton-conversations-sidebar {
+    width: 320px;
+    height: 100%;
+  }
+  .skeleton-chat-area {
+    display: flex;
+    flex-grow: 1;
+  }
+}

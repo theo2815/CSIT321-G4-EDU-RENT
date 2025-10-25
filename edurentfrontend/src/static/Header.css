@@ -1,0 +1,233 @@
+/*
+ * ===================================
+ * EDU-RENT: REUSABLE HEADER STYLES
+ * ===================================
+ */
+
+/* --- 1. Color Palette (Copied for a self-contained component) --- */
+:root {
+  --primary-color: #0077B6;   /* Deep Blue */
+  --secondary-color: #90E0EF; /* Light Cyan */
+  --accent-color: #00B4D8;    /* Aqua */
+  --bg-color: #F8F9FA;        /* Neutral Light Gray */
+  --text-color: #212529;    /* Almost Black */
+  --text-muted: #6C757D;      /* Muted text */
+  --bg-light: #FFFFFF;        /* Pure White (for cards) */
+  --border-color: #DEE2E6;   /* Light gray for borders */
+}
+
+/* --- 2. Top Header --- */
+.dashboard-header {
+  background-color: var(--bg-light); /* White background */
+  padding: 0.75rem 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
+  border-bottom: 1px solid #E9ECEF;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.header-logo {
+  height: 36px; /* Adjust as needed */
+  display: block;
+}
+
+.header-nav {
+  display: none; /* Hide nav links on small screens */
+  gap: 1.25rem; /* Slightly more spacing */
+}
+
+@media (min-width: 768px) { /* Show on medium screens and up */
+  .header-nav {
+    display: flex;
+  }
+}
+
+.nav-link {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted); /* Muted text */
+  text-decoration: none;
+  transition: color 0.2s;
+  padding: 0.25rem 0;
+  border-bottom: 2px solid transparent;
+}
+
+.nav-link:hover {
+  color: var(--primary-color); /* Deep Blue on hover */
+  border-bottom-color: var(--primary-color);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.header-icons {
+  display: flex;
+  align-items: center; /* Vertically center icons */
+  gap: 0.75rem;
+}
+
+.icon-link {
+    text-decoration: none;
+    cursor: pointer;
+    line-height: 0; /* Fixes alignment issues */
+}
+
+.header-icon {
+  height: 24px; /* Adjust size as needed */
+  width: 24px;
+  object-fit: contain; /* Prevents stretching */
+  transition: opacity 0.2s;
+  vertical-align: middle; /* Helps align it with buttons */
+}
+
+.icon-link:hover .header-icon {
+  opacity: 0.7;
+}
+
+/* --- 3. Buttons (Consistent Style) --- */
+.btn {
+  padding: 0.6rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px; /* Consistent radius */
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-primary-accent {
+  /* Use Accent for primary actions */
+  background-color: var(--accent-color);
+  color: var(--bg-light);
+}
+
+.btn-primary-accent:hover {
+  background-color: var(--primary-color); /* Hover to Deep Blue */
+  box-shadow: 0 4px 15px rgba(0, 119, 182, 0.2);
+}
+
+/* Apply button style to Sell button */
+.sell-button {
+  padding: 0.6rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-decoration: none;
+  display: inline-block;
+  background-color: var(--accent-color);
+  color: var(--bg-light);
+}
+
+.sell-button:hover {
+  background-color: var(--primary-color);
+  box-shadow: 0 4px 15px rgba(0, 119, 182, 0.2);
+}
+
+
+/* --- 4. User Dropdown --- */
+.user-dropdown {
+  position: relative;
+}
+
+.user-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-color);
+  padding: 0.25rem;
+}
+
+.user-avatar { 
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background-color: var(--border-color); /* Use light border color */
+  display: inline-block;
+  border: 2px solid var(--bg-light);
+  box-shadow: 0 0 0 2px var(--secondary-color); /* Tech-blue ring */
+}
+
+.dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.75rem);
+  background-color: var(--bg-light);
+  border-radius: 12px; /* Softer radius */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  min-width: 10rem;
+  z-index: 20;
+  overflow: hidden;
+  border: 1px solid #E9ECEF;
+}
+
+.dropdown-item {
+  display: block;
+  padding: 0.75rem 1.25rem; /* More padding */
+  font-size: 0.9rem;
+  color: var(--text-color);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dropdown-item:hover {
+  background-color: var(--bg-color); /* Light gray hover */
+  color: var(--primary-color);
+}
+
+/* --- 5. Header Search Bar --- */
+.header-search {
+  display: none; /* Hidden by default */
+  flex: 1 1 0; /* Allow shrinking and growing */
+  min-width: 150px; /* Minimum width before it gets too small */
+  max-width: 400px;
+  margin: 0 1rem;
+}
+
+@media (min-width: 1024px) {
+  .header-search {
+    display: flex; /* Show on large screens */
+  }
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: all 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
+}

@@ -1,101 +1,208 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getCurrentUser } from '../services/apiService';
+import ProductDetailModal from '../components/ProductDetailModal';
+import ListingCard from '../components/ListingCard';
 
-// Import the dashboard-specific CSS
+// Import the page's content CSS
 import '../static/DashboardPage.css';
 
+// --- IMPORT THE NEW HEADER COMPONENT ---
+import Header from '../components/Header'; 
+
+// --- Category Data with Icons ---
+const CATEGORIES = [
+  { id: 1, name: 'Textbooks', icon: '📚' },
+  { id: 2, name: 'Electronics', icon: '💻' },
+  { id: 3, name: 'Furniture', icon: '🪑' },
+  { id: 4, name: 'Lab Equipment', icon: '🔬' },
+  { id: 5, name: 'Other', icon: '📦' },
+];
+
+// --- Mock Listing Data ---
+const MOCK_LISTINGS = [
+  { id: 1, title: 'Introduction to Computer Science', description: 'Textbook in excellent condition', price: 45, type: 'sale', category: 'Textbooks', image: null, icon: '📚' },
+  { id: 2, title: 'Wireless Bluetooth Headphones', description: 'Barely used, great sound quality', price: 25, type: 'rent', category: 'Electronics', image: null, icon: '🎧' },
+  { id: 3, title: 'Desk Lamp LED', description: 'Perfect for studying', price: 15, type: 'rent', category: 'Furniture', image: null, icon: '💡' },
+  { id: 4, title: 'Organic Chemistry Lab Manual', description: 'Complete with notes', price: 35, type: 'sale', category: 'Textbooks', image: null, icon: '📖' },
+  { id: 5, title: 'USB-C Hub Adapter', description: 'Multi-port, like new', price: 20, type: 'sale', category: 'Electronics', image: null, icon: '🔌' },
+  { id: 6, title: 'Microscope', description: 'Lab equipment for rent', price: 50, type: 'rent', category: 'Lab Equipment', image: null, icon: '🔬' },
+];
+
+// --- Loading Skeleton Component ---
+function LoadingSkeleton() {
+  return (
+    <div className="dashboard-body">
+      <div className="content-card skeleton skeleton-hero"></div>
+      <div>
+        <div className="skeleton skeleton-text large" style={{ width: '200px' }}></div>
+        <div className="category-grid">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="skeleton skeleton-text" style={{ height: '80px' }}></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Error Boundary Component ---
+function ErrorBoundary({ error, onRetry }) {
+  return (
+    <div className="error-container">
+      <div className="error-title">⚠️ Something went wrong</div>
+      <div className="error-message">{error}</div>
+      <button className="error-retry-btn" onClick={onRetry}>
+        Try Again
+      </button>
+    </div>
+  );
+}
+
+// Note: using shared ListingCard component from ../components/ListingCard
+
+// --- Category Card Component ---
+function CategoryCardComponent({ category }) {
+  return (
+    <Link to={`/category/${category.id}`} style={{ textDecoration: 'none' }}>
+      <div className="category-card">
+        <div style={{ textAlign: 'center' }}>
+          <span className="category-icon">{category.icon}</span>
+          <div>{category.name}</div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function DashboardPage() {
-  const [userName, setUserName] = useState(''); // Start empty
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [listings, setListings] = useState(MOCK_LISTINGS);
   const navigate = useNavigate();
 
-  // --- Fetch User Data from localStorage ---
+  // --- Modal State ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState(null);
+
+  // --- Fetch User Data ---
   useEffect(() => {
-    const storedUserData = localStorage.getItem('eduRentUserData');
-
-    if (storedUserData) {
+    const fetchUser = async () => {
       try {
-        const userData = JSON.parse(storedUserData);
-        const firstName = userData.fullName ? userData.fullName.split(' ')[0] : 'User';
-        setUserName(firstName);
+        setIsLoading(true);
+        setError(null);
+        const response = await getCurrentUser();
+        const userData = response.data; 
+
+        if (userData && userData.fullName) {
+            const firstName = userData.fullName.split(' ')[0];
+            setUserName(firstName);
+        } else {
+            console.error("User data fetched but incomplete:", userData);
+            throw new Error("Incomplete user data received.");
+        }
       } catch (error) {
-        console.error("Error parsing user data from localStorage:", error);
-        localStorage.removeItem('eduRentUserData');
-        navigate('/login');
+        console.error("Failed to fetch user:", error.message);
+        setError("Failed to load user data. Please try again.");
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      // If no user data, redirect to login
-      console.log('No user data found, redirecting to login.');
-      navigate('/login');
-    }
-  }, [navigate]);
+    };
+    fetchUser(); 
+  }, []); 
 
-  // --- Event Handlers ---
-  const toggleDropdown = () => {
-    setIsDropdownOpen(!isDropdownOpen);
-  };
-
+  // --- Event Handlers (Stay in the parent) ---
   const handleLogout = () => {
     console.log('Logging out...');
-    setIsDropdownOpen(false); // Close dropdown
-
-    // Clear user data from localStorage
     localStorage.removeItem('eduRentUserData');
-
-    // Redirect to login page
     navigate('/login');
   };
 
-  // Render null or a loading indicator until user name is fetched
-  if (!userName) {
-     return null; // Or <p>Loading...</p>
+  const handleRetry = () => {
+    // ... (retry logic remains the same) ...
+    setError(null);
+    setIsLoading(true);
+    const fetchUser = async () => {
+      try {
+        const response = await getCurrentUser();
+        const userData = response.data; 
+        if (userData && userData.fullName) {
+            const firstName = userData.fullName.split(' ')[0];
+            setUserName(firstName);
+        } else {
+            throw new Error("Incomplete user data received.");
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error.message);
+        setError("Failed to load user data. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUser();
+  };
+
+  const handleSearch = (e) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+    
+    if (query.trim() === '') {
+      setListings(MOCK_LISTINGS);
+    } else {
+      const filtered = MOCK_LISTINGS.filter(listing =>
+        listing.title.toLowerCase().includes(query) ||
+        listing.description.toLowerCase().includes(query) ||
+        listing.category.toLowerCase().includes(query)
+      );
+      setListings(filtered);
+    }
+  };
+
+  // --- Modal Handlers ---
+  const openModal = (listing) => {
+    setSelectedListing(listing);
+    setIsModalOpen(true);
+  };
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedListing(null);
+  };
+
+  // --- Render Loading Skeleton ---
+  if (isLoading) {
+    return (
+      <div className="dashboard-page">
+        {/* Pass minimal info to Header during load */}
+        <Header 
+          userName="" 
+          searchQuery="" 
+          onSearchChange={() => {}} 
+          onLogout={handleLogout} 
+        />
+        <LoadingSkeleton />
+      </div>
+    );
   }
 
+  // --- Render Page ---
   return (
     <div className="dashboard-page">
-      {/* --- Top Header --- */}
-      <header className="dashboard-header">
-        {/* Left Side: Logo and Nav */}
-        <div className="header-left">
-          <Link to="/" className="header-logo">Edu-Rent</Link>
-          <nav className="header-nav">
-            <Link to="/browse" className="nav-link">Browse All Items</Link>
-            <Link to="/for-rent" className="nav-link">For Rent</Link>
-            <Link to="/for-sale" className="nav-link">For Sale</Link>
-            <Link to="/categories" className="nav-link">All Categories</Link>
-          </nav>
-        </div>
-
-        {/* Right Side: Icons, Button, Dropdown */}
-        <div className="header-right">
-          <div className="header-icons">
-            <Link to="/likes" className="icon-link">❤️</Link>
-            <Link to="/notifications" className="icon-link">🔔</Link>
-            <Link to="/messages" className="icon-link">💬</Link>
-          </div>
-          <button className="sell-button" onClick={() => navigate('/list-item')}>
-            Sell
-          </button>
-          <div className="user-dropdown">
-            <button className="user-button" onClick={toggleDropdown}>
-              <span className="user-avatar"></span> {/* Placeholder */}
-              Hello, {userName} ▼
-            </button>
-            {isDropdownOpen && (
-              <div className="dropdown-menu">
-                <Link to="/profile" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>My Profile</Link>
-                <Link to="/settings" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>Settings</Link>
-                <button onClick={handleLogout} className="dropdown-item" style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      
+      {/* --- RENDER THE HEADER COMPONENT --- */}
+      <Header 
+        userName={userName}
+        searchQuery={searchQuery}
+        onSearchChange={handleSearch}
+        onLogout={handleLogout}
+      />
 
       {/* --- Body Section --- */}
       <main className="dashboard-body">
+        {/* Error Boundary */}
+        {error && <ErrorBoundary error={error} onRetry={handleRetry} />}
+
         {/* Hero Card */}
         <section className="content-card hero-card">
           <div className="hero-left">
@@ -106,7 +213,7 @@ export default function DashboardPage() {
             <Link to="/browse" className="hero-button">Browse All Items</Link>
           </div>
           <div className="hero-right">
-            <div className="hero-image-placeholder">Placeholder Image</div>
+            <div className="hero-image-placeholder">📚 Marketplace Hub</div>
           </div>
         </section>
 
@@ -114,36 +221,62 @@ export default function DashboardPage() {
         <section>
           <h2 className="section-title">Explore by Category</h2>
           <div className="category-grid">
-            {/* Placeholder Category Cards */}
-            <div className="category-card">Category 1</div>
-            <div className="category-card">Category 2</div>
-            <div className="category-card">Category 3</div>
-            <div className="category-card">Category 4</div>
-            <div className="category-card">Category 5</div>
+            {CATEGORIES.map(category => (
+              <CategoryCardComponent key={category.id} category={category} />
+            ))}
           </div>
         </section>
 
-        {/* Featured Items (Placeholder) */}
+        {/* Featured Items */}
         <section>
           <h2 className="section-title">🌟 Featured Items</h2>
-          <p style={{ color: '#6b7280', fontStyle: 'italic' }}>Featured items will be displayed here.</p>
+          {listings.length > 0 ? (
+            <div className="listing-grid">
+              {listings.slice(0, 3).map(listing => (
+                <ListingCard key={listing.id} listing={listing} onClick={openModal} />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-state-icon">✨</div>
+              <div className="empty-state-title">No Featured Items</div>
+              <p>Check back soon for featured listings!</p>
+            </div>
+          )}
         </section>
 
-        {/* All Listings (Placeholder) */}
+        {/* All Listings */}
         <section>
           <h2 className="section-title">📦 All Listings</h2>
-          <p style={{ color: '#6b7280', fontStyle: 'italic' }}>All available listings will appear here.</p>
+          {listings.length > 0 ? (
+            <div className="listing-grid">
+              {listings.map(listing => (
+                <ListingCard key={listing.id} listing={listing} onClick={openModal} />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-state-icon">🔍</div>
+              <div className="empty-state-title">No Listings Found</div>
+              <p>{searchQuery ? 'Try adjusting your search terms' : 'No listings available at the moment'}</p>
+            </div>
+          )}
         </section>
 
         {/* Call to Action Card */}
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
-            Turn your unused items into cash by listing them on Edu-Rent. It’s easy, secure, and connects you directly with fellow students.
+            Turn your unused items into cash by listing them on Edu-Rent. It's easy, secure, and connects you directly with fellow students.
           </p>
           <Link to="/list-item" className="cta-button">Start Selling Today</Link>
         </section>
       </main>
+
+      {isModalOpen && selectedListing && (
+         <ProductDetailModal listing={selectedListing} onClose={closeModal} />
+      )}
+      
     </div>
   );
 }

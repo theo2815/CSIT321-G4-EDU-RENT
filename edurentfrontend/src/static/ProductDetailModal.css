@@ -1,0 +1,249 @@
+/* src/static/ProductDetailModal.css */
+
+/* Reusing modal styles from ProfilePage.css - Ensure these are globally available or copy them here */
+/* .modal-overlay { ... } */
+/* .modal-content { ... } */ /* May need width adjustments */
+/* .modal-header { ... } */
+/* .modal-title { ... } */ /* Might not need title if product name is the main heading */
+/* .modal-close-btn { ... } */
+/* .modal-body { ... } */
+
+/* Specific styles for Product Detail Modal */
+.product-modal-content {
+  background-color: var(--bg-light);
+  padding: 0; /* Remove padding for sections to control it */
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 800px; /* Wider modal for product details */
+  transform: scale(0.95);
+  transition: transform 0.2s ease-in-out;
+  position: relative;
+  display: flex; /* Side-by-side layout */
+  max-height: 80vh; /* Limit height */
+  overflow: hidden; /* Hide overflow */
+}
+
+/* Make modal content itself scale */
+.modal-overlay.visible .product-modal-content {
+  transform: scale(1);
+}
+
+
+/* --- Image Section (Top or Left depending on screen size) --- */
+.product-image-section {
+  width: 50%; /* Take half the width */
+  background-color: #000; /* Black background for images */
+  position: relative; /* For arrows */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.product-image-main {
+  max-width: 100%;
+  max-height: 80vh; /* Match modal max height */
+  object-fit: contain; /* Show whole image */
+  display: block; /* Remove extra space below image */
+}
+
+/* Image Navigation Arrows */
+.image-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.4);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  z-index: 1; /* Above image */
+}
+.image-nav-arrow:hover {
+  opacity: 1;
+}
+.image-nav-arrow.left { left: 10px; }
+.image-nav-arrow.right { right: 10px; }
+.image-nav-arrow:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+/* --- Details Section (Right Side) --- */
+.product-details-section {
+  width: 50%;
+  padding: 1.5rem 2rem;
+  overflow-y: auto; /* Allow details to scroll if needed */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Product Info */
+.product-info-name {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+
+.product-info-price {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+}
+
+.product-info-block {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.product-info-label {
+  font-weight: 600;
+  color: var(--text-color);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.product-info-value {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Description needs more space */
+.product-info-description {
+  white-space: pre-wrap; /* Respect line breaks */
+  max-height: 150px; /* Limit initial height */
+  overflow-y: auto; /* Allow scrolling */
+  margin-bottom: 1.5rem; /* Space before seller */
+  padding-right: 5px; /* Prevent scrollbar overlap */
+}
+
+/* Seller Info */
+.seller-info-section {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+  margin-top: auto; /* Push to bottom if content is short */
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.seller-info-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.seller-avatar {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background-color: var(--border-color);
+  object-fit: cover;
+}
+
+.seller-details {
+  overflow: hidden;
+}
+
+.seller-username {
+  font-weight: 600;
+  color: var(--text-color);
+  font-size: 1rem;
+}
+
+.seller-reviews {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  /* Add star rating display if needed */
+}
+
+/* Note and Button */
+.action-note {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+/* Reuse button styles if available */
+.btn-chat {
+  width: 100%; /* Make button full width */
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-chat:hover {
+  background-color: var(--primary-color);
+}
+
+/* Close button for modal */
+.product-modal-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 15px; /* Adjust position relative to modal content */
+  background: rgba(255, 255, 255, 0.7); /* Slightly visible background */
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 28px; /* Center 'X' */
+  text-align: center;
+  z-index: 10; /* Above details */
+}
+.product-modal-close-btn:hover {
+  color: var(--text-color);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 768px) {
+  .product-modal-content {
+    flex-direction: column; /* Stack vertically */
+    max-width: 90%;
+    max-height: 90vh;
+  }
+  .product-image-section {
+    width: 100%;
+    height: 300px; /* Fixed height for images on mobile */
+    max-height: 40vh; /* Limit image height */
+  }
+  .product-details-section {
+    width: 100%;
+    max-height: calc(90vh - 300px); /* Remaining height */
+  }
+  .image-nav-arrow {
+    width: 30px;
+    height: 30px;
+    font-size: 1.2rem;
+  }
+  .product-modal-close-btn {
+     top: 5px;
+     right: 5px;
+     background: rgba(0, 0, 0, 0.4);
+     color: white;
+  }
+}

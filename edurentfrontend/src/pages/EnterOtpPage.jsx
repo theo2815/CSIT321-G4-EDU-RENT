@@ -3,9 +3,10 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; // Import supabase client
 
 // Import shared styles
-import '../static/LoginPage.css'; // For layout
-import '../static/RegisterPage.css'; // For form elements
-import '../static/ForgotPassword.css'; // For specific styles
+import '../static/Auth.css'; // The ONLY CSS file needed
+
+// Import your logo
+import eduRentLogo from '../assets/edurentlogo.png'; 
 
 export default function EnterOtpPage() {
   const [otp, setOtp] = useState(''); // We'll treat the token as an "OTP"
@@ -15,10 +16,10 @@ export default function EnterOtpPage() {
   const location = useLocation();
   const email = location.state?.email; // Get email passed from previous page
 
-  // Placeholder for resend functionality
+  // Resend functionality (this logic is good)
   const handleResend = async () => {
-     setMessage({ type: '', content: 'Resending instructions...' });
-     setLoading(true);
+      setMessage({ type: '', content: 'Resending instructions...' });
+      setLoading(true);
       try {
         if (!email) {
           throw new Error("Email not found. Go back and try again.");
@@ -33,139 +34,134 @@ export default function EnterOtpPage() {
       }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => { // No async needed for simulation
     e.preventDefault();
     setMessage({ type: '', content: '' });
 
     if (!email) {
-       setMessage({ type: 'error', content: 'Session error. Please start the forgot password process again.' });
-       return;
+        setMessage({ type: 'error', content: 'Session error. Please start the forgot password process again.' });
+        return;
     }
     if (!otp) {
-       setMessage({ type: 'error', content: 'Please enter the code/token.' });
-       return;
+        setMessage({ type: 'error', content: 'Please enter the code/token.' });
+        return;
     }
 
     setLoading(true);
 
     // ---
-    // In a real Supabase flow, verification happens when the user navigates
-    // from the email link. The token is in the URL fragment (#access_token=...).
-    // Supabase client library handles this automatically on the ResetPasswordPage.
-    // We simulate a manual "OTP" check here for demonstration.
-    // For this example, we'll just navigate, assuming the user arrived here
-    // correctly (e.g., via the email link, and the token is implicitly valid).
+    // Your simulation logic
     // ---
+    setMessage({ type: 'success', content: 'Code accepted! Redirecting to reset password...' });
+      
+    setTimeout(() => {
+      // We navigate away, so no need to set loading to false.
+      // The component will unmount.
+      navigate('/reset-password', { state: { email, token: otp } });
+    }, 1500);
 
-     // Simulate successful verification
-      setMessage({ type: 'success', content: 'Code accepted! Redirecting to reset password...' });
-       setTimeout(() => {
-        // Pass email and the "OTP"/token to the reset page
-         navigate('/reset-password', { state: { email, token: otp } });
-       }, 1500);
-
-    // If using Supabase verifyOtp (e.g., for phone):
-    /*
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: email, // or phone: phone,
-        token: otp,
-        type: 'recovery', // Type for password recovery OTP
-      });
-
-      if (error) throw error;
-
-      setMessage({ type: 'success', content: 'OTP Verified! Redirecting...' });
-      // The session is now typically updated, allowing password change
-       setTimeout(() => {
-         navigate('/reset-password');
-       }, 1500);
-
-    } catch (error) {
-      console.error('OTP verification error:', error);
-      setMessage({ type: 'error', content: error.message || 'Invalid or expired code.' });
-    } finally {
-      setLoading(false);
-    }
-    */
-     setLoading(false); // Remove this if using the try/catch block
+    // The bug was here: `setLoading(false)` was running immediately.
+    // By removing it, the button stays in its "loading" state until
+    // the navigation happens, which is the correct user experience.
   };
 
 
   return (
-    <div className="otp-page">
-      {/* Left Column (Form) */}
-      <div className="form-column">
-        <div className="form-container-sm">
-          <h2 className="page-title">Enter Code</h2>
-          <p className="otp-info-text">
+    <div className="auth-container">
+      
+      {/* --- Left Column (Branding) --- */}
+      <div className="auth-branding-panel">
+        <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
+        <p className="auth-tagline">
+          Securely reset your password.
+        </p>
+      </div>
+
+      {/* --- Right Column (Form) --- */}
+      <div className="auth-form-panel">
+        <div className="auth-form-container">
+
+          <h2 className="auth-title">Enter Code</h2>
+          <p className="auth-redirect-link" style={{ marginTop: '-1rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
             We've sent instructions (including a code/token) to{' '}
             <strong>{email || 'your email'}</strong>.
-            <br /> Didn't get it? Check your spam folder or resend.
           </p>
 
           <form className="auth-form" onSubmit={handleSubmit}>
+            
             {/* OTP Field */}
             <div>
-              <label htmlFor="otp" className="form-label">
+              <label htmlFor="otp" className="auth-label">
                 Code / Token from Email
               </label>
               <input
                 id="otp"
                 name="otp"
-                type="text" // Supabase token is long, not just numbers
+                type="text" // Supabase token is long
                 required
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="form-input"
+                className="auth-input"
                 placeholder="Enter the code or token"
+                disabled={loading}
               />
             </div>
 
             {/* --- Message Display --- */}
             {message.content && (
               <div
-                className={`form-message ${
+                className={`auth-message ${
                   message.type === 'success'
-                    ? 'form-message-success'
-                    : 'form-message-error'
+                    ? 'auth-message-success'
+                    : 'auth-message-error'
                 }`}
               >
                 {message.content}
               </div>
             )}
 
-            {/* Button Group */}
-            <div className="button-group">
+            {/* Button */}
+            <div>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="auth-btn auth-btn-primary"
                 disabled={loading}
               >
-                {loading ? 'Verifying...' : 'Submit / Verify'}
+                {loading ? 'Verifying...' : 'Verify Code'}
               </button>
-              <button
-                type="button" // Important: type="button" to prevent form submission
-                onClick={handleResend}
-                className="btn btn-secondary"
-                disabled={loading}
-              >
-                Resend Email
-              </button>
-               <Link to="/login" className="btn btn-secondary">
-                 Back to Login
-               </Link>
             </div>
           </form>
-        </div>
-      </div>
 
-      {/* Right Column (Logo/Tagline) */}
-      <div className="login-left-column"> {/* Reusing styling class */}
-        <h1 className="login-logo">Edu-Rent</h1>
-        <p className="login-tagline">
-          Securely reset your password.
-        </p>
+          {/* Resend & Back to Login Links */}
+          <div className="auth-redirect-link">
+            Didn't get a code?{' '}
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={loading}
+              className="auth-link"
+              // Inline styles to make the button look like a link
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                padding: 0, 
+                margin: 0, 
+                cursor: 'pointer', 
+                verticalAlign: 'baseline',
+                font: 'inherit'
+              }}
+            >
+              Resend
+            </button>
+          </div>
+
+          <div className="auth-redirect-link" style={{ marginTop: '0.5rem' }}>
+            <Link to="/login" className="auth-link">
+              Back to Login
+            </Link>
+          </div>
+
+        </div>
       </div>
     </div>
   );

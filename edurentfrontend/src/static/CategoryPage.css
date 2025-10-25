@@ -1,0 +1,44 @@
+/* src/static/CategoryPage.css */
+
+.category-page-container {
+  padding: 1.5rem 2rem; /* Padding below header */
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.category-page-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.category-page-title {
+  font-size: 1.75rem; /* Title size */
+  font-weight: 700;
+  color: var(--text-color);
+  /* Optional: Add icon styles if needed */
+  /* display: flex; */
+  /* align-items: center; */
+  /* gap: 0.5rem; */
+}
+
+/* Reusing search bar from BrowsePage */
+/* .browse-search-bar { ... } */
+/* .browse-search-icon { ... } */
+/* .browse-search-input { ... } */
+
+/* Optional: Filters specific to category page */
+.category-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  /* Add more styling if implementing filters */
+}
+
+/* Reuse listing grid from DashboardPage */
+/* .listing-grid { ... } */
+
+/* Reuse empty state from DashboardPage */
+/* .empty-state { ... } */

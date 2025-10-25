@@ -1,15 +1,36 @@
 package com.edurent.crc.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.Set;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Objects;
+import java.util.Set;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+
+
 
 @Entity
 @Table(name = "users")
-public class UserEntity {
+public class UserEntity implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,7 +44,7 @@ public class UserEntity {
     private String studentIdNumber;
 
     @Column(nullable = false, unique = true)
-    private String email;
+    private String email; // This will be our "username" for Spring Security
 
     @Column(name = "phone_number")
     private String phoneNumber;
@@ -31,7 +52,8 @@ public class UserEntity {
     private String address;
 
     @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
+    @JsonIgnore
+    private String passwordHash; // This is our "password" for Spring Security
 
     @Column(name = "profile_picture_url")
     private String profilePictureUrl;
@@ -43,42 +65,52 @@ public class UserEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "school_id", nullable = false)
     @JsonBackReference(value = "school-users")
+    @JsonIgnore
     private SchoolEntity school;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference(value = "user-listings")
+    @JsonIgnore
     private Set<ListingEntity> listings;
 
     @OneToMany(mappedBy = "buyer", fetch = FetchType.LAZY)
     @JsonManagedReference(value = "buyer-transactions")
+    @JsonIgnore
     private Set<TransactionEntity> transactionsAsBuyer;
 
     @OneToMany(mappedBy = "seller", fetch = FetchType.LAZY)
     @JsonManagedReference(value = "seller-transactions")
+    @JsonIgnore
     private Set<TransactionEntity> transactionsAsSeller;
 
     @OneToMany(mappedBy = "reviewer", fetch = FetchType.LAZY)
     @JsonManagedReference(value = "reviewer-reviews")
+    @JsonIgnore
     private Set<ReviewEntity> reviewsGiven;
 
     @OneToMany(mappedBy = "reviewedUser", fetch = FetchType.LAZY)
     @JsonManagedReference(value = "reviewed-user-reviews")
+    @JsonIgnore
     private Set<ReviewEntity> reviewsReceived;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference(value = "user-likes")
+    @JsonIgnore
     private Set<LikeEntity> likes;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference(value = "user-participants")
+    @JsonIgnore
     private Set<ConversationParticipantEntity> conversationParticipants;
 
     @OneToMany(mappedBy = "sender", fetch = FetchType.LAZY)
     @JsonManagedReference(value = "sender-messages")
+    @JsonIgnore
     private Set<MessageEntity> messagesSent;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference(value = "user-notifications")
+    @JsonIgnore
     private Set<NotificationEntity> notifications;
 
     // Constructors
@@ -236,6 +268,54 @@ public class UserEntity {
 
     public void setNotifications(Set<NotificationEntity> notifications) {
         this.notifications = notifications;
+    }
+
+    // --- UserDetails Implementation Methods ---
+
+    @Override
+    @JsonIgnore
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        // For now, assign a simple role to every user.
+        // Later, you could add a 'role' field to UserEntity.
+        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
+    @Override
+    @JsonIgnore
+    public String getPassword() {
+        // Return the hashed password field
+        return this.passwordHash;
+    }
+
+    @Override
+    @JsonIgnore
+    public String getUsername() {
+        // Use email as the username for authentication
+        return this.email;
+    }
+
+    @Override
+    @JsonIgnore
+    public boolean isAccountNonExpired() {
+        return true; // Keep accounts always active for now
+    }
+
+    @Override
+    @JsonIgnore
+    public boolean isAccountNonLocked() {
+        return true; // Keep accounts always unlocked for now
+    }
+
+    @Override
+    @JsonIgnore
+    public boolean isCredentialsNonExpired() {
+        return true; // Keep credentials always valid for now
+    }
+
+    @Override
+    @JsonIgnore
+    public boolean isEnabled() {
+        return true; // Keep accounts always enabled for now
     }
 
     // equals, hashCode, toString (excluding relationships)

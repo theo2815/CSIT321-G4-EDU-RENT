@@ -1,0 +1,435 @@
+/* src/static/ManageListingsPage.css */
+
+.manage-listings-page {
+  padding: 1.5rem 2rem; /* Padding below header */
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.manage-listings-header {
+  margin-bottom: 1.5rem;
+}
+
+.manage-listings-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin-bottom: 1rem;
+}
+
+/* Filters and Search */
+.filters-container {
+  display: flex;
+  flex-wrap: wrap; /* Allow wrapping */
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: var(--bg-light); /* White background */
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 150px; /* Minimum width for dropdowns */
+}
+
+.filter-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.filter-select,
+.filter-search-input {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background-color: white; /* Ensure background */
+}
+
+.filter-search-input {
+  flex-grow: 1; /* Allow search to take more space */
+  min-width: 200px;
+}
+
+/* Listings Card Container */
+.listings-card-container {
+  background-color: var(--bg-light);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+  overflow: hidden; /* Important for table/layout */
+}
+
+.listings-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  background-color: #f8f9fa; /* Light header background */
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.select-all-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.select-all-container input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.listing-counts {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.listing-count-item strong {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+/* Listings Table/Body */
+.listings-table {
+  width: 100%;
+  border-collapse: collapse; /* Removes gaps between cells */
+}
+
+.listings-table thead {
+  background-color: #f8f9fa; /* Header background */
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+}
+
+.listings-table th,
+.listings-table td {
+  padding: 0.75rem 1rem; /* Consistent padding */
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle; /* Align content vertically */
+  transition: background 0.15s;
+}
+
+.listings-table tbody tr:hover {
+  background: #f3f6fa;
+}
+
+.listings-table th:first-child,
+.listings-table td:first-child {
+  padding-left: 1.5rem; /* More padding for first column */
+  width: 30px; /* Fixed width for checkbox */
+}
+
+.listings-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8f9fa;
+}
+.listings-table th:last-child,
+.listings-table td:last-child {
+  padding-right: 1.5rem; /* More padding for last column */
+  text-align: right; /* Align actions right */
+}
+
+/* Specific Column Styles */
+.listing-product-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.listing-product-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+  background-color: var(--border-color); /* Placeholder */
+  object-fit: cover; /* If using img */
+  flex-shrink: 0;
+}
+.listing-product-image.icon-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+}
+
+.listing-product-details {
+  overflow: hidden; /* Prevent text overflow */
+}
+
+.listing-product-name {
+  font-weight: 600;
+  color: var(--text-color);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.1rem;
+  display: flex;
+  align-items: center;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  font-size: 0.7em;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.15em 0.7em;
+  margin-left: 0.5em;
+  vertical-align: middle;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+  border: 1px solid transparent;
+}
+.status-active {
+  background: #e6f4ea;
+  color: #218838;
+  border-color: #b7e4c7;
+}
+.status-inactive {
+  background: #f8f9fa;
+  color: #6c757d;
+  border-color: #dee2e6;
+}
+.status-sold {
+  background: #fff3cd;
+  color: #856404;
+  border-color: #ffeeba;
+}
+.status-badge:not(.status-active):not(.status-inactive):not(.status-sold) {
+  background: #e2e3e5;
+  color: #383d41;
+  border-color: #d6d8db;
+}
+
+.listing-product-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Action Buttons */
+.listing-actions {
+  display: flex;
+  justify-content: flex-end; /* Align right */
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Reusing .btn-small and .btn-outline from ProfilePage.css */
+/* Add specific styles if needed */
+.btn-delete {
+  color: #dc3545; /* Red for delete */
+  border-color: #dc3545;
+}
+.btn-delete:hover {
+  background-color: #f8d7da; /* Light red background */
+  color: #721c24;
+}
+
+/* Empty State (Reuse from Dashboard/Profile) */
+.listings-empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.2rem;
+}
+
+.empty-state-illustration {
+  margin-bottom: 0.5rem;
+}
+/* Bulk Actions Bar */
+.bulk-actions-bar {
+  position: sticky;
+  top: 64px; /* Adjust if header height changes */
+  z-index: 10;
+  background: #fff;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-color);
+  animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Snackbar/Toast */
+.snackbar {
+  position: fixed;
+  left: 50%;
+  bottom: 2.5rem;
+  transform: translateX(-50%);
+  background: #323232;
+  color: #fff;
+  padding: 0.9em 2em;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 1000;
+  animation: fadeIn 0.3s;
+}
+
+/* --- Manage Listings Skeleton --- */
+.skeleton-filters-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: var(--bg-light);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.skeleton-filter-group {
+  min-width: 150px;
+}
+
+.skeleton-filter-label {
+  height: 0.8rem;
+  width: 50%;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+}
+
+.skeleton-filter-input {
+  height: 38px; /* Approx height of select/input */
+  border-radius: 6px;
+}
+
+.skeleton-listings-card-container {
+  background-color: var(--bg-light);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.skeleton-listings-card-header {
+  height: 60px; /* Approx height of header */
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.skeleton-table-row {
+  display: flex; /* Using flex to mimic table rows for skeleton */
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  gap: 1rem; /* Spacing between columns */
+}
+
+.skeleton-table-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.skeleton-table-product {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-grow: 1; /* Take up main space */
+}
+
+.skeleton-table-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.skeleton-table-text-lines {
+  flex-grow: 1;
+}
+
+.skeleton-table-line {
+  height: 0.8rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-table-cell {
+  height: 1rem;
+  border-radius: 4px;
+  width: 80px; /* Approx width for date/price/likes */
+  flex-shrink: 0;
+}
+
+.skeleton-table-actions {
+  display: flex;
+  gap: 0.5rem;
+  width: 100px; /* Approx width for actions */
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.skeleton-table-button {
+  height: 28px; /* Approx height of small button */
+  width: 45px; /* Approx width */
+  border-radius: 6px;
+}
+
+/* Ensure skeleton animation is defined (copy if not global) */
+.skeleton {
+  background: linear-gradient(90deg, #e9ecef 25%, #f0f2f5 50%, #e9ecef 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.listing-count-item {
+  cursor: pointer; /* Indicate clickable */
+  padding: 0.25rem 0.5rem; /* Add some padding for clicking */
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.listing-count-item:hover {
+  background-color: #e9ecef; /* Light gray hover */
+}
+
+.listing-count-item.active {
+  background-color: #2563eb; /* Blue-600 */
+  color: #1e40af; /* Blue-800 */
+  box-shadow: 0 2px 8px rgba(37,99,235,0.08);
+  border: 1px solid #2563eb;
+}
+
+/* Make the 'strong' tag inherit the parent's color when active */
+.listing-count-item.active strong {
+  color: #1e40af; /* Blue-800 */
+}

@@ -1,0 +1,304 @@
+/*
+ * ===================================
+ * EDU-RENT: AUTH STYLESHEET
+ * This single file styles:
+ * - Login Page
+ * - Register Page
+ * - Forgot Password Page
+ * - Reset Password Page
+ * - Enter OTP Page
+ * ===================================
+ */
+
+/* --- 1. Color Palette & Base Setup --- */
+:root {
+  --primary-color: #0077B6;   /* Deep Blue */
+  --primary-color-dark: #005a86; /* Darker blue for gradients */
+  --secondary-color: #90E0EF; /* Light Cyan */
+  --secondary-color-strong: #58C3DB; /* Stronger for focus ring */
+  --accent-color: #00B4D8;    /* Aqua */
+  --bg-color: #F8F9FA;        /* Neutral Light Gray */
+  --text-color: #212529;    /* Almost Black */
+  --text-muted: #6C757D;     /* Muted text */
+  --bg-light: #FFFFFF;        /* Pure White (for cards) */
+  --border-color: #CED4DA;   /* Light gray for borders */
+  --error-color: #DC3545;    /* Semantic red */
+  --success-bg: #E3F8FA;     /* Success tint */
+  --success-border: var(--accent-color);
+  --success-text: #005F73;
+  --info-bg: #E7F1FA;       /* Light blue tint */
+  --info-text: #004A7C;     /* Dark blue text */
+  --info-border: #B8D6F0;   /* Light blue border */
+}
+
+/* Base styles */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- 2. Main Auth Layout (2-Column) --- */
+.auth-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Utilities */
+.visually-hidden {
+  position: absolute !important;
+  height: 1px; width: 1px;
+  overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+  white-space: nowrap;
+}
+
+/* Small-screen tuning */
+@media (max-width: 360px) {
+  .auth-form-container { padding: 1.5rem; }
+  .auth-title { font-size: 1.5rem; }
+}
+
+/* --- 3. Branding Panel (Left Side) --- */
+.auth-branding-panel {
+  flex: 1;
+  display: none; /* Hidden on mobile by default */
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%);
+  color: var(--bg-light);
+  padding: 3rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* subtle decorative pattern */
+.auth-branding-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(1200px 400px at -10% -10%, rgba(255,255,255,0.06), transparent 60%),
+              radial-gradient(1000px 400px at 110% 110%, rgba(255,255,255,0.05), transparent 60%);
+  pointer-events: none;
+}
+
+/* Show branding panel on medium screens and up */
+@media (min-width: 768px) {
+  .auth-branding-panel {
+    display: flex;
+  }
+}
+
+.auth-logo {
+  max-width: clamp(120px, 18vw, 180px);
+  margin-bottom: 1.5rem;
+}
+
+.auth-tagline {
+  font-size: 1.25rem;
+  font-weight: 500;
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+/* --- 4. Form Panel (Right Side) --- */
+.auth-form-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 1rem;
+  background-color: var(--bg-color);
+}
+
+.auth-form-container {
+  width: 100%;
+  max-width: 420px; /* A bit wider for modern feel */
+  background-color: var(--bg-light);
+  padding: 2.25rem;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+@media (min-width: 1024px) {
+  .auth-form-container:hover,
+  .auth-form-container:focus-within {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+}
+
+.auth-title {
+  text-align: center;
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-color);
+  letter-spacing: -0.01em;
+  margin-bottom: 1.75rem;
+}
+
+/* --- 5. Shared Form Elements --- */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* Consistent spacing */
+}
+
+.auth-form div {
+  /* This helps group labels and inputs */
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+}
+
+.auth-input {
+  width: 100%;
+  padding: 0.875rem 1rem; /* Slightly larger padding */
+  font-size: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px; /* Softer radius */
+  box-sizing: border-box; /* Fixes padding issues */
+  transition: all 0.2s ease-in-out;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  /* stronger contrast focus halo */
+  box-shadow: 0 0 0 3px var(--secondary-color-strong);
+  background-color: #f5fbfd;
+}
+
+/* error state helper (optional, for future inline errors) */
+.auth-input.is-error {
+  border-color: var(--error-color);
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+}
+
+/* --- 6. Buttons --- */
+.auth-btn {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.auth-btn-primary {
+  /* Use Accent for the primary "action" color */
+  background: linear-gradient(180deg, var(--accent-color), #08a4c6);
+  color: var(--bg-light);
+}
+
+.auth-btn-primary:hover {
+  /* Use Primary for hover, or a darker accent */
+  background: linear-gradient(180deg, var(--primary-color), #036c9a);
+  box-shadow: 0 6px 18px rgba(0, 119, 182, 0.24);
+}
+
+.auth-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.auth-btn:disabled {
+  background-color: #E9ECEF;
+  color: #6C757D;
+  cursor: not-allowed;
+}
+
+
+/* --- 7. Links --- */
+.auth-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  /* Use Accent for links too, for consistency */
+  color: var(--accent-color);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.auth-link:hover {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+/* animated underline from center */
+.auth-link {
+  position: relative;
+}
+.auth-link::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  width: 0;
+  height: 2px;
+  background: currentColor;
+  transition: width 160ms ease, left 160ms ease;
+}
+.auth-link:hover::after {
+  width: 100%;
+  left: 0;
+}
+
+.auth-link-right {
+  align-self: flex-end; /* For "Forgot password?" */
+}
+
+.auth-redirect-link {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-muted); /* Softer text */
+}
+
+/* --- 8. Messages (Success/Error) --- */
+.auth-message {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: 0; /* Handled by form gap */
+  margin-bottom: 0;
+}
+
+.auth-message-success {
+  /* Use tints of our palette */
+  background-color: var(--success-bg); /* Light tint of Accent */
+  color: var(--success-text); /* Dark tint of Primary */
+  border: 1px solid var(--success-border);
+}
+
+.auth-message-error {
+  background-color: #F8D7DA;
+  color: #721C24;
+  border: 1px solid #F5C6CB;
+}
+
+.auth-message-info {
+  background-color: var(--info-bg);
+  color: var(--info-text);
+  border: 1px solid var(--info-border);
+}

@@ -1,0 +1,33 @@
+/* src/static/LikesPage.css */
+
+.likes-page-container {
+  padding: 1.5rem 2rem; /* Padding below header */
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.likes-page-title {
+  font-size: 1.75rem; /* Title size */
+  font-weight: 700;
+  color: var(--text-color);
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+/* Reuse .listing-grid from DashboardPage.css */
+/* Ensure it's defined globally or copy it here */
+
+/* Reuse .empty-state from DashboardPage.css */
+/* Example: */
+/*
+.empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-muted);
+}
+.empty-state-icon { ... }
+.empty-state-title { ... }
+*/

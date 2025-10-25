@@ -1,43 +1,73 @@
 package com.edurent.crc.controller;
 
-import com.edurent.crc.entity.UserEntity; // Updated
-import com.edurent.crc.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.edurent.crc.entity.UserEntity;
+import com.edurent.crc.service.UserService;
 
 @RestController
 @RequestMapping("/api/v1/users")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // Allow requests from any origin
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
 
-    @GetMapping
-    public List<UserEntity> getAllUsers() { // Updated
-        return userService.getAllUsers();
+    @Autowired
+    public UserController(UserService userService) {
+        this.userService = userService;
     }
 
+    /**
+     * A protected endpoint to get the currently authenticated user's details.
+     * The user is identified by the JWT token.
+     * @param authentication Automatically injected by Spring Security.
+     * @return The authenticated UserEntity.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<UserEntity> getMyProfile(Authentication authentication) {
+        // Spring Security, via the JwtAuthFilter, places the UserEntity in the 'principal'
+        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        return ResponseEntity.ok(currentUser);
+    }
+
+    /**
+     * Admin-only (example) endpoint to get all users.
+     * (We haven't implemented role-based security, but this is where it would go)
+     * @return A list of all users.
+     */
+    @GetMapping
+    public ResponseEntity<List<UserEntity>> getAllUsers() {
+        List<UserEntity> users = userService.getAllUsers();
+        return ResponseEntity.ok(users);
+    }
+
+    /**
+     * Get a specific user by ID.
+     * @param id The ID of the user.
+     * @return The UserEntity or 404 Not Found.
+     */
     @GetMapping("/{id}")
-    public ResponseEntity<UserEntity> getUserById(@PathVariable Long id) { // Updated
+    public ResponseEntity<UserEntity> getUserById(@PathVariable Long id) {
         return userService.getUserById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping
-    public ResponseEntity<UserEntity> createUser(@RequestBody UserEntity user, @RequestParam Long schoolId) { // Updated
-        try {
-            UserEntity newUser = userService.createUser(user, schoolId); // Updated
-            return new ResponseEntity<>(newUser, HttpStatus.CREATED);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
-        }
-    }
-
+    /**
+     * Delete a user by ID.
+     * @param id The ID of the user to delete.
+     * @return 204 No Content.
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);

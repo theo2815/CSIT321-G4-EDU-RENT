@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginUser } from '../services/apiService'; // Placeholder import
 
-// Import CSS
-import '../static/LoginPage.css';
-import '../static/RegisterPage.css'; // Shared form styles
+
+import '../static/Auth.css'; 
+import eduRentLogo from '../assets/edurentlogo.png'; 
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -12,6 +12,7 @@ export default function LoginPage() {
     password: '',
   });
   const [message, setMessage] = useState({ type: '', content: '' });
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -25,60 +26,62 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage({ type: '', content: '' });
+    setLoading(true);
 
     try {
-      // --- LOGIN API CALL (Placeholder) ---
-      // const response = await loginUser(formData);
-      // const userData = response.data;
-
-      // --- SIMULATION: Assume login is successful ---
-      console.log('Simulating successful login for:', formData.email);
-
-      // --- SIMULATION: Create dummy user data ---
-      const dummyUserData = {
-        fullName: (formData.email.split('@')[0] || 'Test') + ' User',
+      const response = await loginUser({
         email: formData.email,
-        userId: Date.now(), // Fake ID
-        token: 'fake-jwt-token-' + Date.now(), // Fake token
+        password: formData.password
+      });
+
+      const { token, message: successMessage } = response.data;
+
+      if (!token) {
+        throw new Error(successMessage || 'Login failed, no token received.');
+      }
+
+      const userDataToStore = {
+        token: token,
+        email: formData.email
       };
+      localStorage.setItem('eduRentUserData', JSON.stringify(userDataToStore));
 
-      // --- SAVE USER DATA to localStorage ---
-      localStorage.setItem('eduRentUserData', JSON.stringify(dummyUserData));
-      // ------------------------------------
-
-      setMessage({ type: 'success', content: 'Login successful! Redirecting...' });
+      setMessage({ type: 'success', content: successMessage || 'Login successful! Redirecting...' });
 
       setTimeout(() => {
-        navigate('/dashboard'); // Redirect to dashboard
+        navigate('/dashboard');
       }, 1500);
 
     } catch (error) {
       console.error('Login failed:', error);
-      setMessage({ type: 'error', content: 'Invalid email or password.' });
-      localStorage.removeItem('eduRentUserData'); // Clear storage on error
+      const errorMessage = error.response?.data?.message || error.message || 'Invalid email or password.';
+      setMessage({ type: 'error', content: errorMessage });
+      localStorage.removeItem('eduRentUserData');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-page">
-      {/* Left Column */}
-      <div className="login-left-column">
-        <h1 className="login-logo">Edu-Rent</h1>
-        <p className="login-tagline">
+    <div className="auth-container">
+      {/* --- Left Column (Branding) --- */}
+      <div className="auth-branding-panel">
+        <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
+        <p className="auth-tagline">
           Your Campus Marketplace for Students. Rent, buy, and sell items all within your university community.
         </p>
       </div>
 
-      {/* Right Column */}
-      <div className="login-right-column">
-        <div className="login-form-container">
-          <h2 className="login-title">Sign in to your account</h2>
+      {/* --- Right Column (Form) --- */}
+      <div className="auth-form-panel">
+        <div className="auth-form-container">
+          <h2 className="auth-title">Sign in to your account</h2>
 
-          <form className="login-form" onSubmit={handleSubmit}>
+          <form className="auth-form" onSubmit={handleSubmit}>
 
             {/* School Email */}
             <div>
-              <label htmlFor="email" className="form-label">
+              <label htmlFor="email" className="auth-label">
                 School Institution Email
               </label>
               <input
@@ -89,13 +92,14 @@ export default function LoginPage() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="form-input"
+                className="auth-input"
+                disabled={loading}
               />
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="form-label">
+              <label htmlFor="password" className="auth-label">
                 Password
               </label>
               <input
@@ -105,23 +109,26 @@ export default function LoginPage() {
                 required
                 value={formData.password}
                 onChange={handleChange}
-                className="form-input"
+                className="auth-input"
+                disabled={loading}
               />
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Link to="/forgot-password" className="forgot-password-link">
+            
+            {/* Forgot Password Link */}
+            <div style={{marginTop: '-0.5rem'}}> {/* Small layout adjustment */}
+               <Link to="/forgot-password" className="auth-link auth-link-right">
                 Forgot password?
               </Link>
             </div>
 
+
             {/* --- Message Display --- */}
             {message.content && (
               <div
-                className={`form-message ${
+                className={`auth-message ${
                   message.type === 'success'
-                    ? 'form-message-success'
-                    : 'form-message-error'
+                    ? 'auth-message-success'
+                    : 'auth-message-error'
                 }`}
               >
                 {message.content}
@@ -132,16 +139,18 @@ export default function LoginPage() {
             <div>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="auth-btn auth-btn-primary"
+                disabled={loading}
               >
-                Login
+                {loading ? 'Signing In...' : 'Sign In'}
               </button>
             </div>
           </form>
 
-          <div className="signup-link-container">
+          {/* Sign Up Redirect */}
+          <div className="auth-redirect-link">
             Don't have an account?{' '}
-            <Link to="/register" className="signup-link">
+            <Link to="/register" className="auth-link">
               Sign Up
             </Link>
           </div>

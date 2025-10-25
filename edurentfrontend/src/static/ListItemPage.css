@@ -1,0 +1,337 @@
+/* src/static/ListItemPage.css */
+
+.list-item-page-container {
+  padding: 1.5rem 2rem; /* Padding below header */
+  max-width: 1100px; /* Wider container for two columns */
+  margin: 2rem auto; /* Add top margin, center */
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--bg-light); /* White background for the main card */
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+  display: flex;
+  gap: 2rem; /* Space between columns */
+}
+
+/* --- Left Column (Photos) --- */
+.photos-section {
+  width: 40%; /* Adjust width ratio as needed */
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  border-right: 1px solid var(--border-color);
+}
+
+.photo-upload-box {
+  width: 100%;
+  height: 250px; /* Adjust height */
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: #f8f9fa; /* Light background */
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+  margin-bottom: 1rem;
+}
+
+.photo-upload-box:hover,
+.photo-upload-box.dragging { /* Style for drag-over */
+  border-color: var(--primary-color);
+  background-color: #e7f5ff; /* Light blue */
+}
+
+.photo-upload-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.photo-upload-text {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.photo-upload-note {
+  font-size: 0.8rem;
+  margin-top: 1rem;
+}
+
+/* Image Preview Grid */
+.image-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.image-preview-item {
+  position: relative;
+  width: 100%;
+  padding-top: 100%; /* Creates square aspect ratio */
+  background-color: #e9ecef;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.image-preview-item img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  line-height: 18px; /* Center 'X' */
+  text-align: center;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.remove-image-btn:hover {
+  opacity: 1;
+}
+
+/* --- Right Column (Details) --- */
+.details-section {
+  flex-grow: 1; /* Take remaining space */
+  padding: 1.5rem;
+}
+
+.form-field-group {
+  margin-bottom: 1.5rem;
+}
+
+/* Condition Buttons */
+.condition-buttons {
+  display: flex;
+  flex-wrap: wrap; /* Allow wrapping on small screens */
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.condition-button {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  border-radius: 20px; /* Pill shape */
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.condition-button:hover {
+  background-color: #e9ecef; /* Light gray hover */
+}
+
+.condition-button.selected {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* Option Toggle Buttons */
+.option-toggle {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden; /* Clip corners */
+  margin-top: 0.5rem;
+}
+
+.option-button {
+  flex: 1; /* Equal width */
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: none;
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-align: center;
+}
+
+.option-button:first-child {
+  border-right: 1px solid var(--border-color);
+}
+
+.option-button.selected {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 600;
+}
+
+.option-price-input {
+  margin-top: 0.75rem; /* Space below toggle */
+}
+
+/* Deal Method Toggles */
+.deal-method-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+}
+
+/* Reusing notification toggle styles */
+/* .toggle-switch { ... } */
+/* .toggle-slider { ... } */
+
+.deal-method-input {
+  margin-top: 0.75rem;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  justify-content: flex-end; /* Align buttons right */
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-clear {
+  /* Reuse .btn and add specific styles */
+  background-color: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.btn-clear:hover {
+  background-color: #f8f9fa;
+  border-color: var(--text-muted);
+}
+
+/* Reuse .btn-primary-accent or define btn-list */
+.btn-list {
+  background-color: var(--accent-color);
+  color: white;
+}
+.btn-list:hover {
+  background-color: var(--primary-color);
+}
+
+/* --- List Item Page Skeleton --- */
+.skeleton-list-item-container {
+  display: flex;
+  gap: 2rem;
+  padding: 1.5rem; /* Match container padding */
+}
+
+/* Skeleton Left Column */
+.skeleton-photos-section {
+  width: 40%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.skeleton-photo-upload-box {
+  width: 100%;
+  height: 250px;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.skeleton-photo-note {
+  height: 1rem;
+  width: 50%;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.skeleton-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.skeleton-preview-item {
+  width: 100%;
+  padding-top: 100%; /* Square aspect ratio */
+  border-radius: 6px;
+}
+
+/* Skeleton Right Column */
+.skeleton-details-section {
+  flex-grow: 1;
+}
+
+.skeleton-form-label {
+  height: 0.8rem;
+  width: 30%;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-form-input {
+  height: 40px; /* Approx height of input/select */
+  border-radius: 6px;
+  margin-bottom: 1.5rem; /* Match form-field-group margin */
+}
+
+.skeleton-condition-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.skeleton-condition-button {
+  height: 30px;
+  width: 80px;
+  border-radius: 20px;
+}
+
+.skeleton-textarea {
+  height: 100px; /* Approx height of textarea */
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.skeleton-toggle {
+  height: 45px; /* Approx height of toggle */
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Ensure skeleton animation is defined (copy if not global) */
+.skeleton {
+  background: linear-gradient(90deg, #e9ecef 25%, #f0f2f5 50%, #e9ecef 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

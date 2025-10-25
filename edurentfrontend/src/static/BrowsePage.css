@@ -1,0 +1,122 @@
+/* Add to src/static/BrowsePage.css */
+
+.browse-page-container {
+  padding: 1.5rem 2rem; /* Padding below header */
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* --- Search Bar --- */
+.browse-search-bar {
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-light); /* White background */
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+}
+
+.browse-search-icon {
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  margin-right: 0.75rem;
+}
+
+.browse-search-input {
+  flex-grow: 1;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  padding: 0.5rem 0; /* Vertical padding only */
+  background: none; /* Inherit background */
+  color: var(--text-color);
+}
+
+.browse-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* --- Section Styling --- */
+.browse-section {
+  margin-bottom: 2.5rem; /* Space between sections */
+}
+
+/* Reuse .section-title from DashboardPage.css if preferred, or define here */
+.browse-section-title {
+  font-size: 1.75rem; /* Larger title */
+  font-weight: 700;
+  color: var(--text-color);
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+/* --- Listing Grid Skeleton --- */
+.skeleton-listing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.skeleton-listing-card {
+  background-color: #fff; /* Match card background */
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e9ecef;
+}
+
+.skeleton-listing-image {
+  height: 180px;
+  background-color: #e9ecef; /* Placeholder color */
+}
+
+.skeleton-listing-content {
+  padding: 1.25rem;
+}
+
+.skeleton-listing-text {
+  height: 1rem;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  background-color: #e9ecef; /* Placeholder color */
+}
+
+/* Ensure skeleton animation is defined (copy if not global) */
+.skeleton {
+  background: linear-gradient(90deg, #e9ecef 25%, #f0f2f5 50%, #e9ecef 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Reuse .listing-grid from DashboardPage.css */
+/* Ensure it's defined globally or copy it here */
+/* Example: */
+/*
+.listing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+*/
+
+/* Reuse CTA card styles from DashboardPage.css */
+/* Example: */
+/*
+.content-card.cta-card { ... }
+.cta-title { ... }
+.cta-subtitle { ... }
+.cta-button { ... }
+*/

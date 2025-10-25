@@ -1,0 +1,123 @@
+/* src/static/CategoriesSidebar.css */
+
+.categories-sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  z-index: 40; /* Below the sidebar itself */
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none; /* Allows clicks through when hidden */
+}
+
+.categories-sidebar-overlay.visible {
+  opacity: 1;
+  pointer-events: auto; /* Allow clicks on overlay to close */
+}
+
+.categories-sidebar {
+  position: fixed;
+  top: 0;
+  right: -350px; /* Start off-screen */
+  width: 350px; /* Width of the sidebar */
+  height: 100%;
+  background-color: var(--bg-light); /* White background */
+  box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
+  z-index: 50; /* Above the overlay */
+  transition: right 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden; /* Prevent body scroll */
+}
+
+.categories-sidebar.visible {
+  right: 0; /* Slide in */
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.sidebar-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.sidebar-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.5rem;
+  line-height: 1; /* Prevent extra height */
+}
+
+.sidebar-close-btn:hover {
+  color: var(--text-color);
+}
+
+.sidebar-search {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+/* Reusing browse search styles - make sure these are globally available or copy */
+.sidebar-search-input {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  box-sizing: border-box; /* Include padding in width */
+}
+
+.sidebar-search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
+}
+
+.sidebar-content {
+  padding: 1.5rem;
+  overflow-y: auto; /* Allow category list to scroll */
+  flex-grow: 1; /* Take remaining height */
+}
+
+.category-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.category-list-item a {
+  display: block;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-color); /* Light gray background */
+  border-radius: 6px;
+  color: var(--text-color);
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.category-list-item a:hover {
+  background-color: #e9ecef; /* Slightly darker hover */
+  color: var(--primary-color);
+}
