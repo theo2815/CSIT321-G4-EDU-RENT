@@ -1,12 +1,21 @@
 package com.edurent.crc.controller;
 
-import com.edurent.crc.entity.ReviewEntity; // Updated
-import com.edurent.crc.service.ReviewService;
+import java.util.List; // Updated
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.edurent.crc.entity.ReviewEntity;
+import com.edurent.crc.service.ReviewService;
 
 @RestController
 @RequestMapping("/api/v1/reviews")
@@ -17,8 +26,10 @@ public class ReviewController {
     private ReviewService reviewService;
 
     @GetMapping("/user/{userId}")
-    public List<ReviewEntity> getReviewsForUser(@PathVariable Long userId) { // Updated
-        return reviewService.getReviewsForUser(userId);
+    public ResponseEntity<List<ReviewEntity>> getReviewsReceivedByUser(@PathVariable Long userId) {
+        // We need a corresponding method in ReviewService
+        List<ReviewEntity> reviews = reviewService.getReviewsForUser(userId);
+        return ResponseEntity.ok(reviews);
     }
     
     @GetMapping("/transaction/{transactionId}")

@@ -1,9 +1,11 @@
 package com.edurent.crc.repository;
 
-import com.edurent.crc.entity.UserEntity; // Updated
+import java.util.Optional; // Updated
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import java.util.Optional;
+
+import com.edurent.crc.entity.UserEntity;
 
 @Repository
 public interface UserRepository extends JpaRepository<UserEntity, Long> { // Updated

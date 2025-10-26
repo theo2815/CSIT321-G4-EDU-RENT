@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header'; // Reuse Header
 import ListingCard from '../components/ListingCard'; // Reuse ListingCard
-import { getCurrentUser, getProducts } from '../services/apiService'; // Use getProducts (listings)
+// Import all three functions
+import { getCurrentUser, getListings, getCategories } from '../services/apiService'; 
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ProductDetailModal from '../components/ProductDetailModal';
 
@@ -19,18 +20,6 @@ const Icons = {
   ),
 };
 
-// --- Mock Data (Replace with API fetch later) ---
-const MOCK_LISTINGS = [
- { id: 1, title: 'Intro to CS Textbook', description: 'Excellent condition', price: 45, type: 'sale', category: 'Textbooks', image: null, icon: '📚' },
- { id: 2, title: 'Bluetooth Headphones', description: 'Barely used', price: 25, type: 'rent', category: 'Electronics', image: null, icon: '🎧' },
- { id: 3, title: 'Desk Lamp LED', description: 'Perfect for studying', price: 15, type: 'rent', category: 'Furniture', image: null, icon: '💡' },
- { id: 4, title: 'Organic Chem Lab Manual', description: 'Complete notes', price: 35, type: 'sale', category: 'Textbooks', image: null, icon: '📖' },
- { id: 5, title: 'USB-C Hub Adapter', description: 'Multi-port, like new', price: 20, type: 'sale', category: 'Electronics', image: null, icon: '🔌' },
- { id: 6, title: 'Microscope', description: 'Lab equipment for rent', price: 50, type: 'rent', category: 'Lab Equipment', image: null, icon: '🔬' },
- { id: 7, title: 'Mini Fridge', description: 'Good for dorm room', price: 40, type: 'sale', category: 'Furniture', image: null, icon: '🧊' },
-];
-
-
 export default function BrowsePage() {
   const [userName, setUserName] = useState('');
   // Modal state
@@ -38,39 +27,54 @@ export default function BrowsePage() {
   const [selectedListing, setSelectedListing] = useState(null);
   const [allListings, setAllListings] = useState([]); // Store original listings
   const [filteredListings, setFilteredListings] = useState([]); // Listings to display
+  const [categories, setCategories] = useState([]); // <-- ADDED state for categories
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // --- Fetch User and Listings Data ---
+  // --- Fetch User, Listings, and Categories Data ---
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Fetch user data (for header)
-        const userResponse = await getCurrentUser();
+        // Fetch user, listings, and categories in parallel
+        const userPromise = getCurrentUser();
+        const listingsPromise = getListings();
+        const categoriesPromise = getCategories(); // <-- ADDED
+
+        const [userResponse, listingsResponse, categoriesResponse] = await Promise.all([
+          userPromise,
+          listingsPromise,
+          categoriesPromise // <-- ADDED
+        ]);
+
+        // Process User
         if (userResponse.data && userResponse.data.fullName) {
           setUserName(userResponse.data.fullName.split(' ')[0]);
+        } else {
+           setUserName('User'); // Fallback
         }
 
-        // TODO: Fetch actual listings from API
-        // const listingsResponse = await getProducts();
-        // setAllListings(listingsResponse.data);
-        // setFilteredListings(listingsResponse.data);
+        // Process Listings
+        console.log("Fetched listings:", listingsResponse.data);
+        setAllListings(listingsResponse.data || []);
+        setFilteredListings(listingsResponse.data || []);
 
-        // Using Mock Data for now
-        setAllListings(MOCK_LISTINGS);
-        setFilteredListings(MOCK_LISTINGS);
+        // Process Categories
+        console.log("Fetched categories:", categoriesResponse.data);
+        setCategories(categoriesResponse.data || []); // <-- ADDED
 
       } catch (err) {
         console.error("Failed to fetch data:", err);
-        setError("Could not load data. Please try again.");
-        // Redirect to login if not authenticated
-        if (err.message === "No authentication token found.") {
-           navigate('/login');
+        let errorMsg = "Could not load data. Please try again.";
+        // Check for auth errors to redirect
+        if (err.message === "No authentication token found." || err.response?.status === 403 || err.response?.status === 401) {
+          errorMsg = "Please log in to view this page.";
+          setTimeout(() => navigate('/login'), 1500);
         }
+        setError(errorMsg);
       } finally {
         setIsLoading(false);
       }
@@ -83,11 +87,14 @@ export default function BrowsePage() {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
 
-    const filtered = allListings.filter(listing =>
-      listing.title.toLowerCase().includes(query) ||
-      listing.description.toLowerCase().includes(query) ||
-      listing.category.toLowerCase().includes(query)
-    );
+    const filtered = allListings.filter(listing => {
+      const titleMatch = listing.title.toLowerCase().includes(query);
+      const descriptionMatch = listing.description.toLowerCase().includes(query);
+      // Check that category and category.name exist before filtering
+      const categoryMatch = listing.category && listing.category.name && 
+                            listing.category.name.toLowerCase().includes(query);
+      return titleMatch || descriptionMatch || categoryMatch;
+    });
     setFilteredListings(filtered);
   };
 
@@ -107,30 +114,26 @@ export default function BrowsePage() {
     setSelectedListing(null);
   };
 
-  // Filter listings for display
-  const saleListings = filteredListings.filter(l => l.type === 'sale');
-  const rentListings = filteredListings.filter(l => l.type === 'rent');
+  // Filter listings for display using backend DTO field 'listingType'
+  const saleListings = filteredListings.filter(l => l.listingType.toUpperCase().includes('SALE'));
+  const rentListings = filteredListings.filter(l => l.listingType.toUpperCase().includes('RENT'));
 
   // --- Render Loading/Error ---
   if (isLoading) {
     return (
-        <div className="profile-page">
+        <div className="profile-page"> {/* Reusing class for header consistency */}
             <Header userName="" onLogout={handleLogout} searchQuery="" onSearchChange={()=>{}} />
-            {/* --- Render Skeleton --- */}
             <main className="browse-page-container">
-                {/* Skeleton Search Bar (Optional, can just show empty space) */}
                 <div className="browse-search-bar skeleton" style={{ height: '60px', marginBottom: '2rem' }}></div>
-                {/* Skeleton for Sections */}
                 <section className="browse-section">
-                    <div className="skeleton skeleton-listing-text" style={{ height: '2rem', width: '200px', marginBottom: '1.5rem' }}></div>
+                    <div className="skeleton skeleton-listing-text" style={{ height: '2.5rem', width: '200px', marginBottom: '1.5rem' }}></div>
                     <ListingGridSkeleton count={4} /> {/* Show 4 skeleton cards */}
                 </section>
                  <section className="browse-section">
-                    <div className="skeleton skeleton-listing-text" style={{ height: '2rem', width: '200px', marginBottom: '1.5rem' }}></div>
+                    <div className="skeleton skeleton-listing-text" style={{ height: '2.5rem', width: '200px', marginBottom: '1.5rem' }}></div>
                     <ListingGridSkeleton count={4} /> {/* Show 4 skeleton cards */}
                 </section>
             </main>
-            {/* -------------------- */}
         </div>
     );
   }
@@ -149,7 +152,7 @@ export default function BrowsePage() {
       <Header
         userName={userName}
         onLogout={handleLogout}
-        searchQuery={searchQuery} // Pass search query to header if needed
+        searchQuery={searchQuery} // Pass search query to header
         onSearchChange={handleSearchChange} // Let header use the main search handler
       />
 
@@ -173,7 +176,8 @@ export default function BrowsePage() {
           {saleListings.length > 0 ? (
             <div className="listing-grid">
               {saleListings.map(listing => (
-                <ListingCard key={listing.id} listing={listing} onClick={openModal} />
+                // Use listingId from backend as key
+                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
               ))}
             </div>
           ) : (
@@ -187,7 +191,8 @@ export default function BrowsePage() {
            {rentListings.length > 0 ? (
             <div className="listing-grid">
               {rentListings.map(listing => (
-                <ListingCard key={listing.id} listing={listing} onClick={openModal} />
+                // Use listingId from backend as key
+                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
               ))}
             </div>
           ) : (
@@ -199,7 +204,7 @@ export default function BrowsePage() {
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
-            Turn your unused items into cash by listing them on Edu-Rent. It’s easy, secure, and connects you directly with fellow students.
+            Turn your unused items into cash by listing them on Edu-Rent.
           </p>
           <Link to="/list-item" className="cta-button">Start Selling Today</Link>
         </section>

@@ -4,7 +4,12 @@ import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ProductDetailModal from '../components/ProductDetailModal';
-import { getCurrentUser, getProducts, getCategories } from '../services/apiService'; // Assuming getCategories exists
+// --- Updated Imports (using getCategories) ---
+import { 
+  getCurrentUser, 
+  getCategories, // <-- Changed from getCategoryById
+  getListingsByCategoryId 
+} from '../services/apiService';
 
 // Import CSS
 import '../static/CategoryPage.css';
@@ -19,26 +24,7 @@ const Icons = {
   ),
 };
 
-// --- Mock Data (Simulate fetching category info and listings) ---
-// Use existing mock listings
-const MOCK_LISTINGS = [
- { id: 1, title: 'Intro to CS Textbook', description: 'Excellent condition', price: 45, type: 'sale', categoryId: 1, category: 'Textbooks', image: null, icon: '📚' },
- { id: 2, title: 'Bluetooth Headphones', description: 'Barely used', price: 25, type: 'rent', categoryId: 2, category: 'Electronics', image: null, icon: '🎧' },
- { id: 3, title: 'Desk Lamp LED', description: 'Perfect for studying', price: 15, type: 'rent', categoryId: 3, category: 'Furniture', image: null, icon: '💡' },
- { id: 4, title: 'Organic Chem Lab Manual', description: 'Complete notes', price: 35, type: 'sale', categoryId: 1, category: 'Textbooks', image: null, icon: '📖' },
- { id: 5, title: 'USB-C Hub Adapter', description: 'Multi-port, like new', price: 20, type: 'sale', categoryId: 2, category: 'Electronics', image: null, icon: '🔌' },
- { id: 6, title: 'Microscope', description: 'Lab equipment for rent', price: 50, type: 'rent', categoryId: 4, category: 'Lab Equipment', image: null, icon: '🔬' },
- { id: 7, title: 'Mini Fridge', description: 'Good for dorm room', price: 40, type: 'sale', categoryId: 3, category: 'Furniture', image: null, icon: '🧊' },
-];
-// Use existing mock categories, adding IDs if missing
-const MOCK_CATEGORIES = [
-  { id: 1, name: 'Textbooks', icon: '📚' },
-  { id: 2, name: 'Electronics', icon: '💻' },
-  { id: 3, name: 'Furniture', icon: '🪑' },
-  { id: 4, name: 'Lab Equipment', icon: '🔬' },
-  { id: 5, name: 'Apparel', icon: '👕' },
-  { id: 6, name: 'Other', icon: '📦' },
-];
+// --- MOCK DATA REMOVED ---
 
 export default function CategoryPage() {
   const { categoryId } = useParams(); // Get category ID from URL
@@ -51,12 +37,16 @@ export default function CategoryPage() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // --- Fetch User, Category Info, and Listings ---
+  // --- Modal State ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState(null);
+
+  // --- Fetch User, Category Info, and Listings (using 'modified' logic) ---
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
-      const catIdNumber = parseInt(categoryId, 10); // Convert URL param to number
+      const catIdNumber = parseInt(categoryId, 10);
 
       if (isNaN(catIdNumber)) {
           setError("Invalid category specified.");
@@ -65,43 +55,48 @@ export default function CategoryPage() {
       }
 
       try {
-        // Fetch user (can often be parallel)
         const userPromise = getCurrentUser();
+        // Fetch ALL categories to find the name
+        const categoriesPromise = getCategories(); // <-- Use getCategories()
+        // Fetch listings specific to THIS category
+        const listingsPromise = getListingsByCategoryId(catIdNumber);
 
-        // TODO: Fetch category details by ID from API
-        // const categoryPromise = getCategoryById(catIdNumber);
-        const categoryPromise = Promise.resolve(MOCK_CATEGORIES.find(cat => cat.id === catIdNumber)); // Mock find
-
-        // TODO: Fetch listings filtered by categoryId from API
-        // const listingsPromise = getListingsByCategory(catIdNumber);
-        const listingsPromise = Promise.resolve(MOCK_LISTINGS.filter(item => item.categoryId === catIdNumber)); // Mock filter
-
-        // Wait for all promises
-        const [userResponse, categoryData, listingsData] = await Promise.all([userPromise, categoryPromise, listingsPromise]);
+        const [userResponse, categoriesResponse, listingsResponse] = await Promise.all([
+          userPromise,
+          categoriesPromise,
+          listingsPromise,
+        ]);
 
         // Process user
         if (userResponse.data && userResponse.data.fullName) {
           setUserName(userResponse.data.fullName.split(' ')[0]);
         } else {
-            setUserName('User'); // Fallback
+            setUserName('User');
         }
 
-        // Process category
-        if (!categoryData) {
+        // Process category info (find name from all categories)
+        const allCategories = categoriesResponse.data || [];
+        const currentCategory = allCategories.find(cat => cat.categoryId === catIdNumber); // <-- Use .find()
+        if (!currentCategory) {
             throw new Error(`Category with ID ${catIdNumber} not found.`);
         }
-        setCategoryInfo(categoryData);
+        setCategoryInfo(currentCategory); // Contains { categoryId, name, ... }
 
         // Process listings
-        setCategoryListings(listingsData);
-        setFilteredListings(listingsData);
+        setCategoryListings(listingsResponse.data || []);
+        setFilteredListings(listingsResponse.data || []);
 
       } catch (err) {
         console.error("Failed to fetch category data:", err);
-        setError(err.message || "Could not load category data. Please try again.");
-        if (err.message === "No authentication token found.") {
-           navigate('/login');
+        let errorMsg = err.message || "Could not load category data. Please try again.";
+        if (err.response?.status === 404) {
+          errorMsg = `Category with ID ${catIdNumber} not found.`;
         }
+        if (err.message === "No authentication token found." || err.response?.status === 401 || err.response?.status === 403) {
+            errorMsg = "Please log in to view this page.";
+            setTimeout(() => navigate('/login'), 1500);
+        }
+        setError(errorMsg);
       } finally {
         setIsLoading(false);
       }
@@ -109,7 +104,7 @@ export default function CategoryPage() {
     fetchData();
   }, [categoryId, navigate]); // Re-run if categoryId changes
 
-  // --- Search Handler ---
+  // --- Search Handler (Filters the categoryListings state) ---
   const handleSearchChange = (e) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
@@ -117,7 +112,6 @@ export default function CategoryPage() {
     const filtered = categoryListings.filter(listing => // Filter from categoryListings
       listing.title.toLowerCase().includes(query) ||
       listing.description.toLowerCase().includes(query)
-      // Add more fields to search if needed
     );
     setFilteredListings(filtered);
   };
@@ -128,9 +122,7 @@ export default function CategoryPage() {
     navigate('/login');
   };
 
-  // --- Modal State & Handlers --- (Copied from BrowsePage)
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState(null);
+  // --- Modal State & Handlers ---
   const openModal = (listing) => { setSelectedListing(listing); setIsModalOpen(true); };
   const closeModal = () => { setIsModalOpen(false); setSelectedListing(null); };
   // ------------------------------
@@ -155,7 +147,6 @@ export default function CategoryPage() {
             <Header userName={userName} onLogout={handleLogout} />
             <main className="category-page-container">
                 <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
-                {/* Optional: Add a button to go back */}
                 <div style={{ textAlign: 'center', marginTop: '1rem' }}>
                     <Link to="/dashboard" className="cta-button">Back to Dashboard</Link>
                 </div>
@@ -170,22 +161,23 @@ export default function CategoryPage() {
       <Header
         userName={userName}
         onLogout={handleLogout}
-        // Don't pass search query/handler if header search shouldn't affect this page
         searchQuery=""
-        onSearchChange={()=>{}} // Or implement global search later
+        onSearchChange={()=>{}} // Header search is disabled on this page
       />
 
       <main className="category-page-container">
         {/* Page Header */}
         <div className="category-page-header">
             <h1 className="category-page-title">
+                {/* Use backend data, fallback to '📦' */}
                 {categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>{categoryInfo.icon}</span>}
+                {!categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>📦</span>} 
                 {categoryInfo?.name || 'Category'}
             </h1>
         </div>
 
         {/* Search Bar (Specific to this category) */}
-        <div className="browse-search-bar" style={{marginBottom: '2rem'}}> {/* Added margin */}
+        <div className="browse-search-bar" style={{marginBottom: '2rem'}}>
            <span className="browse-search-icon"><Icons.Search /></span>
            <input
              type="text"
@@ -197,19 +189,14 @@ export default function CategoryPage() {
            />
         </div>
 
-        {/* Optional Filters Section */}
-        {/* <div className="category-filters">
-            <select className="filter-select"><option>Sort by Recent</option><option>Sort by Price</option></select>
-            {/* Add more filters here *}
-        </div> */}
-
         {/* Listings Grid */}
         <section>
           {filteredListings.length > 0 ? (
             <div className="listing-grid"> {/* Reuse listing grid */}
               {filteredListings.map(listing => (
                 <ListingCard
-                    key={listing.id}
+                    // --- Updated Key ---
+                    key={listing.listingId} 
                     listing={listing}
                     onClick={openModal} // Open modal on click
                 />
@@ -223,17 +210,15 @@ export default function CategoryPage() {
                     There are currently no items listed in the "{categoryInfo?.name || 'selected'}" category
                     {searchQuery ? ' matching your search' : ''}.
                 </p>
-                {/* Optional: Link back or to create listing */}
                  <Link to="/dashboard" className="cta-button" style={{marginTop: '1rem'}}>Back to Dashboard</Link>
             </div>
           )}
         </section>
-
       </main>
 
        {/* --- Render Modal Conditionally --- */}
        {isModalOpen && selectedListing && (
-          <ProductDetailModal listing={selectedListing} onClose={closeModal} />
+         <ProductDetailModal listing={selectedListing} onClose={closeModal} />
        )}
        {/* ---------------------------------- */}
     </div>

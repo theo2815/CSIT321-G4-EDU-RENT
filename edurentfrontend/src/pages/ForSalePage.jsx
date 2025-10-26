@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header'; // Reuse Header
 import ListingCard from '../components/ListingCard'; // Reuse ListingCard
-import { getCurrentUser, getProducts } from '../services/apiService'; // Use getProducts (listings)
+import { getCurrentUser, getListings, getCategories } from '../services/apiService'; 
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ProductDetailModal from '../components/ProductDetailModal';
-
 
 // Import CSS (Reuse styles)
 import '../static/BrowsePage.css';
@@ -19,19 +18,6 @@ const Icons = {
   ),
 };
 
-// --- Mock Data (Replace with API fetch later) ---
-// Using the same mock data for demonstration
-const MOCK_LISTINGS = [
- { id: 1, title: 'Intro to CS Textbook', description: 'Excellent condition', price: 45, type: 'sale', category: 'Textbooks', image: null, icon: '📚' },
- { id: 2, title: 'Bluetooth Headphones', description: 'Barely used', price: 25, type: 'rent', category: 'Electronics', image: null, icon: '🎧' },
- { id: 3, title: 'Desk Lamp LED', description: 'Perfect for studying', price: 15, type: 'rent', category: 'Furniture', image: null, icon: '💡' },
- { id: 4, title: 'Organic Chem Lab Manual', description: 'Complete notes', price: 35, type: 'sale', category: 'Textbooks', image: null, icon: '📖' },
- { id: 5, title: 'USB-C Hub Adapter', description: 'Multi-port, like new', price: 20, type: 'sale', category: 'Electronics', image: null, icon: '🔌' },
- { id: 6, title: 'Microscope', description: 'Lab equipment for rent', price: 50, type: 'rent', category: 'Lab Equipment', image: null, icon: '🔬' },
- { id: 7, title: 'Mini Fridge', description: 'Good for dorm room', price: 40, type: 'sale', category: 'Furniture', image: null, icon: '🧊' },
-];
-
-
 export default function ForSalePage() {
   const [userName, setUserName] = useState('');
   // Modal state
@@ -39,6 +25,7 @@ export default function ForSalePage() {
   const [selectedListing, setSelectedListing] = useState(null);
   const [allSaleListings, setAllSaleListings] = useState([]); // Store original sale listings
   const [filteredSaleListings, setFilteredSaleListings] = useState([]); // Sale listings to display
+  // const [categories, setCategories] = useState([]); // <-- Added state (optional if not used)
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -50,29 +37,49 @@ export default function ForSalePage() {
       setIsLoading(true);
       setError(null);
       try {
-        // Fetch user data (for header)
-        const userResponse = await getCurrentUser();
+        // Fetch user, listings, and categories in parallel
+        const userPromise = getCurrentUser();
+        const listingsPromise = getListings();
+        const categoriesPromise = getCategories(); // <-- ADDED
+
+        const [userResponse, listingsResponse, categoriesResponse] = await Promise.all([
+          userPromise,
+          listingsPromise,
+          categoriesPromise // <-- ADDED
+        ]);
+
+        // Process User
         if (userResponse.data && userResponse.data.fullName) {
           setUserName(userResponse.data.fullName.split(' ')[0]);
+        } else {
+          setUserName('User'); // Fallback
         }
 
-        // TODO: Fetch actual listings from API and filter for sale
-        // const listingsResponse = await getProducts();
-        // const saleItems = listingsResponse.data.filter(item => item.type === 'sale');
-        // setAllSaleListings(saleItems);
-        // setFilteredSaleListings(saleItems);
+        // Process Categories (optional, just to match pattern)
+        // setCategories(categoriesResponse.data || []);
 
-        // Using Mock Data for now - Filter immediately
-        const saleItems = MOCK_LISTINGS.filter(item => item.type === 'sale'); // <-- Filter for sale
-        setAllSaleListings(saleItems);
-        setFilteredSaleListings(saleItems);
+        // Process Listings: Fetch ALL, then filter for 'SALE'
+        const allItems = listingsResponse.data || [];
+        
+        // --- THIS IS THE FIX ---
+        const saleItems = allItems.filter(item => 
+          item.listingType.toUpperCase().includes('SALE')
+        );
+        // -----------------------
+        
+        console.log("Fetched and filtered sale items:", saleItems);
+        setAllSaleListings(saleItems); // Set the master list of sale items
+        setFilteredSaleListings(saleItems); // Set the initial displayed list
 
       } catch (err) {
         console.error("Failed to fetch data:", err);
-        setError("Could not load data. Please try again.");
-        if (err.message === "No authentication token found.") {
-           navigate('/login');
+        let errorMsg = "Could not load data. Please try again.";
+        // Check for auth errors to redirect
+        if (err.message === "No authentication token found." || err.response?.status === 403 || err.response?.status === 401) {
+          errorMsg = "Please log in to view this page.";
+          setTimeout(() => navigate('/login'), 1500);
         }
+        setError(errorMsg);
       } finally {
         setIsLoading(false);
       }
@@ -85,12 +92,14 @@ export default function ForSalePage() {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
 
-    const filtered = allSaleListings.filter(listing => // Filter from allSaleListings
-      listing.title.toLowerCase().includes(query) ||
-      listing.description.toLowerCase().includes(query) ||
-      listing.category.toLowerCase().includes(query)
-    );
-    setFilteredSaleListings(filtered);
+    const filtered = allSaleListings.filter(listing => { // Filter from allSaleListings
+      const titleMatch = listing.title.toLowerCase().includes(query);
+      const descriptionMatch = listing.description.toLowerCase().includes(query);
+      const categoryMatch = listing.category && listing.category.name &&
+                            listing.category.name.toLowerCase().includes(query);
+      return titleMatch || descriptionMatch || categoryMatch;
+    });
+    setFilteredSaleListings(filtered); // Update the displayed list
   };
 
    // --- Logout Handler ---
@@ -109,27 +118,18 @@ export default function ForSalePage() {
     setSelectedListing(null);
   };
 
-
   // --- Render Loading/Error ---
   if (isLoading) {
       return (
           <div className="profile-page">
               <Header userName="" onLogout={handleLogout} searchQuery="" onSearchChange={()=>{}} />
-              {/* --- Render Skeleton --- */}
               <main className="browse-page-container">
-                  {/* Skeleton Search Bar (Optional, can just show empty space) */}
                   <div className="browse-search-bar skeleton" style={{ height: '60px', marginBottom: '2rem' }}></div>
-                  {/* Skeleton for Sections */}
                   <section className="browse-section">
                       <div className="skeleton skeleton-listing-text" style={{ height: '2rem', width: '200px', marginBottom: '1.5rem' }}></div>
-                      <ListingGridSkeleton count={4} /> {/* Show 4 skeleton cards */}
-                  </section>
-                   <section className="browse-section">
-                      <div className="skeleton skeleton-listing-text" style={{ height: '2rem', width: '200px', marginBottom: '1.5rem' }}></div>
-                      <ListingGridSkeleton count={4} /> {/* Show 4 skeleton cards */}
+                      <ListingGridSkeleton count={8} /> {/* Show more skeletons */}
                   </section>
               </main>
-              {/* -------------------- */}
           </div>
       );
     }
@@ -172,7 +172,8 @@ export default function ForSalePage() {
           {filteredSaleListings.length > 0 ? (
             <div className="listing-grid">
               {filteredSaleListings.map(listing => (
-                <ListingCard key={listing.id} listing={listing} onClick={openModal} />
+                // Use listingId from backend as key
+                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
               ))}
             </div>
           ) : (
@@ -186,7 +187,7 @@ export default function ForSalePage() {
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
-            Turn your unused items into cash by listing them on Edu-Rent. It’s easy, secure, and connects you directly with fellow students.
+            Turn your unused items into cash by listing them on Edu-Rent.
           </p>
           <Link to="/list-item" className="cta-button">Start Selling Today</Link>
         </section>

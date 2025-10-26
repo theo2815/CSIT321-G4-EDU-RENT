@@ -1,11 +1,13 @@
 package com.edurent.crc.repository;
 
-import com.edurent.crc.entity.ListingEntity;
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query; // <-- Import this
 import org.springframework.data.repository.query.Param; // <-- Import this
 import org.springframework.stereotype.Repository;
-import java.util.List;
+
+import com.edurent.crc.entity.ListingEntity;
 
 @Repository
 public interface ListingRepository extends JpaRepository<ListingEntity, Long> {
@@ -15,6 +17,8 @@ public interface ListingRepository extends JpaRepository<ListingEntity, Long> {
 
     @Query("SELECT l FROM ListingEntity l WHERE l.category.categoryId = :categoryId")
     List<ListingEntity> findByCategoryId(@Param("categoryId") Long categoryId);
+
+    List<ListingEntity> findByUser_UserId(Long userId);
 
     // These methods are correct and do not need to change.
     List<ListingEntity> findByListingType(String listingType);

@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { getCurrentUser, getCategories } from '../services/apiService'; // Assuming getCategories exists
+// --- UPDATED IMPORTS ---
+import { 
+  getCurrentUser, 
+  getCategories, 
+  getSchools, 
+  createListing 
+} from '../services/apiService';
 
 // Import CSS
 import '../static/ListItemPage.css';
 
-// --- NEW List Item Page Skeleton Component ---
+// --- Skeleton Component (no changes) ---
 function ListItemSkeleton() {
   return (
     <div className="skeleton-list-item-container">
@@ -15,7 +21,7 @@ function ListItemSkeleton() {
         <div className="skeleton skeleton-photo-upload-box"></div>
         <div className="skeleton skeleton-photo-note"></div>
         <div className="skeleton-preview-grid">
-          {Array.from({ length: 3 }).map((_, i) => ( // Show 3 preview skeletons
+          {Array.from({ length: 3 }).map((_, i) => ( 
             <div key={i} className="skeleton skeleton-preview-item"></div>
           ))}
         </div>
@@ -32,7 +38,7 @@ function ListItemSkeleton() {
         {/* Condition */}
         <div className="skeleton skeleton-form-label"></div>
         <div className="skeleton-condition-buttons">
-          {Array.from({ length: 4 }).map((_, i) => ( // Show 4 button skeletons
+          {Array.from({ length: 4 }).map((_, i) => ( 
             <div key={i} className="skeleton skeleton-condition-button"></div>
           ))}
         </div>
@@ -46,80 +52,71 @@ function ListItemSkeleton() {
         <div className="skeleton skeleton-form-input" style={{ marginBottom: '1.5rem' }}></div>
         {/* Deal Method */}
         <div className="skeleton skeleton-form-label"></div>
-        <div className="skeleton skeleton-form-input" style={{ height: '30px', marginBottom: '1rem' }}></div> {/* Toggle skeleton */}
-        <div className="skeleton skeleton-form-input" style={{ height: '30px' }}></div> {/* Toggle skeleton */}
-
+        <div className="skeleton skeleton-form-input" style={{ height: '30px', marginBottom: '1rem' }}></div>
+        <div className="skeleton skeleton-form-input" style={{ height: '30px' }}></div>
       </section>
     </div>
   );
 }
+// --- END Skeleton Component ---
 
-
-// --- Mock Category Data (Replace with API fetch) ---
-const MOCK_CATEGORIES = [
-  { categoryId: 1, name: 'Textbooks' },
-  { categoryId: 2, name: 'Electronics' },
-  { categoryId: 3, name: 'Furniture' },
-  { categoryId: 4, name: 'Lab Equipment' },
-  { categoryId: 5, name: 'Apparel' },
-  { categoryId: 6, name: 'Other' },
-];
-
-// --- Mock School Data (Replace with API fetch) ---
-const MOCK_SCHOOLS = [
-  { id: 1, name: 'University of Wollongong' },
-  { id: 2, name: 'TAFE Illawarra' },
-  { id: 3, name: 'University of Sydney' },
-  { id: 4, name: 'University of New South Wales' },
-  { id: 5, name: 'Western Sydney University' },
-  { id: 6, name: 'University of Technology Sydney' },
-];
+// --- MOCK DATA REMOVED ---
 
 const CONDITION_OPTIONS = ['Brand New', 'Like New', 'Lightly Used', 'Well Used', 'Heavily Used'];
 
 export default function ListItemPage() {
   const [userName, setUserName] = useState('');
   const [categories, setCategories] = useState([]);
+  const [schools, setSchools] = useState([]); // <-- State for schools
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   // --- Form State ---
-  const [photos, setPhotos] = useState([]); // Array of File objects or preview URLs
+  const [photos, setPhotos] = useState([]); 
   const [selectedCategory, setSelectedCategory] = useState('');
   const [title, setTitle] = useState('');
-  const [selectedSchool, setSelectedSchool] = useState('');
-  const [condition, setCondition] = useState(''); // Selected condition button
+  // const [selectedSchool, setSelectedSchool] = useState(''); // <-- REMOVED
+  const [condition, setCondition] = useState(''); 
   const [description, setDescription] = useState('');
-  const [option, setOption] = useState('sale'); // 'sale' or 'rent'
+  const [option, setOption] = useState('sale'); 
   const [price, setPrice] = useState('');
   const [allowMeetup, setAllowMeetup] = useState(false);
   const [meetupPlace, setMeetupPlace] = useState('');
   const [allowDelivery, setAllowDelivery] = useState(false);
   const [deliveryOption, setDeliveryOption] = useState('');
-  const fileInputRef = useRef(null); // Ref for hidden file input
+  const fileInputRef = useRef(null); 
+  
+  // --- NEW Submission State ---
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
 
-  // --- Fetch Initial Data ---
+  // --- Fetch Initial Data (UPDATED) ---
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Fetch user
-        const userResponse = await getCurrentUser();
-        setUserName(userResponse.data?.fullName?.split(' ')[0] || 'User');
+        // Fetch user, categories, and schools in parallel
+        const userPromise = getCurrentUser();
+        const categoriesPromise = getCategories();
+        const schoolsPromise = getSchools(); // <-- Fetch schools
 
-        // Fetch categories
-        // const categoriesResponse = await getCategories();
-        // setCategories(categoriesResponse.data);
-        setCategories(MOCK_CATEGORIES); // Using mock for now
+        const [userResponse, categoriesResponse, schoolsResponse] = await Promise.all([
+          userPromise,
+          categoriesPromise,
+          schoolsPromise
+        ]);
+
+        setUserName(userResponse.data?.fullName?.split(' ')[0] || 'User');
+        setCategories(categoriesResponse.data || []); // <-- Use API data
+        setSchools(schoolsResponse.data || []); // <-- Use API data
 
       } catch (err) {
         console.error("Failed to fetch initial data:", err);
         setError("Could not load page data. Please try again.");
-        if (err.message === "No authentication token found.") {
-           navigate('/login');
+        if (err.message === "No authentication token found." || err.response?.status === 401 || err.response?.status === 403) {
+            navigate('/login');
         }
       } finally {
         setIsLoading(false);
@@ -128,50 +125,42 @@ export default function ListItemPage() {
     fetchData();
   }, [navigate]);
 
-  // --- Handlers ---
+  // --- Handlers (Photo handlers, etc. no changes) ---
   const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/login'); };
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
     addPhotos(files);
-     // Reset file input to allow selecting the same file again if removed
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
   const addPhotos = (newFiles) => {
-    // Limit to 10 photos
     const availableSlots = 10 - photos.length;
     const filesToAdd = newFiles.slice(0, availableSlots);
-
-    // Create preview URLs
     const newPhotoPreviews = filesToAdd.map(file => ({
-        file: file, // Keep the actual file object
+        file: file, 
         previewUrl: URL.createObjectURL(file)
     }));
-
     setPhotos(prevPhotos => [...prevPhotos, ...newPhotoPreviews]);
   };
 
    const removePhoto = (indexToRemove) => {
-      setPhotos(prevPhotos => prevPhotos.filter((_, index) => index !== indexToRemove));
-       // Clean up object URL - important for performance
-      // Note: This requires storing the URL somewhere to revoke later if needed
-      // URL.revokeObjectURL(photos[indexToRemove].previewUrl);
+     // TODO: Revoke object URL before removing
+     // URL.revokeObjectURL(photos[indexToRemove].previewUrl);
+     setPhotos(prevPhotos => prevPhotos.filter((_, index) => index !== indexToRemove));
    };
 
-
-  // --- Drag and Drop Handlers ---
   const handleDragOver = (event) => {
-    event.preventDefault(); // Necessary to allow drop
+    event.preventDefault(); 
     event.currentTarget.classList.add('dragging');
   };
   const handleDragLeave = (event) => {
-     event.currentTarget.classList.remove('dragging');
+    event.currentTarget.classList.remove('dragging');
   };
    const handleDrop = (event) => {
-    event.preventDefault(); // Prevent browser opening file
+    event.preventDefault(); 
     event.currentTarget.classList.remove('dragging');
     const files = Array.from(event.dataTransfer.files);
     addPhotos(files);
@@ -182,7 +171,7 @@ export default function ListItemPage() {
     setPhotos([]);
     setSelectedCategory('');
     setTitle('');
-    setSelectedSchool('');
+    // setSelectedSchool(''); // <-- REMOVED
     setCondition('');
     setDescription('');
     setOption('sale');
@@ -191,13 +180,14 @@ export default function ListItemPage() {
     setMeetupPlace('');
     setAllowDelivery(false);
     setDeliveryOption('');
-    // TODO: Revoke all object URLs if stored
+    // TODO: Revoke all object URLs
   };
 
-  const handleListNow = (e) => {
+  // --- NEW handleListNow Function ---
+  const handleListNow = async (e) => { 
     e.preventDefault();
-    // Basic validation
-    if (photos.length === 0 || !selectedCategory || !title || !selectedSchool || !condition || !description || !price) {
+    // --- Validation ---
+    if (photos.length === 0 || !selectedCategory || !title || !condition || !description || !price) {
         alert("Please fill in all required fields and add at least one photo.");
         return;
     }
@@ -209,58 +199,72 @@ export default function ListItemPage() {
          alert("Please add a delivery option.");
          return;
       }
+    // --- End Validation ---
 
-    // Prepare data for API
-    const listingData = new FormData(); // Use FormData for file uploads
-    photos.forEach(photo => listingData.append('images', photo.file)); // Append actual files
+    setIsSubmitting(true); // Indicate loading/submission
+    setError(null); // Clear previous errors
+
+    // --- Prepare FormData ---
+    const listingData = new FormData();
+    photos.forEach(photo => {
+        if (photo.file instanceof File) {
+             listingData.append('images', photo.file);
+        } else {
+             console.warn("Skipping invalid photo data:", photo);
+        }
+    });
     listingData.append('categoryId', selectedCategory);
     listingData.append('title', title);
-    listingData.append('schoolId', selectedSchool);
+    // listingData.append('schoolId', selectedSchool); // <-- REMOVED
     listingData.append('condition', condition);
     listingData.append('description', description);
-    listingData.append('listingType', option === 'rent' ? 'For Rent' : 'For Sale'); // Send backend expected value
+    listingData.append('listingType', option === 'rent' ? 'For Rent' : 'For Sale');
     listingData.append('price', price);
     listingData.append('allowMeetup', allowMeetup);
     if (allowMeetup) listingData.append('meetupLocation', meetupPlace);
     listingData.append('allowDelivery', allowDelivery);
     if (allowDelivery) listingData.append('deliveryOptions', deliveryOption);
-    // Add rentPeriod if option is 'rent' - requires additional state
-    // if (option === 'rent') listingData.append('rentPeriod', rentPeriodState);
+    // -------------------------
 
+    console.log("Submitting FormData..."); 
 
-    console.log("Listing Data Prepared (FormData):", /* FormData can't be directly logged easily */ );
-    console.log("Listing Details:", {
-       selectedCategory, title, selectedSchool, condition, description, option, price, allowMeetup, meetupPlace, allowDelivery, deliveryOption
-    });
-    // TODO: Implement API call to submit listingData
-    // try {
-    //   await createListingApi(listingData);
-    //   alert("Item listed successfully!");
-    //   navigate('/dashboard'); // Or to the new listing's page
-    // } catch (err) { alert("Failed to list item."); }
+    try {
+      // --- Call API Service ---
+      const response = await createListing(listingData);
+      // ------------------------
 
-    alert("Item Listed! (Placeholder)"); // Placeholder
-     navigate('/dashboard');
+      console.log("Listing created successfully:", response.data);
+      alert("Item listed successfully!"); 
+      handleClearDetails(); // Clear the form
+      navigate('/dashboard'); // Navigate after success
+
+    } catch (err) {
+      console.error("Failed to list item:", err);
+      const errorMsg = err.response?.data?.message || err.message || "Failed to list item. Please check details and try again.";
+      setError(errorMsg); 
+      alert(`Error: ${errorMsg}`); 
+    } finally {
+      setIsSubmitting(false); // Stop loading indicator
+    }
   };
 
   // --- Render ---
   if (isLoading) {
     return (
-        <div className="profile-page"> {/* Container for Header */}
+        <div className="profile-page"> 
             <Header userName="" onLogout={handleLogout} />
-            {/* Render the Skeleton within the page structure */}
-            <div className="list-item-page-container skeleton"> {/* Add skeleton class for background */}
+            <div className="list-item-page-container skeleton"> 
                 <ListItemSkeleton />
             </div>
         </div>
-     );
+      );
   }
    if (error) {
      return <div className="profile-page"><Header userName={userName} onLogout={handleLogout} /><div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div></div>;
   }
 
   return (
-    <div className="profile-page"> {/* Reuse for header consistency */}
+    <div className="profile-page"> 
       <Header userName={userName} onLogout={handleLogout} />
 
       <form onSubmit={handleListNow}>
@@ -270,44 +274,43 @@ export default function ListItemPage() {
           <section className="photos-section">
             <input
                type="file"
-               multiple // Allow multiple files
-               accept="image/*" // Accept only images
+               multiple 
+               accept="image/*" 
                ref={fileInputRef}
                onChange={handleFileSelect}
-               style={{ display: 'none' }} // Hide the default input
+               style={{ display: 'none' }} 
                id="photoInput"
              />
-             {/* Make the whole box clickable */}
-            <div
-                className="photo-upload-box"
-                onClick={() => fileInputRef.current?.click()} // Trigger hidden input
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-            >
-              <div className="photo-upload-icon">➕</div>
-              <div className="photo-upload-text">Add photo</div>
-              <div>or drag photo here</div>
-            </div>
-            <div className="photo-upload-note">(Up to 10 photos)</div>
+             <div
+               className="photo-upload-box"
+               onClick={() => fileInputRef.current?.click()} 
+               onDragOver={handleDragOver}
+               onDragLeave={handleDragLeave}
+               onDrop={handleDrop}
+             >
+               <div className="photo-upload-icon">➕</div>
+               <div className="photo-upload-text">Add photo</div>
+               <div>or drag photo here</div>
+             </div>
+             <div className="photo-upload-note">(Up to 10 photos)</div>
 
              {/* Image Previews */}
              {photos.length > 0 && (
-                <div className="image-preview-grid">
-                    {photos.map((photo, index) => (
-                        <div key={index} className="image-preview-item">
-                            <img src={photo.previewUrl} alt={`Preview ${index + 1}`} />
-                            <button
-                                type="button" // Prevent form submission
-                                className="remove-image-btn"
-                                onClick={() => removePhoto(index)}
-                                aria-label={`Remove image ${index + 1}`}
-                            >
-                                &times;
-                            </button>
-                        </div>
-                    ))}
-                </div>
+               <div className="image-preview-grid">
+                   {photos.map((photo, index) => (
+                       <div key={index} className="image-preview-item">
+                           <img src={photo.previewUrl} alt={`Preview ${index + 1}`} />
+                           <button
+                               type="button" 
+                               className="remove-image-btn"
+                               onClick={() => removePhoto(index)}
+                               aria-label={`Remove image ${index + 1}`}
+                           >
+                             &times;
+                           </button>
+                       </div>
+                   ))}
+               </div>
              )}
           </section>
 
@@ -319,9 +322,10 @@ export default function ListItemPage() {
               <select
                 id="category" name="category" required value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="form-input" // Reuse input style
+                className="form-input"
               >
                 <option value="" disabled>Select category</option>
+                {/* Use 'categories' state from API */}
                 {categories.map((cat) => (
                   <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
                 ))}
@@ -338,23 +342,7 @@ export default function ListItemPage() {
               />
             </div>
 
-            {/* School */}
-            <div className="form-field-group">
-              <label htmlFor="school" className="form-label">School</label>
-              <select
-                id="school"
-                name="school"
-                required
-                value={selectedSchool}
-                onChange={(e) => setSelectedSchool(e.target.value)}
-                className="form-input"
-              >
-                <option value="" disabled>Select your school</option>
-                {MOCK_SCHOOLS.map((school) => (
-                  <option key={school.id} value={school.id}>{school.name}</option>
-                ))}
-              </select>
-            </div>
+            {/* --- SCHOOL FIELD REMOVED --- */}
 
             {/* Condition */}
             <div className="form-field-group">
@@ -389,29 +377,27 @@ export default function ListItemPage() {
                 <button
                   type="button"
                   className={`option-button ${option === 'sale' ? 'selected' : ''}`}
-                  onClick={() => { setOption('sale'); setPrice(''); }} // Clear price on switch
+                  onClick={() => { setOption('sale'); setPrice(''); }} 
                 >
                   For Sale
                 </button>
                 <button
                   type="button"
                   className={`option-button ${option === 'rent' ? 'selected' : ''}`}
-                  onClick={() => { setOption('rent'); setPrice(''); }} // Clear price on switch
+                  onClick={() => { setOption('rent'); setPrice(''); }} 
                 >
                   For Rent
                 </button>
               </div>
-              {/* Price Input - shown based on option */}
               <div className="option-price-input">
                 <label htmlFor="price" className="form-label">
                   {option === 'sale' ? 'Enter your price for sale' : 'Enter your price for rent'}
                 </label>
-                 {/* TODO: Add 'per day/week' selector for rent */}
                 <input
                   type="number" id="price" name="price" required value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   className="form-input" placeholder="0.00"
-                  step="0.01" min="0" // Allow decimals, non-negative
+                  step="0.01" min="0" 
                 />
               </div>
             </div>
@@ -421,7 +407,7 @@ export default function ListItemPage() {
               <label className="form-label">Deal Method</label>
               {/* Meet-up */}
               <div className="deal-method-toggle">
-                <span className="notification-label">Meet-up</span> {/* Reuse label style */}
+                <span className="notification-label">Meet-up</span>
                 <label className="toggle-switch">
                   <input type="checkbox" checked={allowMeetup} onChange={(e) => setAllowMeetup(e.target.checked)} />
                   <span className="toggle-slider"></span>
@@ -455,13 +441,22 @@ export default function ListItemPage() {
               )}
             </div>
 
-            {/* Action Buttons */}
+            {/* --- ACTION BUTTONS (UPDATED) --- */}
             <div className="action-buttons">
-              <button type="button" className="btn btn-clear" onClick={handleClearDetails}>
+              <button 
+                type="button" 
+                className="btn btn-clear" 
+                onClick={handleClearDetails} 
+                disabled={isSubmitting} 
+              >
                 Clear Details
               </button>
-              <button type="submit" className="btn btn-list">
-                List Now
+              <button 
+                type="submit" 
+                className="btn btn-list" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Listing...' : 'List Now'}
               </button>
             </div>
 

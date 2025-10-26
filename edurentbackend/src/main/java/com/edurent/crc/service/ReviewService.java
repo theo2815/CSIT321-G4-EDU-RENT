@@ -1,15 +1,17 @@
 package com.edurent.crc.service;
 
-import com.edurent.crc.entity.ReviewEntity; // Updated
-import com.edurent.crc.entity.TransactionEntity; // Updated
-import com.edurent.crc.entity.UserEntity; // Updated
+import java.util.List; // Updated
+import java.util.Optional; // Updated
+
+import org.springframework.beans.factory.annotation.Autowired; // Updated
+import org.springframework.stereotype.Service;
+
+import com.edurent.crc.entity.ReviewEntity;
+import com.edurent.crc.entity.TransactionEntity;
+import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.ReviewRepository;
 import com.edurent.crc.repository.TransactionRepository;
 import com.edurent.crc.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ReviewService {
@@ -27,8 +29,8 @@ public class ReviewService {
         return reviewRepository.findByTransactionId(transactionId);
     }
     
-    public List<ReviewEntity> getReviewsForUser(Long reviewedUserId) { // Updated
-        return reviewRepository.findByReviewedUserId(reviewedUserId);
+    public List<ReviewEntity> getReviewsForUser(Long userId) {
+        return reviewRepository.findByReviewedUser_UserId(userId);
     }
 
     public ReviewEntity createReview(ReviewEntity review, Long transactionId, Long reviewerId) { // Updated

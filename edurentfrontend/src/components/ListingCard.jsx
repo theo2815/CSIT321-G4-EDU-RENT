@@ -1,37 +1,57 @@
 // src/components/ListingCard.jsx
 import React from 'react';
-// Import CSS if specific styles moved here
 
-export default function ListingCard({ listing, onClick }) { // <-- Add onClick prop
-  // Function to handle the click and prevent default link behavior if wrapped in Link
+export default function ListingCard({ listing, onClick }) {
   const handleClick = (e) => {
       if (onClick) {
-          e.preventDefault(); // Prevent navigation if wrapped in Link for styling
-          onClick(listing); // Pass the listing data up
+          e.preventDefault();
+          onClick(listing);
       }
-      // If not wrapped in Link or no onClick, it behaves normally
   };
 
-  // Render the card, wrapping it or adding onClick directly
+  // --- Extract data with fallbacks, using backend names ---
+  const categoryName = listing?.category?.name || "Category"; // Optional chaining
+  const listingType = listing?.listingType || "For Sale"; // Backend field name
+  const title = listing?.title || "No title";
+  const description = listing?.description || "No description available.";
+  const price = listing?.price || 0;
+
+  // --- Determine Cover Image ---
+  // Find the image marked as cover, or take the first one, or use placeholder icon
+  const coverImage = listing?.images?.find(img => img.coverPhoto)?.imageUrl || // Find cover image URL
+                     listing?.images?.[0]?.imageUrl || // Fallback to first image URL
+                     null; // No image URL found
+  const displayIcon = listing?.icon || '📦'; // Keep icon as ultimate fallback
+
+  // --- Determine Type Class and Text ---
+  const isRent = listingType.toUpperCase().includes('RENT');
+  const typeClassName = isRent ? 'rent' : 'sale';
+  const typeText = isRent ? 'For Rent' : 'For Sale';
+
   return (
-    // Add onClick directly to the div
-    <div className="listing-card" onClick={handleClick} role="button" tabIndex={0} // Make it keyboard accessible
+    <div className="listing-card" onClick={handleClick} role="button" tabIndex={0}
          onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleClick(e)}>
+
       <div className="listing-image">
-        {/* ... image/icon ... */}
-         {listing.image ? <img src={listing.image} alt={listing.title} /> : <span>{listing.icon || '📦'}</span>}
+        {/* --- Display fetched image or fallback icon --- */}
+        {coverImage ? (
+           // Assuming imageUrl is relative path; adjust prefix if needed (e.g., if storing full URLs)
+          <img src={`http://localhost:8080${coverImage}`} alt={title} onError={(e) => e.target.style.display = 'none'} /> // Basic error handling
+        ) : (
+          <span style={{ fontSize: '3rem', color: 'var(--text-muted)' }}>{displayIcon}</span> // Show icon if no image URL
+        )}
       </div>
+
       <div className="listing-content">
-        {/* ... category, title, description ... */}
-        <div className="listing-category">{listing.category}</div>
-         <h3 className="listing-title">{listing.title}</h3>
-         <p className="listing-description">{listing.description}</p>
+        <div className="listing-category">{categoryName}</div>
+        <h3 className="listing-title">{title}</h3>
+        {/* Shorten description for card if needed */}
+        <p className="listing-description">{description.substring(0, 100)}{description.length > 100 ? '...' : ''}</p>
         <div className="listing-footer">
-          {/* ... price, type ... */}
-          <div className="listing-price">₱{listing.price?.toFixed(2)}</div>
-           <span className={`listing-type ${listing.type}`}>
-             {listing.type === 'rent' ? 'For Rent' : 'For Sale'}
-           </span>
+          <div className="listing-price">₱{price.toFixed(2)}</div>
+          <span className={`listing-type ${typeClassName}`}>
+            {typeText} {/* Use variable for text */}
+          </span>
         </div>
       </div>
     </div>

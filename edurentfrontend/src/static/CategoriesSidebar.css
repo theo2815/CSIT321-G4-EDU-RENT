@@ -1,5 +1,10 @@
 /* src/static/CategoriesSidebar.css */
 
+:root {
+  --primary-color: #007bff;
+  --primary-dark: #0056b3; /* Darker shade for hover */
+}
+
 .categories-sidebar-overlay {
   position: fixed;
   top: 0;
@@ -120,4 +125,69 @@
 .category-list-item a:hover {
   background-color: #e9ecef; /* Slightly darker hover */
   color: var(--primary-color);
+}
+
+/* Base skeleton style with animation */
+.skeleton {
+  background-color: #e2e8f0; /* A light gray */
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0)
+  );
+  background-size: 150px 100%; /* Width of the shine */
+  background-repeat: no-repeat;
+  border-radius: 4px;
+  animation: skeleton-shine 1.5s infinite linear;
+}
+
+/* A text-line shape for the skeleton */
+.skeleton-text {
+  height: 1.25em; /* Approx height of one line of text */
+  margin: 0.25em 0; /* Give it some space */
+}
+
+/* Animation definition */
+@keyframes skeleton-shine {
+  0% {
+    background-position: -150px 0; /* Off-screen left */
+  }
+  100% {
+    background-position: 300px 0; /* Off-screen right, adjust as needed */
+  }
+}
+
+.sidebar-load-more-btn {
+  display: block; /* Makes it take its own line */
+  width: 100%; /* Spans the full width of the padded container */
+  text-align: center; /* Centers the text inside */
+  
+  padding: 0.85rem 1rem;
+  margin-top: 1.5rem; /* Space above the button */
+  
+  font-size: 1rem;
+  font-weight: 600; /* Bolder text */
+  
+  color: #fff; /* White text */
+  background-color: var(--primary-color, #007bff); /* Solid primary color */
+  
+  border: none; /* No border */
+  border-radius: 8px; /* Matches your search input */
+  
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+}
+
+.sidebar-load-more-btn:hover {
+  background-color: var(--primary-dark, #0056b3); /* Darker shade on hover */
+}
+
+.sidebar-load-more-btn:active {
+  transform: scale(0.98); /* Click-down effect */
+}
+
+.sidebar-load-more-btn:focus-visible {
+  outline: 2px solid var(--primary-color, #007bff);
+  outline-offset: 2px;
 }

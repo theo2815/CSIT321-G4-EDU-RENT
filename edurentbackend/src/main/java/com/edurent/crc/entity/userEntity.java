@@ -10,7 +10,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
@@ -62,9 +61,9 @@ public class UserEntity implements UserDetails {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     // --- Relationships ---
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "school_id", nullable = false)
-    @JsonBackReference(value = "school-users")
+    // @JsonBackReference(value = "school-users")
     @JsonIgnore
     private SchoolEntity school;
 

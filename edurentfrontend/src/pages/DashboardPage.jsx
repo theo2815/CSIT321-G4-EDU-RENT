@@ -1,33 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getCurrentUser } from '../services/apiService';
+import { getCurrentUser, getListings, getCategories } from '../services/apiService';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ListingCard from '../components/ListingCard';
 
 // Import the page's content CSS
 import '../static/DashboardPage.css';
 
-// --- IMPORT THE NEW HEADER COMPONENT ---
+// --- IMPORT THE HEADER COMPONENT ---
 import Header from '../components/Header'; 
 
-// --- Category Data with Icons ---
-const CATEGORIES = [
-  { id: 1, name: 'Textbooks', icon: '📚' },
-  { id: 2, name: 'Electronics', icon: '💻' },
-  { id: 3, name: 'Furniture', icon: '🪑' },
-  { id: 4, name: 'Lab Equipment', icon: '🔬' },
-  { id: 5, name: 'Other', icon: '📦' },
-];
-
-// --- Mock Listing Data ---
-const MOCK_LISTINGS = [
-  { id: 1, title: 'Introduction to Computer Science', description: 'Textbook in excellent condition', price: 45, type: 'sale', category: 'Textbooks', image: null, icon: '📚' },
-  { id: 2, title: 'Wireless Bluetooth Headphones', description: 'Barely used, great sound quality', price: 25, type: 'rent', category: 'Electronics', image: null, icon: '🎧' },
-  { id: 3, title: 'Desk Lamp LED', description: 'Perfect for studying', price: 15, type: 'rent', category: 'Furniture', image: null, icon: '💡' },
-  { id: 4, title: 'Organic Chemistry Lab Manual', description: 'Complete with notes', price: 35, type: 'sale', category: 'Textbooks', image: null, icon: '📖' },
-  { id: 5, title: 'USB-C Hub Adapter', description: 'Multi-port, like new', price: 20, type: 'sale', category: 'Electronics', image: null, icon: '🔌' },
-  { id: 6, title: 'Microscope', description: 'Lab equipment for rent', price: 50, type: 'rent', category: 'Lab Equipment', image: null, icon: '🔬' },
-];
+// --- MOCK CATEGORIES REMOVED ---
 
 // --- Loading Skeleton Component ---
 function LoadingSkeleton() {
@@ -59,15 +42,14 @@ function ErrorBoundary({ error, onRetry }) {
   );
 }
 
-// Note: using shared ListingCard component from ../components/ListingCard
-
-// --- Category Card Component ---
+// --- Category Card Component (UPDATED) ---
 function CategoryCardComponent({ category }) {
   return (
-    <Link to={`/category/${category.id}`} style={{ textDecoration: 'none' }}>
+    // Use categoryId from backend
+    <Link to={`/category/${category.categoryId}`} style={{ textDecoration: 'none' }}> 
       <div className="category-card">
         <div style={{ textAlign: 'center' }}>
-          <span className="category-icon">{category.icon}</span>
+          {/* Add fallback icon */}
           <div>{category.name}</div>
         </div>
       </div>
@@ -80,40 +62,66 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [listings, setListings] = useState(MOCK_LISTINGS);
+  const [listings, setListings] = useState([]); // Filtered list for display
+  const [allListings, setAllListings] = useState([]); // Original fetched list
+  const [categories, setCategories] = useState([]); // --- ADDED categories state
   const navigate = useNavigate();
 
   // --- Modal State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
 
-  // --- Fetch User Data ---
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await getCurrentUser();
-        const userData = response.data; 
+  // --- Reusable Data Fetching Function (UPDATED) ---
+  const fetchDashboardData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Fetch user, listings, and categories in parallel
+      const userPromise = getCurrentUser();
+      const listingsPromise = getListings();
+      const categoriesPromise = getCategories(); // <-- ADDED
 
-        if (userData && userData.fullName) {
-            const firstName = userData.fullName.split(' ')[0];
-            setUserName(firstName);
-        } else {
-            console.error("User data fetched but incomplete:", userData);
-            throw new Error("Incomplete user data received.");
-        }
-      } catch (error) {
-        console.error("Failed to fetch user:", error.message);
-        setError("Failed to load user data. Please try again.");
-      } finally {
-        setIsLoading(false);
+      const [userResponse, listingsResponse, categoriesResponse] = await Promise.all([
+        userPromise,
+        listingsPromise,
+        categoriesPromise, // <-- ADDED
+      ]);
+
+      // Process user
+      if (userResponse.data && userResponse.data.fullName) {
+        setUserName(userResponse.data.fullName.split(' ')[0]);
+      } else {
+        setUserName('User'); // Fallback
       }
-    };
-    fetchUser(); 
-  }, []); 
 
-  // --- Event Handlers (Stay in the parent) ---
+      // Process listings
+      console.log("Fetched listings:", listingsResponse.data); // Log to check data
+      setAllListings(listingsResponse.data || []); // Store original list
+      setListings(listingsResponse.data || []); // Set initial display list
+
+      // Process categories
+      console.log("Fetched categories:", categoriesResponse.data);
+      setCategories(categoriesResponse.data || []); // <-- ADDED
+
+    } catch (err) {
+      console.error("Failed to fetch dashboard data:", err);
+      let errorMsg = "Could not load dashboard data. Please try again.";
+      if (err.message === "No authentication token found." || err.response?.status === 403 || err.response?.status === 401) {
+          errorMsg = "Please log in to view the dashboard.";
+          setTimeout(() => navigate('/login'), 1500);
+      }
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [navigate]);
+
+  // --- Fetch Data on Component Mount ---
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]); // Run once when component mounts
+
+  // --- Event Handlers ---
   const handleLogout = () => {
     console.log('Logging out...');
     localStorage.removeItem('eduRentUserData');
@@ -121,27 +129,7 @@ export default function DashboardPage() {
   };
 
   const handleRetry = () => {
-    // ... (retry logic remains the same) ...
-    setError(null);
-    setIsLoading(true);
-    const fetchUser = async () => {
-      try {
-        const response = await getCurrentUser();
-        const userData = response.data; 
-        if (userData && userData.fullName) {
-            const firstName = userData.fullName.split(' ')[0];
-            setUserName(firstName);
-        } else {
-            throw new Error("Incomplete user data received.");
-        }
-      } catch (error) {
-        console.error("Failed to fetch user:", error.message);
-        setError("Failed to load user data. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchUser();
+    fetchDashboardData();
   };
 
   const handleSearch = (e) => {
@@ -149,12 +137,12 @@ export default function DashboardPage() {
     setSearchQuery(query);
     
     if (query.trim() === '') {
-      setListings(MOCK_LISTINGS);
+      setListings(allListings);
     } else {
-      const filtered = MOCK_LISTINGS.filter(listing =>
+      const filtered = allListings.filter(listing => 
         listing.title.toLowerCase().includes(query) ||
         listing.description.toLowerCase().includes(query) ||
-        listing.category.toLowerCase().includes(query)
+        (listing.category && listing.category.name.toLowerCase().includes(query)) // Add category search
       );
       setListings(filtered);
     }
@@ -174,7 +162,6 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="dashboard-page">
-        {/* Pass minimal info to Header during load */}
         <Header 
           userName="" 
           searchQuery="" 
@@ -190,7 +177,6 @@ export default function DashboardPage() {
   return (
     <div className="dashboard-page">
       
-      {/* --- RENDER THE HEADER COMPONENT --- */}
       <Header 
         userName={userName}
         searchQuery={searchQuery}
@@ -198,9 +184,7 @@ export default function DashboardPage() {
         onLogout={handleLogout}
       />
 
-      {/* --- Body Section --- */}
       <main className="dashboard-body">
-        {/* Error Boundary */}
         {error && <ErrorBoundary error={error} onRetry={handleRetry} />}
 
         {/* Hero Card */}
@@ -208,7 +192,7 @@ export default function DashboardPage() {
           <div className="hero-left">
             <h1 className="hero-title">Your Campus Marketplace for Students</h1>
             <p className="hero-subtitle">
-              Edu-Rent makes it easy to rent, buy, and sell items within your university community. Find textbooks, electronics, and more — all at student-friendly prices.
+              Edu-Rent makes it easy to rent, buy, and sell items within your university community. Find textbooks, electronics, and more.
             </p>
             <Link to="/browse" className="hero-button">Browse All Items</Link>
           </div>
@@ -217,14 +201,22 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Explore by Category */}
+        {/* Explore by Category (UPDATED) */}
         <section>
           <h2 className="section-title">Explore by Category</h2>
-          <div className="category-grid">
-            {CATEGORIES.map(category => (
-              <CategoryCardComponent key={category.id} category={category} />
-            ))}
-          </div>
+           {/* --- Use fetched categories --- */}
+           {categories.length > 0 ? (
+              <div className="category-grid">
+                {/* Display first 5 categories */}
+                {categories.slice(0, 5).map(category => (
+                  // Use categoryId for the key
+                  <CategoryCardComponent key={category.categoryId} category={category} />
+                ))}
+              </div>
+            ) : (
+              <p style={{color: 'var(--text-muted)'}}>No categories found.</p>
+            )}
+           {/* ----------------------------- */}
         </section>
 
         {/* Featured Items */}
@@ -233,7 +225,7 @@ export default function DashboardPage() {
           {listings.length > 0 ? (
             <div className="listing-grid">
               {listings.slice(0, 3).map(listing => (
-                <ListingCard key={listing.id} listing={listing} onClick={openModal} />
+                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
               ))}
             </div>
           ) : (
@@ -251,7 +243,7 @@ export default function DashboardPage() {
           {listings.length > 0 ? (
             <div className="listing-grid">
               {listings.map(listing => (
-                <ListingCard key={listing.id} listing={listing} onClick={openModal} />
+                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
               ))}
             </div>
           ) : (
@@ -267,14 +259,14 @@ export default function DashboardPage() {
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
-            Turn your unused items into cash by listing them on Edu-Rent. It's easy, secure, and connects you directly with fellow students.
+            Turn your unused items into cash by listing them on Edu-Rent.
           </p>
           <Link to="/list-item" className="cta-button">Start Selling Today</Link>
         </section>
       </main>
 
       {isModalOpen && selectedListing && (
-         <ProductDetailModal listing={selectedListing} onClose={closeModal} />
+          <ProductDetailModal listing={selectedListing} onClose={closeModal} />
       )}
       
     </div>

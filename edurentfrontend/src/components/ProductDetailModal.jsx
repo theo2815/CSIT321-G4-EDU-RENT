@@ -1,170 +1,152 @@
 // src/components/ProductDetailModal.jsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // To navigate to chat
+import { useNavigate } from 'react-router-dom';
 
 // Import CSS
 import '../static/ProductDetailModal.css';
-// Import shared modal overlay/base styles if they are separate
 import '../static/ProfilePage.css'; // Assuming modal-overlay is here
 
-// --- Mock Seller Data (Replace with data from listing or separate fetch) ---
-const MOCK_SELLER = {
-  id: 101,
-  username: 'Jane D.',
-  avatarUrl: null, // 'https://via.placeholder.com/45',
-  reviewCount: 5,
-  ratingAvg: 4.8,
+// --- Helper to Extract Seller Info ---
+// Extracts basic info directly available from the eagerly loaded user object
+const getSellerInfo = (listingUser) => {
+    // Provide defaults for safety
+    const defaultUser = { userId: null, fullName: 'Seller Unknown', profilePictureUrl: null, school: { name: 'N/A' } };
+    const user = listingUser || defaultUser;
+    return {
+        id: user.userId,
+        // Use full name directly, display first name if needed in JSX
+        username: user.fullName || 'Seller Unknown',
+        avatarUrl: user.profilePictureUrl || null, // Use the actual picture URL
+         // Placeholder - Real data requires separate fetch or backend DTO modification
+        reviewCount: 'N/A',
+        ratingAvg: 'N/A',
+    };
 };
 
+
 export default function ProductDetailModal({ listing, onClose }) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const navigate = useNavigate();
+  const navigate = useNavigate();
 
-  // Handle case where listing data isn't passed correctly
-  if (!listing) return null;
+  if (!listing) return null;
 
-  // --- Mock Images (Replace with listing.images array) ---
-  const images = listing.images || [
-    listing.image, // Use main image if available
-    'https://via.placeholder.com/400x400?text=Image+2',
-    'https://via.placeholder.com/400x400?text=Image+3',
-  ].filter(img => img); // Filter out null/undefined main image
+  // --- IMAGES & INITIAL INDEX (Moved before useState) ---
+  // *** FIX 1: Use listing.images (from your "current" code) ***
+  const images = Array.isArray(listing.images) ? listing.images.map(img => img.imageUrl) : [];
+  
+  // Find cover image explicitly, fallback to first, then placeholder URL
+  // *** FIX 1 (cont.): Use listing.images here too ***
+  const initialImageIndex = Math.max(0, images.findIndex(img => listing.images.find(li => li.imageUrl === img)?.isCoverPhoto));
 
-  const showArrows = images.length > 1;
+  // --- STATE ---
+  // *** FIX 2: Initialize state with the calculated initialImageIndex ***
+  const [currentImageIndex, setCurrentImageIndex] = useState(initialImageIndex);
+  // *** (Removed the bad second useState call) ***
 
-  const handlePrevImage = (e) => {
-    e.stopPropagation(); // Prevent closing modal if clicking arrow over overlay
-    setCurrentImageIndex((prevIndex) =>
-      prevIndex === 0 ? images.length - 1 : prevIndex - 1
-    );
-  };
+  const showArrows = images.length > 1;
+  const currentImageUrl = images[currentImageIndex] || 'https://via.placeholder.com/400x400?text=No+Image';
 
-  const handleNextImage = (e) => {
-     e.stopPropagation();
-    setCurrentImageIndex((prevIndex) =>
-      prevIndex === images.length - 1 ? 0 : prevIndex + 1
-    );
-  };
+  // --- Handlers (no change) ---
+  const handlePrevImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1); };
+  const handleNextImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1); };
+  const handleOverlayClick = (e) => { if (e.target === e.currentTarget) onClose(); };
+  const handleChatClick = () => {
+      const sellerId = listing?.user?.userId;
+      console.log(`Initiating chat for listing ${listing.listingId} with seller ${sellerId}`);
+      navigate('/messages'); // Navigate to general messages for now
+      onClose();
+  };
 
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
+  // --- Format Data ---
+  const priceDisplay = `₱${(listing.price || 0).toFixed(2)}`;
+  const isRent = listing.listingType?.toUpperCase().includes('RENT');
+  const typeText = isRent ? 'Want to rent the item?' : 'Want to buy the item?';
+  const seller = getSellerInfo(listing.user); // Get seller info
 
-  const handleChatClick = () => {
-      console.log(`Initiating chat for listing ${listing.id} with seller ${MOCK_SELLER.id}`);
-      // TODO: Implement logic to find or create a conversation
-      // Navigate to the messages page, potentially passing conversation ID
-      navigate('/messages'); // Simple navigation for now
-      onClose(); // Close modal after clicking chat
-  };
+  return (
+    <div className="modal-overlay visible" onClick={handleOverlayClick} role="dialog" aria-modal="true" aria-labelledby="product-name">
+      <div className="product-modal-content">
 
-  // --- Format Data ---
-  const priceDisplay = `₱${listing.price?.toFixed(2)}`;
-  // Assume seller comes with listing data or is fetched separately
-  const seller = listing.seller || MOCK_SELLER;
+        {/* Image Section */}
+        <section className="product-image-section">
+          <img
+            src={`http://localhost:8080${currentImageUrl}`} // Assuming relative path
+            alt={`${listing.title || 'Listing'} - Image ${currentImageIndex + 1}`}
+            className="product-image-main"
+            onError={(e) => { e.target.onerror = null; e.target.src="https://via.placeholder.com/400x400?text=Image+Error"; }}
+          />
+          {showArrows && (
+            <>
+              <button className="image-nav-arrow left" onClick={handlePrevImage}>&#10094;</button>
+              <button className="image-nav-arrow right" onClick={handleNextImage}>&#10095;</button>
+            </>
+          )}
+        </section>
 
-  return (
-    <div className="modal-overlay visible" onClick={handleOverlayClick} role="dialog" aria-modal="true" aria-labelledby="product-name">
-      <div className="product-modal-content">
+        {/* Details Section */}
+        <section className="product-details-section">
+          <button onClick={onClose} className="product-modal-close-btn" aria-label="Close modal">&times;</button>
 
-        {/* Image Section */}
-        <section className="product-image-section">
-          {images.length > 0 ? (
-            <img
-              src={images[currentImageIndex]}
-              alt={`${listing.title} - Image ${currentImageIndex + 1}`}
-              className="product-image-main"
-            />
-          ) : (
-             <div className="hero-image-placeholder" style={{width: '100%', height: '100%', borderRadius: 0}}>No Image Available</div>
-          )}
+          {/* Product Info */}
+          <div>
+            <h2 id="product-name" className="product-info-name">{listing.title || 'No Title'}</h2>
+            <p className="product-info-price">{priceDisplay}</p>
+            <div className="product-info-block">
+              <span className="product-info-label">Location:</span>
+              <span className="product-info-value">{listing.allowMeetup && listing.meetupLocation ? listing.meetupLocation : 'N/A'}</span>
+            </div>
+            <div className="product-info-block">
+              <span className="product-info-label">School:</span>
+              {/* This HTML structure from "modified" code is correct */}
+              <span className="product-info-value">{listing.user?.school?.name || 'N/A'}</span>
+            </div>
+            <div className="product-info-block">
+              <span className="product-info-label">Condition:</span>
+              <span className="product-info-value">{listing.condition || 'Not specified'}</span>
+            </div>
+             <div className="product-info-block">
+                <span className="product-info-label">Deal Method:</span>
+                <span className="product-info-value">
+                    {listing.allowMeetup ? 'Meet-up' : ''}
+                    {listing.allowMeetup && listing.allowDelivery ? ', ' : ''}
+                    {listing.allowDelivery ? `Delivery (${listing.deliveryOptions || 'Not specified'})` : ''}
+                    {!listing.allowMeetup && !listing.allowDelivery ? 'Not specified' : ''}
+                </span>
+             </div>
+            <div className="product-info-block">
+              <span className="product-info-label">Description:</span>
+              <p className="product-info-value product-info-description">
+                {listing.description || 'No description available.'}
+              </p>
+            </div>
+          </div>
 
-          {/* Navigation Arrows */}
-          {showArrows && (
-            <>
-              <button
-                className="image-nav-arrow left"
-                onClick={handlePrevImage}
-                aria-label="Previous image"
-              >
-                &#10094; {/* Left arrow */}
-              </button>
-              <button
-                className="image-nav-arrow right"
-                onClick={handleNextImage}
-                aria-label="Next image"
-              >
-                &#10095; {/* Right arrow */}
-              </button>
-            </>
-          )}
-        </section>
-
-        {/* Details Section */}
-        <section className="product-details-section">
-          {/* Close button for details section */}
-           <button onClick={onClose} className="product-modal-close-btn" aria-label="Close modal">
-             &times;
-           </button>
-
-          {/* Product Info */}
-          <div>
-            <h2 id="product-name" className="product-info-name">{listing.title}</h2>
-            <p className="product-info-price">{priceDisplay}</p>
-
-            <div className="product-info-block">
-              <span className="product-info-label">Location:</span>
-              <span className="product-info-value">{listing.location || 'Campus Area'}</span> {/* Add location field to mock data */}
-            </div>
-            <div className="product-info-block">
-              <span className="product-info-label">School:</span>
-              <span className="product-info-value">{listing.school || 'Not specified'}</span>
-            </div>
-            <div className="product-info-block">
-              <span className="product-info-label">Condition:</span>
-              <span className="product-info-value">{listing.condition || 'Not specified'}</span> {/* Add condition field */}
-            </div>
-             <div className="product-info-block">
-                <span className="product-info-label">Deal Method:</span>
-                 {/* Add deal method fields */}
-                <span className="product-info-value">{listing.dealMethod || 'Meet-up preferred'}</span>
-             </div>
-            <div className="product-info-block">
-              <span className="product-info-label">Description:</span>
-              <p className="product-info-value product-info-description">
-                {listing.description || 'No description available.'}
-              </p>
-            </div>
-          </div>
-
-          {/* Seller Info */}
-          <div className="seller-info-section">
-            <div className="seller-info-header">
-              <img
-                src={seller.avatarUrl || 'https://via.placeholder.com/45'}
-                alt={`${seller.username}'s avatar`}
-                className="seller-avatar"
-              />
-              <div className="seller-details">
-                <div className="seller-username">{seller.username}</div>
-                {/* Display rating or review count */}
-                <div className="seller-reviews">
-                   {/* Example: ⭐ {seller.ratingAvg} ({seller.reviewCount} Reviews) */}
-                   {seller.reviewCount > 0 ? `${seller.reviewCount} Reviews` : 'No reviews yet'}
-                </div>
-              </div>
-            </div>
-            <div className="action-note">
-              {listing.type === 'rent' ? 'Want to rent the item?' : 'Want to buy the item?'}
-            </div>
-            <button className="btn-chat" onClick={handleChatClick}>
-              Chat with the Seller
-            </button>
-          </div>
-        </section>
-      </div>
-    </div>
-  );
+          {/* Seller Info */}
+          <div className="seller-info-section">
+            <div className="seller-info-header">
+              <img
+                // Use seller.avatarUrl (from listing.user.profilePictureUrl)
+                src={seller.avatarUrl ? `http://localhost:8080${seller.avatarUrl}` : 'https://via.placeholder.com/45'} // Assuming relative path for profile pics too
+                alt={`${seller.username}'s avatar`}
+                className="seller-avatar"
+                 onError={(e) => { e.target.onerror = null; e.target.src="https://via.placeholder.com/45"; }} // Fallback avatar
+              />
+                 <div className="seller-details">
+                 {/* Use seller.username (full name from listing.user) */}
+                <div className="seller-username">{seller.username}</div>
+                <div className="seller-reviews">
+                   Reviews: N/A {/* Placeholder */}
+                </div>
+              </div>
+            </div>
+            <div className="action-note">
+              {typeText}
+            </div>
+            <button className="btn-chat" onClick={handleChatClick}>
+              Chat with the Seller
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
 }

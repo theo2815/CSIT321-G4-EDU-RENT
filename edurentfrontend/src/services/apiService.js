@@ -3,79 +3,176 @@ import axios from 'axios';
 // Backend URL
 const API_URL = 'http://localhost:8080/api/v1';
 
-// Create an Axios instance (useful for setting defaults like headers later)
+// Create an Axios instance
 const apiClient = axios.create({
   baseURL: API_URL,
 });
 
-// --- Auth ---
-export const registerUser = (userData) => {
-  // Assuming your DTO for registration includes schoolId
-  // Adjust if your RegisterRequest DTO is different
-  const registerData = {
-      fullName: userData.fullName,
-      studentIdNumber: userData.studentIdNumber,
-      email: userData.email,
-      phoneNumber: userData.phoneNumber,
-      address: userData.address,
-      password: userData.passwordHash, // Backend expects 'password'
-      schoolId: userData.schoolId // Pass schoolId in the body if needed by DTO
-  };
-  // Or if schoolId is still a query param on backend:
-  // return apiClient.post(`/auth/register?schoolId=${userData.schoolId}`, registerData);
-  return apiClient.post(`/auth/register`, registerData); // Use POST to the new auth endpoint
+// --- Function to get the stored token ---
+const getAuthToken = () => {
+  const storedData = localStorage.getItem('eduRentUserData');
+  if (storedData) {
+    try {
+      return JSON.parse(storedData).token;
+    } catch (e) {
+      console.error("Error parsing stored user data", e);
+      localStorage.removeItem('eduRentUserData'); // Clear corrupted data
+    }
+  }
+  return null;
 };
 
-export const loginUser = (credentials) => {
-  // Calls the backend /auth/login endpoint
-  return apiClient.post(`/auth/login`, credentials); // credentials should be { email: '...', password: '...' }
+// --- Add interceptor to automatically add token to requests ---
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    // This will catch errors *before* the request is sent
+    console.error("Axios request interceptor error:", error);
+    return Promise.reject(error);
+  }
+);
+
+// --- Auth ---
+export const registerUser = async (userData) => {
+  try {
+    const registerData = {
+        fullName: userData.fullName,
+        studentIdNumber: userData.studentIdNumber,
+        email: userData.email,
+        phoneNumber: userData.phoneNumber,
+        address: userData.address,
+        password: userData.passwordHash,
+        schoolId: userData.schoolId
+    };
+    const response = await apiClient.post(`/auth/register`, registerData);
+    return response;
+  } catch (error) {
+    console.error("Error during registerUser API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+export const loginUser = async (credentials) => {
+  try {
+    const response = await apiClient.post(`/auth/login`, credentials);
+    return response;
+  } catch (error) {
+    console.error("Error during loginUser API call:", error.response || error.message);
+    throw error;
+  }
 };
 
 // --- User ---
-export const getCurrentUser = () => {
-  // Get token from localStorage
-  const storedData = localStorage.getItem('eduRentUserData');
-  let token = null;
-  if (storedData) {
-    try {
-       token = JSON.parse(storedData).token;
-    } catch (e) {
-        console.error("Error parsing stored user data", e);
-        // Clear corrupted data
-        localStorage.removeItem('eduRentUserData');
-    }
+export const getCurrentUser = async () => {
+  try {
+    const response = await apiClient.get(`/users/me`);
+    return response;
+  } catch (error) {
+    console.error("Error during getCurrentUser API call:", error.response || error.message);
+    throw error;
   }
-
-  if (!token) {
-    // If no token, reject the promise immediately
-    return Promise.reject(new Error("No authentication token found."));
-  }
-
-  // Make a GET request to the protected /users/me endpoint
-  // Include the token in the Authorization header
-  return apiClient.get(`/users/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
 };
 
+// --- User Specific Data ---
+export const getUserListings = (userId) => {
+  // Calls GET /api/v1/listings/user/{userId}
+  // Token added by interceptor
+  return apiClient.get(`/listings/user/${userId}`);
+};
+
+export const getUserReviews = (userId) => {
+  // Calls GET /api/v1/reviews/user/{userId}
+  // Token added by interceptor
+  return apiClient.get(`/reviews/user/${userId}`);
+};
 
 // --- School ---
-export const getSchools = () => {
-  return apiClient.get(`/schools`); // Use apiClient instance
+export const getSchools = async () => {
+  try {
+    const response = await apiClient.get(`/schools`);
+    return response;
+  } catch (error) {
+    console.error("Error during getSchools API call:", error.response || error.message);
+    throw error;
+  }
 };
 
-
-// --- Other Placeholders (using apiClient) ---
-export const getUsers = () => {
-  return apiClient.get(`/users`);
+// --- Listings ---
+export const getListings = async () => {
+  try {
+    const response = await apiClient.get(`/listings`);
+    return response;
+  } catch (error) {
+    console.error("Error during getListings API call:", error.response || error.message);
+    throw error;
+  }
 };
 
-export const getProducts = () => {
-  return apiClient.get(`/listings`);
+// --- NEW FUNCTION (with try/catch) ---
+export const getListingsByCategoryId = async (categoryId) => {
+  try {
+    // Calls GET /api/v1/listings/category/{categoryId}
+    const response = await apiClient.get(`/listings/category/${categoryId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during getListingsByCategoryId(${categoryId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+// --------------------------------------
+
+// --- Categories ---
+export const getCategories = async () => {
+  try {
+    const response = await apiClient.get(`/categories`);
+    return response;
+  } catch (error) {
+    console.error("Error during getCategories API call:", error.response || error.message);
+    throw error;
+  }
 };
 
-export const getCategories = () => {
-  return apiClient.get(`/categories`);
+// --- ADDED FUNCTION (for CategoryPage.jsx) ---
+export const getCategoryById = async (id) => {
+  try {
+    const response = await apiClient.get(`/categories/${id}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during getCategoryById(${id}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+// ------------------------------------------
+
+// --- Other User functions ---
+export const getUsers = async () => {
+  try {
+    const response = await apiClient.get(`/users`);
+    return response;
+  } catch (error) {
+    console.error("Error during getUsers API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+// --- Add function for creating listings ---
+export const createListing = async (listingData) => {
+    try {
+      // listingData should be a FormData object if including images
+      const response = await apiClient.post(`/listings`, listingData, {
+          headers: {
+              // 'Content-Type': 'multipart/form-data', // Usually not needed
+          }
+      });
+      return response;
+    } catch (error) {
+      console.error("Error during createListing API call:", error.response || error.message);
+      throw error;
+    }
 };

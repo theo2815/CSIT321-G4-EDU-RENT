@@ -1,11 +1,25 @@
 package com.edurent.crc.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.Objects;
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import java.util.Set;
+
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+
 
 @Entity
 @Table(name = "listings")
@@ -56,17 +70,17 @@ public class ListingEntity {
     private LocalDateTime updatedAt;
 
     // --- Relationships ---
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonBackReference(value = "user-listings")
+    // @JsonBackReference(value = "user-listings")
     private UserEntity user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id", nullable = false)
-    @JsonBackReference(value = "category-listings")
+    // @JsonBackReference(value = "category-listings")
     private CategoryEntity category;
 
-    @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true) 
     @JsonManagedReference(value = "listing-images")
     private Set<ListingImageEntity> images;
 
@@ -81,6 +95,8 @@ public class ListingEntity {
     @OneToMany(mappedBy = "listing", fetch = FetchType.LAZY)
     @JsonManagedReference(value = "listing-conversations")
     private Set<ConversationEntity> conversations;
+
+    // TODO: Add other relationships (Transactions, Reviews, Likes) later if needed, likely LAZY + JsonIgnore
 
     // Constructors
     public ListingEntity() {
@@ -268,6 +284,12 @@ public class ListingEntity {
                 ", title='" + title + '\'' +
                 ", price=" + price +
                 '}';
+    }
+
+    // Lifecycle callback to set updatedAt before update
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }
 
