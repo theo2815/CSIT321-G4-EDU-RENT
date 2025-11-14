@@ -75,7 +75,7 @@ export default function ManageListingsPage() {
   const navigate = useNavigate();
 
   // --- Filter/Sort State ---
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('All Categories');
   const [sortOrder, setSortOrder] = useState('recent'); // 'recent' or 'oldest'
   const [filterDate, setFilterDate] = useState('all'); // 'all', 'last7', 'last30'
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,7 +134,7 @@ export default function ManageListingsPage() {
     }
 
     // Filter by Category
-    if (filterCategory !== 'all') {
+    if (filterCategory !== 'All Categories') {
       // Adjust based on your actual listing data structure for category
       result = result.filter(item => item.category?.name === filterCategory); 
     }
@@ -417,15 +417,16 @@ export default function ManageListingsPage() {
                     <th style={{textAlign: 'right'}}>Action</th>
                   </tr>
                 </thead>
-                <tbody>
+<tbody>
                   {filteredListings.map(item => {
-                    // Find the cover image or first image
-                    const coverImage = item.listingImages?.find(img => img.coverPhoto)?.imageUrl || item.listingImages?.[0]?.imageUrl || null;
+                    const coverImage = item.images?.find(img => img.coverPhoto)?.imageUrl || item.images?.[0]?.imageUrl || null;
+                    // Logic for displaying status text
                     const statusText = item.status?.toLowerCase() === 'available' ? 'Active' : 
                                      item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
                                      item.status?.toLowerCase() === 'sold' ? 'Sold' : 
-                                     'Other';
+                                     item.status; // Fallback to the actual status
                     const statusClass = item.status?.toLowerCase() || 'other';
+                    
                     return (
                       <tr key={item.listingId}>
                         <td>
@@ -456,19 +457,19 @@ export default function ManageListingsPage() {
                         </td>
                         <td>{new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}</td>
                         <td>₱{item.price?.toFixed(2)}</td>
-                        <td>{item.likes?.length || 0}</td> {/* Display likes count */}
+                        <td>{item.likes?.length || 'N/A'}</td> 
                         <td>
                           <div className="listing-actions">
                              <button
                                 className="btn btn-small btn-outline"
-                                onClick={() => handleEdit(item.listingId)} // Use listingId
+                                onClick={() => handleEdit(item.listingId)}
                                 aria-label={`Edit listing ${item.title}`}
                              >
                                Edit
                              </button>
                              <button
                                className="btn btn-small btn-delete"
-                               onClick={() => handleDelete(item.listingId)} // Use listingId
+                               onClick={() => handleDelete(item.listingId)}
                                aria-label={`Delete listing ${item.title}`}
                              >
                                Delete

@@ -215,3 +215,36 @@ export const deleteListing = async (listingId) => {
         throw error;
     }
 };
+
+
+
+export const getLikedListings = async () => {
+    try {
+        const response = await apiClient.get('/likes/my-likes');
+        return response;
+    } catch (error) {
+        console.error("Error during getLikedListings API call:", error.response || error.message);
+        throw error;
+    }
+};
+
+export const likeListing = async (listingId) => {
+    try {
+        const response = await apiClient.post(`/likes/${listingId}`);
+        return response;
+    } catch (error) {
+        console.error(`Error during likeListing(${listingId}) API call:`, error.response || error.message);
+        throw error;
+    }
+};
+
+export const unlikeListing = async (listingId) => {
+    try {
+        const response = await apiClient.delete(`/likes/${listingId}`);
+        return response;
+    } catch (error) {
+        console.error(`Error during unlikeListing(${listingId}) API call:`, error.response || error.message);
+        throw error;
+    }
+};
+// --- End NEW Functions ---

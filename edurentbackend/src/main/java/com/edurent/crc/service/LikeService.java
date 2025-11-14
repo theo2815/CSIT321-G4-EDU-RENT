@@ -1,15 +1,20 @@
 package com.edurent.crc.service;
 
-import com.edurent.crc.entity.LikeEntity; // Updated
+import java.util.List; // Updated
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service; // Updated
+import org.springframework.transaction.annotation.Transactional; // Updated
+
+import com.edurent.crc.entity.LikeEntity;
 import com.edurent.crc.entity.LikeIdEntity;
-import com.edurent.crc.entity.ListingEntity; // Updated
-import com.edurent.crc.entity.UserEntity; // Updated
+import com.edurent.crc.entity.ListingEntity;
+import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.LikeRepository;
 import com.edurent.crc.repository.ListingRepository;
 import com.edurent.crc.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import java.util.List;
+
+
 
 @Service
 public class LikeService {
@@ -23,10 +28,16 @@ public class LikeService {
     @Autowired
     private ListingRepository listingRepository;
 
-    public List<LikeEntity> getLikesForUser(Long userId) { // Updated
-        return likeRepository.findById_UserId(userId);
+    // --- UPDATED METHOD ---
+    @Transactional(readOnly = true) // <-- Add Transactional
+    public List<ListingEntity> getLikedListings(Long userId) {
+        // This now calls the new repository method which eagerly fetches
+        // everything we need, preventing the LazyInitializationException.
+        return likeRepository.findLikedListingsByUserId(userId);
     }
+    // --- END UPDATED METHOD ---
 
+    @Transactional
     public LikeEntity likeListing(Long userId, Long listingId) { // Updated
         UserEntity user = userRepository.findById(userId) // Updated
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
@@ -41,11 +52,12 @@ public class LikeService {
         LikeEntity like = new LikeEntity(likeId, user, listing); // Updated
         return likeRepository.save(like);
     }
-
+    @Transactional
     public void unlikeListing(Long userId, Long listingId) {
         LikeIdEntity likeId = new LikeIdEntity(userId, listingId);
         if (!likeRepository.existsById(likeId)) {
-            throw new RuntimeException("Like not found.");
+            System.out.println("Like not found, nothing to delete.");
+            return;
         }
         likeRepository.deleteById(likeId);
     }

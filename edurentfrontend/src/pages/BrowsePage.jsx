@@ -1,16 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Header from '../components/Header'; // Reuse Header
-import ListingCard from '../components/ListingCard'; // Reuse ListingCard
-// Import all three functions
-import { getCurrentUser, getListings, getCategories } from '../services/apiService'; 
+import Header from '../components/Header';
+import ListingCard from '../components/ListingCard';
+// Import all necessary API functions
+import {
+  getCurrentUser,
+  getListings,
+  getCategories,
+  getLikedListings,
+  likeListing,
+  unlikeListing
+} from '../services/apiService';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ProductDetailModal from '../components/ProductDetailModal';
 
 // Import CSS
 import '../static/BrowsePage.css';
-// Import shared styles needed (e.g., listing grid, CTA card)
-import '../static/DashboardPage.css'; // Assuming listing grid and CTA styles are here
+import '../static/DashboardPage.css'; // For shared grid and card styles
 
 const Icons = {
   Search: () => (
@@ -23,69 +29,76 @@ const Icons = {
 export default function BrowsePage() {
   const [userName, setUserName] = useState('');
   const [userData, setUserData] = useState(null); 
-  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
-  const [allListings, setAllListings] = useState([]); // Store original listings
-  const [filteredListings, setFilteredListings] = useState([]); // Listings to display
-  const [categories, setCategories] = useState([]); // <-- ADDED state for categories
+  const [allListings, setAllListings] = useState([]);
+  const [filteredListings, setFilteredListings] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [likingInProgress, setLikingInProgress] = useState(new Set());
   const navigate = useNavigate();
 
-  // --- Fetch User, Listings, and Categories Data ---
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Fetch user, listings, and categories in parallel
-        const userPromise = getCurrentUser();
-        const listingsPromise = getListings();
-        const categoriesPromise = getCategories(); // <-- ADDED
+  // State to track liked item IDs for fast lookups
+  const [likedListingIds, setLikedListingIds] = useState(new Set());
 
-        const [userResponse, listingsResponse, categoriesResponse] = await Promise.all([
-          userPromise,
-          listingsPromise,
-          categoriesPromise // <-- ADDED
-        ]);
+  /**
+   * Fetches all necessary data for the page in parallel.
+   */
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Fetch all data in parallel
+      const userPromise = getCurrentUser();
+      const listingsPromise = getListings();
+      const categoriesPromise = getCategories();
+      const likesPromise = getLikedListings(); // Fetch liked listings
 
-        setUserData(userResponse.data); // Store the entire user object
+      const [userResponse, listingsResponse, categoriesResponse, likesResponse] = await Promise.all([
+        userPromise,
+        listingsPromise,
+        categoriesPromise,
+        likesPromise
+      ]);
 
-        // Process User
-        if (userResponse.data && userResponse.data.fullName) {
-          setUserName(userResponse.data.fullName.split(' ')[0]);
-        } else {
-           setUserName('User'); // Fallback
-        }
-
-        // Process Listings
-        console.log("Fetched listings:", listingsResponse.data);
-        setAllListings(listingsResponse.data || []);
-        setFilteredListings(listingsResponse.data || []);
-
-        // Process Categories
-        console.log("Fetched categories:", categoriesResponse.data);
-        setCategories(categoriesResponse.data || []); // <-- ADDED
-
-      } catch (err) {
-        console.error("Failed to fetch data:", err);
-        let errorMsg = "Could not load data. Please try again.";
-        // Check for auth errors to redirect
-        if (err.message === "No authentication token found." || err.response?.status === 403 || err.response?.status === 401) {
-          errorMsg = "Please log in to view this page.";
-          setTimeout(() => navigate('/login'), 1500);
-        }
-        setError(errorMsg);
-      } finally {
-        setIsLoading(false);
+      setUserData(userResponse.data);
+      if (userResponse.data && userResponse.data.fullName) {
+        setUserName(userResponse.data.fullName.split(' ')[0]);
+      } else {
+        setUserName('User');
       }
-    };
-    fetchData();
+
+      setAllListings(listingsResponse.data || []);
+      setFilteredListings(listingsResponse.data || []);
+      setCategories(categoriesResponse.data || []);
+
+      // Populate the liked IDs set
+      const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
+      setLikedListingIds(likedIds);
+
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+      let errorMsg = "Could not load data. Please try again.";
+      if (err.message === "No authentication token found." || err.response?.status === 403 || err.response?.status === 401) {
+        errorMsg = "Please log in to view this page.";
+        setTimeout(() => navigate('/login'), 1500);
+      }
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
   }, [navigate]);
 
-  // --- Search Handler ---
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  /**
+   * Filters listings based on the search query.
+   */
   const handleSearchChange = (e) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
@@ -93,7 +106,7 @@ export default function BrowsePage() {
     const filtered = allListings.filter(listing => {
       const titleMatch = listing.title.toLowerCase().includes(query);
       const descriptionMatch = listing.description.toLowerCase().includes(query);
-      // Check that category and category.name exist before filtering
+      // Ensure category exists before trying to access its name
       const categoryMatch = listing.category && listing.category.name && 
                             listing.category.name.toLowerCase().includes(query);
       return titleMatch || descriptionMatch || categoryMatch;
@@ -101,45 +114,107 @@ export default function BrowsePage() {
     setFilteredListings(filtered);
   };
 
-   // --- Logout Handler ---
+  /**
+   * Logs the user out and navigates to the login page.
+   */
   const handleLogout = () => {
     localStorage.removeItem('eduRentUserData');
     navigate('/login');
   };
 
-  // --- Modal handlers ---
+  /**
+   * Opens the product detail modal with the selected listing.
+   */
   const openModal = (listing) => {
     setSelectedListing(listing);
     setIsModalOpen(true);
   };
+
+  /**
+   * Closes the product detail modal.
+   */
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedListing(null);
   };
 
-  // Filter listings for display using backend DTO field 'listingType'
-  const saleListings = filteredListings.filter(l => l.listingType.toUpperCase().includes('SALE'));
-  const rentListings = filteredListings.filter(l => l.listingType.toUpperCase().includes('RENT'));
+  /**
+   * Toggles the "like" status of a listing with an optimistic update.
+   */
+  const handleLikeToggle = async (listingId) => {
+    // --- NEW: Prevent spam clicks ---
+    if (likingInProgress.has(listingId)) {
+      console.log("Like action already in progress for item:", listingId);
+      return; // Do nothing
+    }
+    // --------------------------------
 
-  // --- Render Loading/Error ---
+    // 1. Add to loading state
+    setLikingInProgress(prev => new Set(prev).add(listingId));
+
+    // 2. Optimistic update
+    const newLikedIds = new Set(likedListingIds);
+    const isCurrentlyLiked = likedListingIds.has(listingId);
+
+    if (isCurrentlyLiked) {
+      newLikedIds.delete(listingId);
+    } else {
+      newLikedIds.add(listingId);
+    }
+    setLikedListingIds(newLikedIds);
+
+    // 3. API call
+    try {
+      if (isCurrentlyLiked) {
+        await unlikeListing(listingId);
+        console.log(`Unliked item ${listingId}`);
+      } else {
+        await likeListing(listingId);
+        console.log(`Liked item ${listingId}`);
+      }
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+      // Revert state on error
+      setError("Failed to update like. Please refresh.");
+      setLikedListingIds(prevIds => {
+          const revertedIds = new Set(prevIds);
+          if (isCurrentlyLiked) revertedIds.add(listingId);
+          else revertedIds.delete(listingId);
+          return revertedIds;
+      });
+    } finally {
+      // 4. Remove from loading state
+      setLikingInProgress(prev => {
+        const next = new Set(prev);
+        next.delete(listingId);
+        return next;
+      });
+    }
+  };
+
+  // Filter listings for display; use optional chaining for safety
+  const saleListings = filteredListings.filter(l => l.listingType?.toUpperCase().includes('SALE'));
+  const rentListings = filteredListings.filter(l => l.listingType?.toUpperCase().includes('RENT'));
+
   if (isLoading) {
     return (
-        <div className="profile-page"> {/* Reusing class for header consistency */}
+        <div className="profile-page">
             <Header userName="" onLogout={handleLogout} searchQuery="" onSearchChange={()=>{}} />
             <main className="browse-page-container">
                 <div className="browse-search-bar skeleton" style={{ height: '60px', marginBottom: '2rem' }}></div>
                 <section className="browse-section">
                     <div className="skeleton skeleton-listing-text" style={{ height: '2.5rem', width: '200px', marginBottom: '1.5rem' }}></div>
-                    <ListingGridSkeleton count={4} /> {/* Show 4 skeleton cards */}
+                    <ListingGridSkeleton count={4} />
                 </section>
-                 <section className="browse-section">
+                <section className="browse-section">
                     <div className="skeleton skeleton-listing-text" style={{ height: '2.5rem', width: '200px', marginBottom: '1.5rem' }}></div>
-                    <ListingGridSkeleton count={4} /> {/* Show 4 skeleton cards */}
+                    <ListingGridSkeleton count={4} />
                 </section>
             </main>
         </div>
     );
   }
+
   if (error) {
      return (
         <div className="profile-page">
@@ -149,14 +224,13 @@ export default function BrowsePage() {
      );
   }
 
-  // --- Render Browse Page ---
   return (
-    <div className="profile-page"> {/* Reuse class for consistent header */}
+    <div className="profile-page">
       <Header
         userName={userName}
         onLogout={handleLogout}
-        searchQuery={searchQuery} // Pass search query to header
-        onSearchChange={handleSearchChange} // Let header use the main search handler
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
       />
 
       <main className="browse-page-container">
@@ -179,8 +253,18 @@ export default function BrowsePage() {
           {saleListings.length > 0 ? (
             <div className="listing-grid">
               {saleListings.map(listing => (
-                // Use listingId from backend as key
-                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
+                <ListingCard
+                  key={listing.listingId}
+                  listing={listing}
+                  onClick={openModal}
+                  // Pass like and owner status to the card
+                  isLiked={likedListingIds.has(listing.listingId)}
+                  onLikeClick={handleLikeToggle}
+                  isOwner={userData?.userId === listing.user?.userId}
+                  currentUserId={userData?.userId}
+                  isLiking={likingInProgress.has(listing.listingId)}
+
+                />
               ))}
             </div>
           ) : (
@@ -194,16 +278,25 @@ export default function BrowsePage() {
            {rentListings.length > 0 ? (
             <div className="listing-grid">
               {rentListings.map(listing => (
-                // Use listingId from backend as key
-                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
+                <ListingCard
+                  key={listing.listingId}
+                  listing={listing}
+                  onClick={openModal}
+                  // Pass like and owner status to the card
+                  isLiked={likedListingIds.has(listing.listingId)}
+                  onLikeClick={handleLikeToggle}
+                  isOwner={userData?.userId === listing.user?.userId}
+                  currentUserId={userData?.userId}
+                  isLiking={likingInProgress.has(listing.listingId)}
+                />
               ))}
             </div>
           ) : (
-             <p style={{ color: 'var(--text-muted)' }}>No items found for rent {searchQuery ? 'matching your search' : ''}.</p>
+            <p style={{ color: 'var(--text-muted)' }}>No items found for rent {searchQuery ? 'matching your search' : ''}.</p>
           )}
         </section>
 
-        {/* Call to Action Card (Reused from Dashboard) */}
+        {/* Call to Action Card */}
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
@@ -212,12 +305,17 @@ export default function BrowsePage() {
           <Link to="/list-item" className="cta-button">Start Selling Today</Link>
         </section>
       </main>
+
+      {/* Pass like status and handler to the modal as well */}
       {isModalOpen && selectedListing && (
-        <ProductDetailModal 
-            listing={selectedListing} 
-            onClose={closeModal} 
-            currentUserId={userData?.userId} 
-          />
+        <ProductDetailModal
+          listing={selectedListing}
+          onClose={closeModal}
+          currentUserId={userData?.userId}
+          isLiked={likedListingIds.has(selectedListing.listingId)}
+          onLikeClick={handleLikeToggle}
+          isLiking={likingInProgress.has(selectedListing.listingId)}
+        />
       )}
     </div>
   );

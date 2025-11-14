@@ -16,6 +16,7 @@ import MessagesPage from './pages/MessagesPage.jsx';
 import ListItemPage from './pages/ListItemPage.jsx';
 import ManageListingsPage from './pages/ManageListingsPage.jsx';
 import CategoryPage from './pages/CategoryPage.jsx';
+import EditListingPage from './pages/EditListingPage.jsx';
 
 function App() {
   return (
@@ -48,6 +49,8 @@ function App() {
       <Route path="/list-item" element={<ListItemPage />} />
       <Route path="/manage-listings" element={<ManageListingsPage />} />
       <Route path="/category/:categoryId" element={<CategoryPage />} />
+      <Route path="/edit-listing/:listingId" element={<EditListingPage />} />
+      
       
 
       {/* Default redirect */}

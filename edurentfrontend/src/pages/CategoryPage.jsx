@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ProductDetailModal from '../components/ProductDetailModal';
-// --- Updated Imports (using getCategories) ---
+// Import all necessary API functions, including for "likes"
 import { 
   getCurrentUser, 
-  getCategories, // <-- Changed from getCategoryById
-  getListingsByCategoryId 
+  getCategories,
+  getListingsByCategoryId,
+  getLikedListings,
+  likeListing,
+  unlikeListing
 } from '../services/apiService';
 
 // Import CSS
@@ -24,116 +27,192 @@ const Icons = {
   ),
 };
 
-// --- MOCK DATA REMOVED ---
-
 export default function CategoryPage() {
-  const { categoryId } = useParams(); // Get category ID from URL
+  const { categoryId } = useParams();
   const [userName, setUserName] = useState('');
-  const [categoryInfo, setCategoryInfo] = useState(null); // Info about the current category
-  const [categoryListings, setCategoryListings] = useState([]); // Original listings for this category
-  const [filteredListings, setFilteredListings] = useState([]); // Filtered list to display
+  const [userData, setUserData] = useState(null);
+  const [categoryInfo, setCategoryInfo] = useState(null);
+  const [categoryListings, setCategoryListings] = useState([]);
+  const [filteredListings, setFilteredListings] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const [likingInProgress, setLikingInProgress] = useState(new Set());
+  
 
-  // --- Modal State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
 
-  // --- Fetch User, Category Info, and Listings (using 'modified' logic) ---
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      const catIdNumber = parseInt(categoryId, 10);
+  // State to track liked item IDs for fast lookups
+  const [likedListingIds, setLikedListingIds] = useState(new Set());
 
-      if (isNaN(catIdNumber)) {
-          setError("Invalid category specified.");
-          setIsLoading(false);
-          return;
-      }
+  /**
+   * Fetches user data, category info, category listings, and liked listings in parallel.
+   */
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    const catIdNumber = parseInt(categoryId, 10);
 
-      try {
-        const userPromise = getCurrentUser();
-        // Fetch ALL categories to find the name
-        const categoriesPromise = getCategories(); // <-- Use getCategories()
-        // Fetch listings specific to THIS category
-        const listingsPromise = getListingsByCategoryId(catIdNumber);
-
-        const [userResponse, categoriesResponse, listingsResponse] = await Promise.all([
-          userPromise,
-          categoriesPromise,
-          listingsPromise,
-        ]);
-
-        // Process user
-        if (userResponse.data && userResponse.data.fullName) {
-          setUserName(userResponse.data.fullName.split(' ')[0]);
-        } else {
-            setUserName('User');
-        }
-
-        // Process category info (find name from all categories)
-        const allCategories = categoriesResponse.data || [];
-        const currentCategory = allCategories.find(cat => cat.categoryId === catIdNumber); // <-- Use .find()
-        if (!currentCategory) {
-            throw new Error(`Category with ID ${catIdNumber} not found.`);
-        }
-        setCategoryInfo(currentCategory); // Contains { categoryId, name, ... }
-
-        // Process listings
-        setCategoryListings(listingsResponse.data || []);
-        setFilteredListings(listingsResponse.data || []);
-
-      } catch (err) {
-        console.error("Failed to fetch category data:", err);
-        let errorMsg = err.message || "Could not load category data. Please try again.";
-        if (err.response?.status === 404) {
-          errorMsg = `Category with ID ${catIdNumber} not found.`;
-        }
-        if (err.message === "No authentication token found." || err.response?.status === 401 || err.response?.status === 403) {
-            errorMsg = "Please log in to view this page.";
-            setTimeout(() => navigate('/login'), 1500);
-        }
-        setError(errorMsg);
-      } finally {
+    if (isNaN(catIdNumber)) {
+        setError("Invalid category specified.");
         setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [categoryId, navigate]); // Re-run if categoryId changes
+        return;
+    }
 
-  // --- Search Handler (Filters the categoryListings state) ---
+    try {
+      // Set up all data requests in parallel
+      const userPromise = getCurrentUser();
+      const categoriesPromise = getCategories();
+      const listingsPromise = getListingsByCategoryId(catIdNumber);
+      const likesPromise = getLikedListings(); // Added like request
+
+      // Await all promises
+      // <--- THIS IS THE FIX: Changed 'likesResponse' to 'likesPromise' in the array
+      const [userResponse, categoriesResponse, listingsResponse, likesResponse] = await Promise.all([
+        userPromise,
+        categoriesPromise,
+        listingsPromise,
+        likesPromise // <-- Was 'likesResponse', which caused the error
+      ]);
+
+      // Process user
+      setUserData(userResponse.data);
+      if (userResponse.data && userResponse.data.fullName) {
+        setUserName(userResponse.data.fullName.split(' ')[0]);
+      } else {
+          setUserName('User');
+      }
+
+      // Process category info (find name from all categories)
+      const allCategories = categoriesResponse.data || [];
+      const currentCategory = allCategories.find(cat => cat.categoryId === catIdNumber);
+      if (!currentCategory) {
+          throw new Error(`Category with ID ${catIdNumber} not found.`);
+      }
+      setCategoryInfo(currentCategory);
+
+      // Process listings
+      setCategoryListings(listingsResponse.data || []);
+      setFilteredListings(listingsResponse.data || []);
+
+      // Process Liked Listings
+      const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
+      setLikedListingIds(likedIds);
+
+    } catch (err) {
+      console.error("Failed to fetch category data:", err);
+      let errorMsg = err.message || "Could not load category data. Please try again.";
+      if (err.response?.status === 404) {
+        errorMsg = `Category with ID ${catIdNumber} not found.`;
+      }
+      if (err.message === "No authentication token found." || err.response?.status === 401 || err.response?.status === 403) {
+          errorMsg = "Please log in to view this page.";
+          setTimeout(() => navigate('/login'), 1500);
+      }
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [categoryId, navigate]);
+
+  // Fetch data on component mount or when fetchData changes
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  /**
+   * Filters the 'categoryListings' based on the search query.
+   */
   const handleSearchChange = (e) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
 
-    const filtered = categoryListings.filter(listing => // Filter from categoryListings
+    const filtered = categoryListings.filter(listing =>
       listing.title.toLowerCase().includes(query) ||
       listing.description.toLowerCase().includes(query)
     );
     setFilteredListings(filtered);
   };
 
-   // --- Logout Handler ---
+  /**
+   * Logs the user out and navigates to the login page.
+   */
   const handleLogout = () => {
     localStorage.removeItem('eduRentUserData');
     navigate('/login');
   };
 
-  // --- Modal State & Handlers ---
+  /**
+   * Opens the product detail modal with the selected listing.
+   */
   const openModal = (listing) => { setSelectedListing(listing); setIsModalOpen(true); };
-  const closeModal = () => { setIsModalOpen(false); setSelectedListing(null); };
-  // ------------------------------
 
-  // --- Render Loading/Error ---
+  /**
+   * Closes the product detail modal.
+   */
+  const closeModal = () => { setIsModalOpen(false); setSelectedListing(null); };
+
+  /**
+   * Toggles the "like" status of a listing with an optimistic update.
+   */
+  const handleLikeToggle = async (listingId) => {
+      // --- NEW: Prevent spam clicks ---
+      if (likingInProgress.has(listingId)) {
+        console.log("Like action already in progress for item:", listingId);
+        return; // Do nothing
+      }
+      // --------------------------------
+  
+      // 1. Add to loading state
+      setLikingInProgress(prev => new Set(prev).add(listingId));
+  
+      // 2. Optimistic update
+      const newLikedIds = new Set(likedListingIds);
+      const isCurrentlyLiked = likedListingIds.has(listingId);
+  
+      if (isCurrentlyLiked) {
+        newLikedIds.delete(listingId);
+      } else {
+        newLikedIds.add(listingId);
+      }
+      setLikedListingIds(newLikedIds);
+  
+      // 3. API call
+      try {
+        if (isCurrentlyLiked) {
+          await unlikeListing(listingId);
+          console.log(`Unliked item ${listingId}`);
+        } else {
+          await likeListing(listingId);
+          console.log(`Liked item ${listingId}`);
+        }
+      } catch (err) {
+        console.error("Failed to toggle like:", err);
+        // Revert state on error
+        setError("Failed to update like. Please refresh.");
+        setLikedListingIds(prevIds => {
+            const revertedIds = new Set(prevIds);
+            if (isCurrentlyLiked) revertedIds.add(listingId);
+            else revertedIds.delete(listingId);
+            return revertedIds;
+        });
+      } finally {
+        // 4. Remove from loading state
+        setLikingInProgress(prev => {
+          const next = new Set(prev);
+          next.delete(listingId);
+          return next;
+        });
+      }
+    };
+
   if (isLoading) {
     return (
         <div className="profile-page">
             <Header userName="" onLogout={handleLogout} />
             <main className="category-page-container">
-                {/* Skeleton for Header and Grid */}
                 <div className="category-page-header skeleton" style={{ height: '2.5rem', width: '200px', marginBottom: '1.5rem' }}></div>
                 <div className="browse-search-bar skeleton" style={{ height: '60px', marginBottom: '2rem' }}></div>
                 <ListingGridSkeleton count={6} />
@@ -141,6 +220,7 @@ export default function CategoryPage() {
         </div>
     );
   }
+
   if (error) {
      return (
         <div className="profile-page">
@@ -155,9 +235,8 @@ export default function CategoryPage() {
      );
   }
 
-  // --- Render Category Page ---
   return (
-    <div className="profile-page"> {/* Reuse for header consistency */}
+    <div className="profile-page">
       <Header
         userName={userName}
         onLogout={handleLogout}
@@ -166,13 +245,11 @@ export default function CategoryPage() {
       />
 
       <main className="category-page-container">
-        {/* Page Header */}
         <div className="category-page-header">
             <h1 className="category-page-title">
-                {/* Use backend data, fallback to '📦' */}
-                {categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>{categoryInfo.icon}</span>}
-                {!categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>📦</span>} 
-                {categoryInfo?.name || 'Category'}
+              {categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>{categoryInfo.icon}</span>}
+              {!categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>📦</span>} 
+              {categoryInfo?.name || 'Category'}
             </h1>
         </div>
 
@@ -189,21 +266,25 @@ export default function CategoryPage() {
            />
         </div>
 
-        {/* Listings Grid */}
         <section>
           {filteredListings.length > 0 ? (
-            <div className="listing-grid"> {/* Reuse listing grid */}
+            <div className="listing-grid">
               {filteredListings.map(listing => (
                 <ListingCard
-                    // --- Updated Key ---
-                    key={listing.listingId} 
-                    listing={listing}
-                    onClick={openModal} // Open modal on click
+                  key={listing.listingId} 
+                  listing={listing}
+                  onClick={openModal}
+                  // Pass like and owner status to the card
+                  isLiked={likedListingIds.has(listing.listingId)}
+                  onLikeClick={handleLikeToggle}
+                  isOwner={userData?.userId === listing.user?.userId}
+                  currentUserId={userData?.userId}
+                  isLiking={likingInProgress.has(listing.listingId)}
                 />
               ))}
             </div>
           ) : (
-            <div className="empty-state"> {/* Reuse empty state */}
+            <div className="empty-state">
                 <div className="empty-state-icon">{categoryInfo?.icon || '📂'}</div>
                 <div className="empty-state-title">No Listings Found</div>
                 <p>
@@ -216,11 +297,19 @@ export default function CategoryPage() {
         </section>
       </main>
 
-       {/* --- Render Modal Conditionally --- */}
+      
+
+       {/* Pass like status and handler to the modal */}
        {isModalOpen && selectedListing && (
-         <ProductDetailModal listing={selectedListing} onClose={closeModal} />
+         <ProductDetailModal 
+            listing={selectedListing} 
+            onClose={closeModal} 
+            currentUserId={userData?.userId}
+            isLiked={likedListingIds.has(selectedListing.listingId)}
+            onLikeClick={handleLikeToggle}
+            isLiking={likingInProgress.has(selectedListing.listingId)}
+         />
        )}
-       {/* ---------------------------------- */}
     </div>
   );
 }

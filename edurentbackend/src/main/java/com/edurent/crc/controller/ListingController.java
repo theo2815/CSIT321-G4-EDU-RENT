@@ -6,12 +6,14 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -35,9 +37,10 @@ public class ListingController {
         return listingService.getAllListings();
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ListingEntity> getListingById(@PathVariable Long id) { // Updated
-        return listingService.getListingById(id)
+    // <--- MODIFIED: Standardized to /{listingId} for consistency --->
+    @GetMapping("/{listingId}") 
+    public ResponseEntity<ListingEntity> getListingById(@PathVariable Long listingId) { // <--- MODIFIED: Renamed 'id' to 'listingId'
+        return listingService.getListingById(listingId) // <--- MODIFIED: Renamed 'id' to 'listingId'
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -117,10 +120,83 @@ public class ListingController {
     }
     // --- End UPDATED createListing ---
 
+    // <--- NEW: Endpoint to UPDATE a listing --->
+    @PutMapping(value = "/{listingId}", consumes = {"multipart/form-data"})
+    public ResponseEntity<ListingEntity> updateListing(
+            @PathVariable Long listingId,
+            Authentication authentication,
+            @RequestParam("categoryId") Long categoryId,
+            @RequestParam("title") String title,
+            @RequestParam("condition") String condition,
+            @RequestParam("description") String description,
+            @RequestParam("listingType") String listingType,
+            @RequestParam("price") Double price,
+            @RequestParam("allowMeetup") Boolean allowMeetup,
+            @RequestParam(value = "meetupLocation", required = false) String meetupLocation,
+            @RequestParam("allowDelivery") Boolean allowDelivery,
+            @RequestParam(value = "deliveryOptions", required = false) String deliveryOptions,
+            
+            // --- NEW PARAMETER ---
+            @RequestParam(value = "imagesToDelete", required = false) List<Long> imagesToDelete, 
+            
+            // Renamed for clarity
+            @RequestPart(value = "images", required = false) List<MultipartFile> newImages
+    ) {
+        try {
+            UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+
+            ListingEntity listingUpdateData = new ListingEntity();
+            listingUpdateData.setTitle(title);
+            listingUpdateData.setCondition(condition);
+            listingUpdateData.setDescription(description);
+            listingUpdateData.setListingType(listingType);
+            listingUpdateData.setPrice(price);
+            listingUpdateData.setAllowMeetup(allowMeetup);
+            listingUpdateData.setMeetupLocation(meetupLocation);
+            listingUpdateData.setAllowDelivery(allowDelivery);
+            listingUpdateData.setDeliveryOptions(deliveryOptions);
+
+            // Call the updated service method
+            ListingEntity updatedListing = listingService.updateListing(
+                listingId,
+                currentUser.getUserId(),
+                categoryId,
+                listingUpdateData,
+                imagesToDelete, // <-- Pass the new list
+                newImages       // <-- Pass the new files
+            );
+            return ResponseEntity.ok(updatedListing);
+
+        } catch (RuntimeException | IOException e) {
+            System.err.println("Error updating listing: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+    // --- End UPDATED Endpoint ---
+    
+
+    // <--- MODIFIED: Updated error handling --->
     @DeleteMapping("/{listingId}")
-        public ResponseEntity<Void> deleteListing(@PathVariable Long listingId) {
-        listingService.deleteListing(listingId);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> deleteListing(
+            @PathVariable Long listingId, 
+            Authentication authentication
+    ) {
+        try {
+            UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+
+            listingService.deleteListing(listingId, currentUser.getUserId()); 
+
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            System.err.println("Error deleting listing: " + e.getMessage());
+             // Check for specific security exception
+             if (e instanceof AccessDeniedException) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            // Fallback for other errors (e.g., Not Found)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 }
 

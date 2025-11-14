@@ -1,12 +1,22 @@
 // src/components/ListingCard.jsx
 import React from 'react';
 
-export default function ListingCard({ listing, onClick }) {
+// --- UPDATED: Accept new props 'isLiked' and 'onLikeClick' ---
+export default function ListingCard({ listing, onClick, isLiked, onLikeClick, currentUserId, isLiking }) {  
+  // This handler is for opening the modal (clicking the whole card)
   const handleClick = (e) => {
-      if (onClick) {
-          e.preventDefault();
-          onClick(listing);
-      }
+    if (onClick) {
+      e.preventDefault();
+      onClick(listing); // Pass the listing data up
+    }
+  };
+
+  // --- NEW: Handler for the like button ---
+  const handleLikeClick = (e) => {
+    e.stopPropagation(); // PREVENT the modal from opening
+    if (onLikeClick) {
+      onLikeClick(listing.listingId); // Pass the listing's ID up
+    }
   };
 
   // --- Extract data with fallbacks, using backend names ---
@@ -27,12 +37,30 @@ export default function ListingCard({ listing, onClick }) {
   const isRent = listingType.toUpperCase().includes('RENT');
   const typeClassName = isRent ? 'rent' : 'sale';
   const typeText = isRent ? 'For Rent' : 'For Sale';
+  const isOwner = currentUserId === listing?.user?.userId;
+
 
   return (
     <div className="listing-card" onClick={handleClick} role="button" tabIndex={0}
          onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleClick(e)}>
 
+
+
       <div className="listing-image">
+        {/* --- NEW LIKE BUTTON --- */}
+        {!isOwner && (
+          <button
+            className={`like-button ${isLiked ? 'liked' : ''}`}
+            onClick={handleLikeClick}
+            disabled={isLiking}
+            aria-label={isLiked ? 'Unlike item' : 'Like item'}
+            title={isLiked ? 'Unlike' : 'Like'}
+          >
+            {isLiking ? '...' : (isLiked ? '❤️' : '🤍')}
+          </button>
+        )}
+        {/* --- END LIKE BUTTON --- */}
+
         {/* --- Display fetched image or fallback icon --- */}
         {coverImage ? (
            // Assuming imageUrl is relative path; adjust prefix if needed (e.g., if storing full URLs)

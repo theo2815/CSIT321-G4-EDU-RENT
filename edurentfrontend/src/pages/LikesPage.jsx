@@ -1,140 +1,200 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Header from '../components/Header'; // Reuse Header
-import ListingCard from '../components/ListingCard'; // Reuse ListingCard
-import ListingGridSkeleton from '../components/ListingGridSkeleton'; // Reuse Skeleton
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import Header from '../components/Header';
+import ListingCard from '../components/ListingCard';
+import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ProductDetailModal from '../components/ProductDetailModal';
-import { getCurrentUser } from '../services/apiService'; // To get user info
-// TODO: Import function to get liked items, e.g., getLikedListings
+// Import all necessary API functions for this page
+import {
+  getCurrentUser,
+  getLikedListings,
+  likeListing,
+  unlikeListing
+} from '../services/apiService';
 
 // Import CSS
 import '../static/LikesPage.css';
-// Import shared styles needed (e.g., listing grid, empty state)
-import '../static/DashboardPage.css'; // Assuming listing grid and empty state styles are here
-
-// --- Mock Data (Replace with API fetch later) ---
-// Simulate fetching listings based on IDs the user might have liked
-const MOCK_ALL_LISTINGS = [
- { id: 1, title: 'Intro to CS Textbook', description: 'Excellent condition', price: 45, type: 'sale', category: 'Textbooks', image: null, icon: '📚' },
- { id: 2, title: 'Bluetooth Headphones', description: 'Barely used', price: 25, type: 'rent', category: 'Electronics', image: null, icon: '🎧' },
- { id: 3, title: 'Desk Lamp LED', description: 'Perfect for studying', price: 15, type: 'rent', category: 'Furniture', image: null, icon: '💡' },
- // Add more mock listings if needed
-];
-// Simulate user's liked item IDs
-const MOCK_LIKED_IDS = [2, 3];
-const MOCK_LIKED_LISTINGS = MOCK_ALL_LISTINGS.filter(item => MOCK_LIKED_IDS.includes(item.id));
-
+import '../static/DashboardPage.css'; // For shared grid and empty state styles
 
 export default function LikesPage() {
   const [userName, setUserName] = useState('');
-  // Modal state
+  const [userData, setUserData] = useState(null); // Store full user object
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
-  const [likedListings, setLikedListings] = useState([]); // Store liked items
+  const [likedListings, setLikedListings] = useState([]); // Store full liked listing objects
+  
+  // State to track liked item IDs for fast lookups
+  const [likedListingIds, setLikedListingIds] = useState(new Set());
+  
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // --- Fetch User and Liked Listings Data ---
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Fetch user data (for header)
-        const userResponse = await getCurrentUser();
-        if (userResponse.data && userResponse.data.fullName) {
-          setUserName(userResponse.data.fullName.split(' ')[0]);
-        } else {
-            // Handle case where user data is incomplete but token might be valid
-            console.warn("User data incomplete, showing default name.");
-            setUserName('User'); // Fallback name
-        }
+  /**
+   * Fetches the current user and their full list of liked items.
+   */
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Fetch user and liked listings in parallel
+      const userPromise = getCurrentUser();
+      const likesPromise = getLikedListings(); // Use API
 
-        // TODO: Fetch actual liked listings from API for the current user
-        // const likedResponse = await getLikedListings(); // Needs implementation
-        // setLikedListings(likedResponse.data);
+      const [userResponse, likesResponse] = await Promise.all([
+        userPromise,
+        likesPromise
+      ]);
 
-        // Using Mock Data for now
-        // Simulate a small delay for loading state
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setLikedListings(MOCK_LIKED_LISTINGS);
-
-      } catch (err) {
-        console.error("Failed to fetch data:", err);
-        setError("Could not load your liked items. Please try again.");
-        // Redirect to login if not authenticated
-        if (err.message === "No authentication token found.") {
-           navigate('/login');
-        }
-      } finally {
-        setIsLoading(false);
+      // Process user
+      setUserData(userResponse.data);
+      if (userResponse.data && userResponse.data.fullName) {
+        setUserName(userResponse.data.fullName.split(' ')[0]);
+      } else {
+        setUserName('User');
       }
-    };
-    fetchData();
+
+      // Process liked listings
+      const likedItems = likesResponse.data || [];
+      setLikedListings(likedItems); // Set the full listing objects
+
+      // Populate the set of liked IDs
+      const likedIds = new Set(likedItems.map(listing => listing.listingId));
+      setLikedListingIds(likedIds);
+
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+      setError("Could not load your liked items. Please try again.");
+      if (err.message === "No authentication token found." || err.response?.status === 401 || err.response?.status === 403) {
+         navigate('/login');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }, [navigate]);
 
-   // --- Logout Handler ---
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  /**
+   * Logs the user out and navigates to the login page.
+   */
   const handleLogout = () => {
     localStorage.removeItem('eduRentUserData');
     navigate('/login');
   };
 
-  // --- Modal handlers ---
+  /**
+   * Opens the product detail modal with the selected listing.
+   */
   const openModal = (listing) => {
     setSelectedListing(listing);
     setIsModalOpen(true);
   };
+
+  /**
+   * Closes the product detail modal.
+   */
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedListing(null);
   };
 
-  // --- Render Loading/Error/Content ---
+  /**
+   * Toggles the "like" status. On this page, this function only
+   * handles "unliking" and removes the item from the view optimistically.
+   */
+  const handleLikeToggle = async (listingId) => {
+    // Optimistic Update: Remove from UI immediately
+    setLikedListings(prevListings => 
+      prevListings.filter(listing => listing.listingId !== listingId)
+    );
+    setLikedListingIds(prevIds => {
+      const newIds = new Set(prevIds);
+      newIds.delete(listingId);
+      return newIds;
+    });
+
+    // API Call
+    try {
+      // Only call unlike, as items here are always liked to begin with
+      await unlikeListing(listingId); 
+      console.log(`Unliked item ${listingId}`);
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+      setError("Failed to update like. Please refresh.");
+      // Revert state on error by re-fetching all data
+      fetchData(); 
+    }
+  };
+
+  /**
+   * Renders the main content of the page based on loading, error, or data state.
+   */
   const renderContent = () => {
     if (isLoading) {
-      return <ListingGridSkeleton count={4} />; // Show skeleton while loading
+      return <ListingGridSkeleton count={4} />;
     }
     if (error) {
       return <p style={{ color: 'red', textAlign: 'center' }}>Error: {error}</p>;
     }
     if (likedListings.length === 0) {
       return (
-        <div className="empty-state"> {/* Reuse empty state style */}
+        <div className="empty-state">
           <div className="empty-state-icon">❤️</div>
-          <div className="empty-state-title">No Liked Items Yet</div>
-          <p>Browse items and click the heart icon to save them here!</p>
+          <div className="empty-state-title">No Favorites Yet</div>
+          <p>Find something you like and tap the heart to save it.</p>
+          <Link to="/browse" className="cta-button" style={{marginTop: '1rem'}}>
+            Browse all items
+          </Link>
         </div>
       );
     }
     return (
-      <div className="listing-grid"> {/* Reuse listing grid */}
+      <div className="listing-grid">
         {likedListings.map(listing => (
-          <ListingCard key={listing.id} listing={listing} onClick={openModal} />
+          <ListingCard
+            key={listing.listingId}
+            listing={listing}
+            onClick={openModal}
+            // isLiked is always true for items on this page
+            isLiked={true} 
+            // onLikeClick will *unlike* and remove the item from this view
+            onLikeClick={handleLikeToggle}
+            // Pass ownership status to the card
+            isOwner={userData?.userId === listing.user?.userId}
+          />
         ))}
       </div>
     );
   };
 
-  // --- Render Likes Page ---
   return (
-    <div className="profile-page"> {/* Reuse class for consistent header */}
+    <div className="profile-page">
       <Header
         userName={userName}
         onLogout={handleLogout}
-        // Pass empty search handlers if header includes search but it's not used here
         searchQuery=""
-        onSearchChange={() => {}}
+        onSearchChange={() => {}} // No search bar functionality on this page
       />
 
       <main className="likes-page-container">
         <h1 className="likes-page-title">❤️ Likes</h1>
-
         {renderContent()}
-
       </main>
+
+      {/* Pass full like-functionality props to the modal */}
       {isModalOpen && selectedListing && (
-        <ProductDetailModal listing={selectedListing} onClose={closeModal} />
+        <ProductDetailModal
+          listing={selectedListing}
+          onClose={closeModal}
+          currentUserId={userData?.userId}
+          // The modal needs the *dynamic* like status
+          isLiked={likedListingIds.has(selectedListing.listingId)} 
+          onLikeClick={handleLikeToggle}
+        />
       )}
     </div>
   );

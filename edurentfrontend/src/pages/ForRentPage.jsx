@@ -1,15 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Header from '../components/Header'; // Reuse Header
-import ListingCard from '../components/ListingCard'; // Reuse ListingCard
-// Import getCategories
-import { getCurrentUser, getListings, getCategories } from '../services/apiService'; 
+import Header from '../components/Header';
+import ListingCard from '../components/ListingCard';
+// Import all necessary API functions, including for "likes"
+import {
+  getCurrentUser,
+  getListings,
+  getCategories,
+  getLikedListings,
+  likeListing,
+  unlikeListing
+} from '../services/apiService'; 
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ProductDetailModal from '../components/ProductDetailModal';
 
-// Import CSS (We can reuse styles from Browse and Dashboard)
-import '../static/BrowsePage.css'; // For layout and search bar
-import '../static/DashboardPage.css'; // For listing grid and CTA card
+// Import CSS
+import '../static/BrowsePage.css';
+import '../static/DashboardPage.css';
 
 const Icons = {
   Search: () => (
@@ -22,107 +29,179 @@ const Icons = {
 export default function ForRentPage() {
   const [userName, setUserName] = useState('');
   const [userData, setUserData] = useState(null);
-  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
-  const [allRentListings, setAllRentListings] = useState([]); // Store original rent listings
-  const [filteredRentListings, setFilteredRentListings] = useState([]); // Rent listings to display
-  // const [categories, setCategories] = useState([]); // <-- Added state (optional if not used)
+  const [allRentListings, setAllRentListings] = useState([]); // Master list of rent items
+  const [filteredRentListings, setFilteredRentListings] = useState([]); // List to display
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [likingInProgress, setLikingInProgress] = useState(new Set());
+  
   const navigate = useNavigate();
 
-  // --- Fetch User and Listings Data ---
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Fetch user, listings, and categories in parallel
-        const userPromise = getCurrentUser();
-        const listingsPromise = getListings(); 
-        const categoriesPromise = getCategories(); // <-- ADDED
+  // State to track liked item IDs for fast lookups
+  const [likedListingIds, setLikedListingIds] = useState(new Set());
 
-        const [userResponse, listingsResponse, categoriesResponse] = await Promise.all([
-          userPromise,
-          listingsPromise,
-          categoriesPromise // <-- ADDED
-        ]);
+  /**
+   * Fetches user data, all listings, and liked listings in parallel.
+   * Filters all listings to only include items for rent.
+   */
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Set up all data requests in parallel
+      const userPromise = getCurrentUser();
+      const listingsPromise = getListings(); 
+      const categoriesPromise = getCategories();
+      const likesPromise = getLikedListings(); // Added like request
 
-        setUserData(userResponse.data); // Store the entire user object
+      // Await all promises
+      const [userResponse, listingsResponse, categoriesResponse, likesResponse] = await Promise.all([
+        userPromise,
+        listingsPromise,
+        categoriesPromise,
+        likesPromise // Added promise to array
+      ]);
 
-        // Process User
-        if (userResponse.data && userResponse.data.fullName) {
-          setUserName(userResponse.data.fullName.split(' ')[0]);
-        } else {
-          setUserName('User'); // Fallback
-        }
-        
-        // Process Categories (optional, just to match pattern)
-        // setCategories(categoriesResponse.data || []);
+      setUserData(userResponse.data);
 
-        // Process Listings: Fetch ALL, then filter for 'RENT'
-        const allItems = listingsResponse.data || [];
-        
-        // --- THIS IS THE FIX ---
-        const rentItems = allItems.filter(item => 
-          item.listingType.toUpperCase().includes('RENT')
-        );
-        // -----------------------
-        
-        console.log("Fetched and filtered rent items:", rentItems);
-        setAllRentListings(rentItems); // Set the master list of rent items
-        setFilteredRentListings(rentItems); // Set the initial displayed list
-
-      } catch (err) {
-        console.error("Failed to fetch data:", err);
-        let errorMsg = "Could not load data. Please try again.";
-        // Check for auth errors to redirect
-        if (err.message === "No authentication token found." || err.response?.status === 403 || err.response?.status === 401) {
-          errorMsg = "Please log in to view this page.";
-          setTimeout(() => navigate('/login'), 1500);
-        }
-        setError(errorMsg);
-      } finally {
-        setIsLoading(false);
+      if (userResponse.data && userResponse.data.fullName) {
+        setUserName(userResponse.data.fullName.split(' ')[0]);
+      } else {
+        setUserName('User');
       }
-    };
-    fetchData();
-  }, [navigate]);
+      
+      // We don't use categories here, but fetching it is fine
+      // setCategories(categoriesResponse.data || []);
 
-  // --- Search Handler (Filters only rent listings) ---
+      // Process Listings: Fetch ALL, then filter for 'RENT'
+      const allItems = listingsResponse.data || [];
+      const rentItems = allItems.filter(item => 
+        item.listingType.toUpperCase().includes('RENT')
+      );
+      
+      setAllRentListings(rentItems);
+      setFilteredRentListings(rentItems);
+
+      // Process Liked Listings
+      const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
+      setLikedListingIds(likedIds);
+
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+      let errorMsg = "Could not load data. Please try again.";
+      if (err.message === "No authentication token found." || err.response?.status === 403 || err.response?.status === 401) {
+        errorMsg = "Please log in to view this page.";
+        setTimeout(() => navigate('/login'), 1500);
+      }
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [navigate]); // navigate is a dependency for the redirect logic
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  /**
+   * Filters the 'allRentListings' based on the search query.
+   */
   const handleSearchChange = (e) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
 
-    const filtered = allRentListings.filter(listing => { // Filter from allRentListings
+    const filtered = allRentListings.filter(listing => {
       const titleMatch = listing.title.toLowerCase().includes(query);
       const descriptionMatch = listing.description.toLowerCase().includes(query);
       const categoryMatch = listing.category && listing.category.name &&
                             listing.category.name.toLowerCase().includes(query);
       return titleMatch || descriptionMatch || categoryMatch;
     });
-    setFilteredRentListings(filtered); // Update the displayed list
+    setFilteredRentListings(filtered);
   };
 
-   // --- Logout Handler ---
+  /**
+   * Logs the user out and navigates to the login page.
+   */
   const handleLogout = () => {
     localStorage.removeItem('eduRentUserData');
     navigate('/login');
   };
 
-  // --- Modal handlers ---
+  /**
+   * Opens the product detail modal with the selected listing.
+   */
   const openModal = (listing) => {
     setSelectedListing(listing);
     setIsModalOpen(true);
   };
+
+  /**
+   * Closes the product detail modal.
+   */
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedListing(null);
   };
 
-  // --- Render Loading/Error ---
+  /**
+   * Toggles the "like" status of a listing with an optimistic update.
+   */
+  const handleLikeToggle = async (listingId) => {
+      // --- NEW: Prevent spam clicks ---
+      if (likingInProgress.has(listingId)) {
+        console.log("Like action already in progress for item:", listingId);
+        return; // Do nothing
+      }
+      // --------------------------------
+  
+      // 1. Add to loading state
+      setLikingInProgress(prev => new Set(prev).add(listingId));
+  
+      // 2. Optimistic update
+      const newLikedIds = new Set(likedListingIds);
+      const isCurrentlyLiked = likedListingIds.has(listingId);
+  
+      if (isCurrentlyLiked) {
+        newLikedIds.delete(listingId);
+      } else {
+        newLikedIds.add(listingId);
+      }
+      setLikedListingIds(newLikedIds);
+  
+      // 3. API call
+      try {
+        if (isCurrentlyLiked) {
+          await unlikeListing(listingId);
+          console.log(`Unliked item ${listingId}`);
+        } else {
+          await likeListing(listingId);
+          console.log(`Liked item ${listingId}`);
+        }
+      } catch (err) {
+        console.error("Failed to toggle like:", err);
+        // Revert state on error
+        setError("Failed to update like. Please refresh.");
+        setLikedListingIds(prevIds => {
+            const revertedIds = new Set(prevIds);
+            if (isCurrentlyLiked) revertedIds.add(listingId);
+            else revertedIds.delete(listingId);
+            return revertedIds;
+        });
+      } finally {
+        // 4. Remove from loading state
+        setLikingInProgress(prev => {
+          const next = new Set(prev);
+          next.delete(listingId);
+          return next;
+        });
+      }
+    };
+
   if (isLoading) {
       return (
           <div className="profile-page">
@@ -131,7 +210,7 @@ export default function ForRentPage() {
                   <div className="browse-search-bar skeleton" style={{ height: '60px', marginBottom: '2rem' }}></div>
                   <section className="browse-section">
                       <div className="skeleton skeleton-listing-text" style={{ height: '2rem', width: '200px', marginBottom: '1.5rem' }}></div>
-                      <ListingGridSkeleton count={8} /> {/* Show more skeletons */}
+                      <ListingGridSkeleton count={8} />
                   </section>
               </main>
           </div>
@@ -146,9 +225,8 @@ export default function ForRentPage() {
      );
   }
 
-  // --- Render For Rent Page ---
   return (
-    <div className="profile-page"> {/* Reuse class for consistent header */}
+    <div className="profile-page">
       <Header
         userName={userName}
         onLogout={handleLogout}
@@ -156,28 +234,36 @@ export default function ForRentPage() {
         onSearchChange={handleSearchChange}
       />
 
-      <main className="browse-page-container"> {/* Reuse container class */}
-        {/* Search Bar */}
+      <main className="browse-page-container">
         <div className="browse-search-bar">
            <span className="browse-search-icon"><Icons.Search /></span>
            <input
              type="text"
              className="browse-search-input"
-             placeholder="Search for items to rent..." // Updated placeholder
+             placeholder="Search for items to rent..."
              value={searchQuery}
              onChange={handleSearchChange}
              aria-label="Search items for rent"
            />
         </div>
 
-        {/* For Rent Section */}
         <section className="browse-section">
           <h2 className="browse-section-title">Items For Rent</h2>
           {filteredRentListings.length > 0 ? (
-            <div className="listing-grid"> {/* Reuse listing grid */}
+            <div className="listing-grid">
               {filteredRentListings.map(listing => (
-                // Use listingId from backend as key
-                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
+                <ListingCard
+                  key={listing.listingId}
+                  listing={listing}
+                  onClick={openModal}
+                  // Pass like and owner status to the card
+                  isLiked={likedListingIds.has(listing.listingId)}
+                  onLikeClick={handleLikeToggle}
+                  isOwner={userData?.userId === listing.user?.userId}
+                  currentUserId={userData?.userId}
+                  isLiking={likingInProgress.has(listing.listingId)}
+
+                />
               ))}
             </div>
           ) : (
@@ -187,7 +273,6 @@ export default function ForRentPage() {
           )}
         </section>
 
-        {/* Call to Action Card (Reused from Dashboard) */}
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
@@ -196,11 +281,16 @@ export default function ForRentPage() {
           <Link to="/list-item" className="cta-button">Start Selling Today</Link>
         </section>
       </main>
+
+      {/* Pass like status and handler to the modal */}
       {isModalOpen && selectedListing && (
         <ProductDetailModal 
-            listing={selectedListing} 
-            onClose={closeModal} 
-            currentUserId={userData?.userId} // <-- Prop is now passed
+          listing={selectedListing} 
+          onClose={closeModal} 
+          currentUserId={userData?.userId}
+          isLiked={likedListingIds.has(selectedListing.listingId)}
+          onLikeClick={handleLikeToggle}
+          isLiking={likingInProgress.has(selectedListing.listingId)}
         />
       )}
     </div>

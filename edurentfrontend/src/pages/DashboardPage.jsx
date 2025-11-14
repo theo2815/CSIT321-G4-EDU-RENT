@@ -1,18 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getCurrentUser, getListings, getCategories } from '../services/apiService';
+import { getCurrentUser, getListings, getCategories, getLikedListings, likeListing, unlikeListing } from '../services/apiService';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ListingCard from '../components/ListingCard';
-
-// Import the page's content CSS
 import '../static/DashboardPage.css';
-
-// --- IMPORT THE HEADER COMPONENT ---
 import Header from '../components/Header'; 
 
-// --- MOCK CATEGORIES REMOVED ---
-
-// --- Loading Skeleton Component ---
 function LoadingSkeleton() {
   return (
     <div className="dashboard-body">
@@ -29,7 +22,6 @@ function LoadingSkeleton() {
   );
 }
 
-// --- Error Boundary Component ---
 function ErrorBoundary({ error, onRetry }) {
   return (
     <div className="error-container">
@@ -42,14 +34,11 @@ function ErrorBoundary({ error, onRetry }) {
   );
 }
 
-// --- Category Card Component (UPDATED) ---
 function CategoryCardComponent({ category }) {
   return (
-    // Use categoryId from backend
     <Link to={`/category/${category.categoryId}`} style={{ textDecoration: 'none' }}> 
       <div className="category-card">
         <div style={{ textAlign: 'center' }}>
-          {/* Add fallback icon */}
           <div>{category.name}</div>
         </div>
       </div>
@@ -63,48 +52,53 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [listings, setListings] = useState([]); // Filtered list for display
-  const [allListings, setAllListings] = useState([]); // Original fetched list
-  const [categories, setCategories] = useState([]); // --- ADDED categories state
+  const [listings, setListings] = useState([]);
+  const [allListings, setAllListings] = useState([]);
+  const [categories, setCategories] = useState([]);
   const navigate = useNavigate();
 
-  // --- Modal State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
 
-  // --- Reusable Data Fetching Function (UPDATED) ---
+  const [likedListingIds, setLikedListingIds] = useState(new Set());
+  const [likingInProgress, setLikingInProgress] = useState(new Set());
+
   const fetchDashboardData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Fetch user, listings, and categories in parallel
       const userPromise = getCurrentUser();
       const listingsPromise = getListings();
-      const categoriesPromise = getCategories(); // <-- ADDED
+      const categoriesPromise = getCategories();
+      const likesPromise = getLikedListings();
 
-      const [userResponse, listingsResponse, categoriesResponse] = await Promise.all([
+      // <--- FIX: Added 'likesResponse' to the destructuring array
+      const [userResponse, listingsResponse, categoriesResponse, likesResponse] = await Promise.all([
         userPromise,
         listingsPromise,
-        categoriesPromise, // <-- ADDED
+        categoriesPromise,
+        likesPromise,
       ]);
 
-      setUserData(userResponse.data); // Store the entire user object
+      setUserData(userResponse.data);
 
-      // Process user
       if (userResponse.data && userResponse.data.fullName) {
         setUserName(userResponse.data.fullName.split(' ')[0]);
       } else {
-        setUserName('User'); // Fallback
+        setUserName('User');
       }
 
-      // Process listings
-      console.log("Fetched listings:", listingsResponse.data); // Log to check data
-      setAllListings(listingsResponse.data || []); // Store original list
-      setListings(listingsResponse.data || []); // Set initial display list
+      console.log("Fetched listings:", listingsResponse.data);
+      setAllListings(listingsResponse.data || []);
+      setListings(listingsResponse.data || []);
 
-      // Process categories
       console.log("Fetched categories:", categoriesResponse.data);
-      setCategories(categoriesResponse.data || []); // <-- ADDED
+      setCategories(categoriesResponse.data || []);
+
+      // <--- FIX: This will now work correctly
+      console.log("Fetched liked listings:", likesResponse.data);
+      const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
+      setLikedListingIds(likedIds);
 
     } catch (err) {
       console.error("Failed to fetch dashboard data:", err);
@@ -119,12 +113,10 @@ export default function DashboardPage() {
     }
   }, [navigate]);
 
-  // --- Fetch Data on Component Mount ---
   useEffect(() => {
     fetchDashboardData();
-  }, [fetchDashboardData]); // Run once when component mounts
+  }, [fetchDashboardData]);
 
-  // --- Event Handlers ---
   const handleLogout = () => {
     console.log('Logging out...');
     localStorage.removeItem('eduRentUserData');
@@ -145,13 +137,12 @@ export default function DashboardPage() {
       const filtered = allListings.filter(listing => 
         listing.title.toLowerCase().includes(query) ||
         listing.description.toLowerCase().includes(query) ||
-        (listing.category && listing.category.name.toLowerCase().includes(query)) // Add category search
+        (listing.category && listing.category.name.toLowerCase().includes(query))
       );
       setListings(filtered);
     }
   };
 
-  // --- Modal Handlers ---
   const openModal = (listing) => {
     setSelectedListing(listing);
     setIsModalOpen(true);
@@ -161,7 +152,59 @@ export default function DashboardPage() {
     setSelectedListing(null);
   };
 
-  // --- Render Loading Skeleton ---
+  // --- UPDATED: Like Toggle Handler ---
+  const handleLikeToggle = async (listingId) => {
+    // --- NEW: Prevent spam clicks ---
+    if (likingInProgress.has(listingId)) {
+      console.log("Like action already in progress for item:", listingId);
+      return; // Do nothing
+    }
+    // --------------------------------
+
+    // 1. Add to loading state
+    setLikingInProgress(prev => new Set(prev).add(listingId));
+
+    // 2. Optimistic update
+    const newLikedIds = new Set(likedListingIds);
+    const isCurrentlyLiked = likedListingIds.has(listingId);
+
+    if (isCurrentlyLiked) {
+      newLikedIds.delete(listingId);
+    } else {
+      newLikedIds.add(listingId);
+    }
+    setLikedListingIds(newLikedIds);
+
+    // 3. API call
+    try {
+      if (isCurrentlyLiked) {
+        await unlikeListing(listingId);
+        console.log(`Unliked item ${listingId}`);
+      } else {
+        await likeListing(listingId);
+        console.log(`Liked item ${listingId}`);
+      }
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+      // Revert state on error
+      setError("Failed to update like. Please refresh.");
+      setLikedListingIds(prevIds => {
+          const revertedIds = new Set(prevIds);
+          if (isCurrentlyLiked) revertedIds.add(listingId);
+          else revertedIds.delete(listingId);
+          return revertedIds;
+      });
+    } finally {
+      // 4. Remove from loading state
+      setLikingInProgress(prev => {
+        const next = new Set(prev);
+        next.delete(listingId);
+        return next;
+      });
+    }
+  };
+  // --------------------------------
+
   if (isLoading) {
     return (
       <div className="dashboard-page">
@@ -176,7 +219,6 @@ export default function DashboardPage() {
     );
   }
 
-  // --- Render Page ---
   return (
     <div className="dashboard-page">
       
@@ -190,7 +232,6 @@ export default function DashboardPage() {
       <main className="dashboard-body">
         {error && <ErrorBoundary error={error} onRetry={handleRetry} />}
 
-        {/* Hero Card */}
         <section className="content-card hero-card">
           <div className="hero-left">
             <h1 className="hero-title">Your Campus Marketplace for Students</h1>
@@ -204,31 +245,34 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Explore by Category (UPDATED) */}
         <section>
           <h2 className="section-title">Explore by Category</h2>
-           {/* --- Use fetched categories --- */}
            {categories.length > 0 ? (
-              <div className="category-grid">
-                {/* Display first 5 categories */}
-                {categories.slice(0, 5).map(category => (
-                  // Use categoryId for the key
-                  <CategoryCardComponent key={category.categoryId} category={category} />
-                ))}
-              </div>
-            ) : (
-              <p style={{color: 'var(--text-muted)'}}>No categories found.</p>
-            )}
-           {/* ----------------------------- */}
+             <div className="category-grid">
+               {categories.slice(0, 5).map(category => (
+                 <CategoryCardComponent key={category.categoryId} category={category} />
+               ))}
+             </div>
+           ) : (
+             <p style={{color: 'var(--text-muted)'}}>No categories found.</p>
+           )}
         </section>
 
-        {/* Featured Items */}
         <section>
           <h2 className="section-title">🌟 Featured Items</h2>
           {listings.length > 0 ? (
             <div className="listing-grid">
               {listings.slice(0, 3).map(listing => (
-                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
+                <ListingCard 
+                  key={listing.listingId} 
+                  listing={listing} 
+                  onClick={openModal}
+                  // <--- FIX: Added missing props
+                  isLiked={likedListingIds.has(listing.listingId)}
+                  onLikeClick={handleLikeToggle}
+                  currentUserId={userData?.userId}
+                  isLiking={likingInProgress.has(listing.listingId)}
+                />
               ))}
             </div>
           ) : (
@@ -240,13 +284,21 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* All Listings */}
         <section>
           <h2 className="section-title">📦 All Listings</h2>
           {listings.length > 0 ? (
             <div className="listing-grid">
               {listings.map(listing => (
-                <ListingCard key={listing.listingId} listing={listing} onClick={openModal} />
+                <ListingCard 
+                  key={listing.listingId} 
+                  listing={listing} 
+                  onClick={openModal}
+                  // <--- FIX: Added missing props
+                  isLiked={likedListingIds.has(listing.listingId)}
+                  onLikeClick={handleLikeToggle}
+                  currentUserId={userData?.userId}
+                  isLiking={likingInProgress.has(listing.listingId)}
+                />
               ))}
             </div>
           ) : (
@@ -258,7 +310,6 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Call to Action Card */}
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
@@ -269,11 +320,14 @@ export default function DashboardPage() {
       </main>
 
       {isModalOpen && selectedListing && (
-          <ProductDetailModal 
-            listing={selectedListing} 
-            onClose={closeModal} 
-            currentUserId={userData?.userId}
-          />
+         <ProductDetailModal 
+           listing={selectedListing} 
+           onClose={closeModal} 
+           currentUserId={userData?.userId}
+           isLiked={likedListingIds.has(selectedListing.listingId)}
+           onLikeClick={handleLikeToggle}
+           isLiking={likingInProgress.has(selectedListing.listingId)}
+         />
       )}
       
     </div>

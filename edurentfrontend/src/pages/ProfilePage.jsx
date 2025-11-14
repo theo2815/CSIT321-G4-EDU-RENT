@@ -346,6 +346,7 @@ export default function ProfilePage() {
                           key={listing.listingId}
                           listing={listing}
                           onClick={openListingModal} // Use handler for product modal
+                          currentUserId={userData?.userId}
                       />
                     ))}
                   </div>
