@@ -22,6 +22,7 @@ const Icons = {
 
 export default function BrowsePage() {
   const [userName, setUserName] = useState('');
+  const [userData, setUserData] = useState(null); 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
@@ -49,6 +50,8 @@ export default function BrowsePage() {
           listingsPromise,
           categoriesPromise // <-- ADDED
         ]);
+
+        setUserData(userResponse.data); // Store the entire user object
 
         // Process User
         if (userResponse.data && userResponse.data.fullName) {
@@ -210,7 +213,11 @@ export default function BrowsePage() {
         </section>
       </main>
       {isModalOpen && selectedListing && (
-        <ProductDetailModal listing={selectedListing} onClose={closeModal} />
+        <ProductDetailModal 
+            listing={selectedListing} 
+            onClose={closeModal} 
+            currentUserId={userData?.userId} 
+          />
       )}
     </div>
   );

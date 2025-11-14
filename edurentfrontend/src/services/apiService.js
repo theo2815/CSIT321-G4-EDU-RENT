@@ -176,3 +176,42 @@ export const createListing = async (listingData) => {
       throw error;
     }
 };
+
+
+// --- NEW: Function to get a single listing (for edit page) ---
+export const getListingById = async (listingId) => {
+  try {
+      const response = await apiClient.get(`/listings/${listingId}`);
+      return response;
+  } catch (error) {
+      console.error(`Error during getListingById(${listingId}) API call:`, error.response || error.message);
+      throw error;
+  }
+};
+
+// --- NEW: Function to update a listing (for edit page) ---
+// Note: FormData is used to support changing images
+export const updateListing = async (listingId, listingData) => {
+    try {
+        const response = await apiClient.put(`/listings/${listingId}`, listingData, {
+           headers: {
+             // 'Content-Type': 'multipart/form-data', // Let browser set
+           }
+        });
+        return response;
+    } catch (error) {
+        console.error(`Error during updateListing(${listingId}) API call:`, error.response || error.message);
+        throw error;
+    }
+};
+
+// --- NEW: Function to delete a listing ---
+export const deleteListing = async (listingId) => {
+    try {
+        const response = await apiClient.delete(`/listings/${listingId}`);
+        return response;
+    } catch (error) {
+        console.error(`Error during deleteListing(${listingId}) API call:`, error.response || error.message);
+        throw error;
+    }
+};

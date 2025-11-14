@@ -388,7 +388,14 @@ export default function ProfilePage() {
 
       {/* Modals */}
       {isModalOpen && <ProfileDetailsModal user={userData} onClose={closeProfileModal} />}
-      {selectedListingModal && <ProductDetailModal listing={selectedListingModal} onClose={closeListingModal} />}
+
+      {selectedListingModal && (
+          <ProductDetailModal
+          listing={selectedListingModal}
+          onClose={closeListingModal}
+          currentUserId={userData?.userId} 
+          />
+        )}
 
     </div>
   );

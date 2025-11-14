@@ -24,8 +24,8 @@ const getSellerInfo = (listingUser) => {
 };
 
 
-export default function ProductDetailModal({ listing, onClose }) {
-  const navigate = useNavigate();
+export default function ProductDetailModal({ listing, onClose, currentUserId }) {
+  const navigate = useNavigate();
 
   if (!listing) return null;
 
@@ -61,6 +61,7 @@ export default function ProductDetailModal({ listing, onClose }) {
   const isRent = listing.listingType?.toUpperCase().includes('RENT');
   const typeText = isRent ? 'Want to rent the item?' : 'Want to buy the item?';
   const seller = getSellerInfo(listing.user); // Get seller info
+  const isOwner = currentUserId === listing?.user?.userId;
 
   return (
     <div className="modal-overlay visible" onClick={handleOverlayClick} role="dialog" aria-modal="true" aria-labelledby="product-name">
@@ -121,6 +122,7 @@ export default function ProductDetailModal({ listing, onClose }) {
           </div>
 
           {/* Seller Info */}
+      {!isOwner && (
           <div className="seller-info-section">
             <div className="seller-info-header">
               <img
@@ -145,6 +147,7 @@ export default function ProductDetailModal({ listing, onClose }) {
               Chat with the Seller
             </button>
           </div>
+          )}
         </section>
       </div>
     </div>

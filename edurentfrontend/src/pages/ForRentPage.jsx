@@ -21,6 +21,7 @@ const Icons = {
 
 export default function ForRentPage() {
   const [userName, setUserName] = useState('');
+  const [userData, setUserData] = useState(null);
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
@@ -48,6 +49,8 @@ export default function ForRentPage() {
           listingsPromise,
           categoriesPromise // <-- ADDED
         ]);
+
+        setUserData(userResponse.data); // Store the entire user object
 
         // Process User
         if (userResponse.data && userResponse.data.fullName) {
@@ -194,7 +197,11 @@ export default function ForRentPage() {
         </section>
       </main>
       {isModalOpen && selectedListing && (
-        <ProductDetailModal listing={selectedListing} onClose={closeModal} />
+        <ProductDetailModal 
+            listing={selectedListing} 
+            onClose={closeModal} 
+            currentUserId={userData?.userId} // <-- Prop is now passed
+        />
       )}
     </div>
   );

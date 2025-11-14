@@ -1,26 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { getCurrentUser } from '../services/apiService'; // Assuming API functions exist
-// TODO: Import API functions like getUserListings, deleteListing
+import { getCurrentUser, getUserListings, getCategories, deleteListing } from '../services/apiService'; 
 
 // Import CSS
 import '../static/ManageListingsPage.css';
 // Import shared styles
 import '../static/ProfilePage.css'; // For .btn-small, .btn-outline etc.
 import '../static/DashboardPage.css'; // For .empty-state, .cta-button
-
-// --- Mock Data (Replace with API fetch) ---
-// Ensure items have a 'status' property: 'active', 'inactive', 'sold'
-const MOCK_USER_LISTINGS_DETAILED = [
- { id: 1, name: 'Calculus 1 Textbook', description: 'Selling my old calc book', listedOn: '2025-10-20', price: 30, likes: 5, status: 'active', image: null, icon: '📚', category: 'Textbooks' },
- { id: 3, name: 'Desk Lamp', description: 'Renting out my extra lamp', listedOn: '2025-10-15', price: 10, likes: 2, status: 'active', image: null, icon: '💡', category: 'Furniture' },
- { id: 8, name: 'Old Biology Notes', description: 'Might be useful', listedOn: '2025-09-01', price: 5, likes: 0, status: 'inactive', image: null, icon: '📝', category: 'Other' },
- { id: 9, name: 'Graduation Gown', description: 'Used once', listedOn: '2025-08-10', price: 25, likes: 8, status: 'sold', image: null, icon: '🎓', category: 'Other' },
-];
-// Assume mock categories are available or fetched
-const MOCK_CATEGORIES = [{ id: 'all', name: 'All Categories' }, { id: 'Textbooks', name: 'Textbooks' }, { id: 'Furniture', name: 'Furniture' }, { id: 'Other', name: 'Other' }];
-
 
 // --- Manage Listings Skeleton Component ---
 function ManageListingsSkeleton() {
@@ -79,7 +66,7 @@ export default function ManageListingsPage() {
   const [userName, setUserName] = useState('');
   const [allListings, setAllListings] = useState([]); // Original fetched list
   const [filteredListings, setFilteredListings] = useState([]); // List to display
-  const [categories, setCategories] = useState(MOCK_CATEGORIES); // Filter options
+  const [categories, setCategories] = useState([]); // Start empty
   const [selectedItems, setSelectedItems] = useState(new Set()); // IDs of selected items
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -92,38 +79,43 @@ export default function ManageListingsPage() {
   const [sortOrder, setSortOrder] = useState('recent'); // 'recent' or 'oldest'
   const [filterDate, setFilterDate] = useState('all'); // 'all', 'last7', 'last30'
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('active'); // Default to 'active' so active products show first
+  const [filterStatus, setFilterStatus] = useState('available'); // Default to 'available' so active products show first
 
   // --- Fetch Data ---
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const userRes = await getCurrentUser();
-        setUserName(userRes.data?.fullName?.split(' ')[0] || 'User');
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const userRes = await getCurrentUser();
+        const userId = userRes.data?.userId;
+        setUserName(userRes.data?.fullName?.split(' ')[0] || 'User');
 
-        // TODO: Fetch user's listings from API
-        // const listingsRes = await getUserListings();
-        // setAllListings(listingsRes.data);
-        await new Promise(r => setTimeout(r, 500)); // Simulate fetch
-        setAllListings(MOCK_USER_LISTINGS_DETAILED);
-        // setFilteredListings(MOCK_USER_LISTINGS_DETAILED); // Initial filter happens in the other useEffect
+        if (!userId) {
+            throw new Error("Could not find user ID.");
+        }
 
-        // TODO: Fetch categories if not hardcoded
-        // const catRes = await getCategories();
-        // setCategories([{id: 'all', name: 'All Categories'}, ...catRes.data]);
+        // Fetch listings and categories in parallel
+        const listingsPromise = getUserListings(userId);
+        const categoriesPromise = getCategories();
 
-      } catch (err) {
-        console.error("Failed to load data:", err);
-        setError("Could not load listings.");
-        if (err.message === "No authentication token found.") navigate('/login');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [navigate]);
+        const [listingsRes, catRes] = await Promise.all([listingsPromise, categoriesPromise]);
+
+        setAllListings(listingsRes.data || []);
+        
+        // Add "All Categories" to the fetched list
+        setCategories([{ categoryId: 'all', name: 'All Categories' }, ...(catRes.data || [])]);
+
+      } catch (err) {
+        console.error("Failed to load data:", err);
+        setError("Could not load listings.");
+        if (err.message === "No authentication token found.") navigate('/login');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [navigate]);
 
   // --- Filtering and Sorting Logic ---
   useEffect(() => {
@@ -132,70 +124,73 @@ export default function ManageListingsPage() {
     // Filter by Status
     if (filterStatus !== 'all') {
       if (filterStatus === 'others') {
-        result = result.filter(item => item.status !== 'active' && item.status !== 'inactive');
+        result = result.filter(item => 
+            item.status.toLowerCase() !== 'available' && 
+            item.status.toLowerCase() !== 'inactive'
+        );
       } else {
-        result = result.filter(item => item.status === filterStatus);
+        result = result.filter(item => item.status.toLowerCase() === filterStatus);      
       }
     }
 
     // Filter by Category
     if (filterCategory !== 'all') {
       // Adjust based on your actual listing data structure for category
-      result = result.filter(item => item.category === filterCategory);
+      result = result.filter(item => item.category?.name === filterCategory); 
     }
 
     // Filter by Date
-    const now = new Date(); // Recalculate 'now' inside useEffect
-    if (filterDate === 'last7') {
-      const sevenDaysAgo = new Date(new Date().setDate(now.getDate() - 7));
-      result = result.filter(item => new Date(item.listedOn) >= sevenDaysAgo);
-    } else if (filterDate === 'last30') {
-      const thirtyDaysAgo = new Date(new Date().setDate(now.getDate() - 30));
-       result = result.filter(item => new Date(item.listedOn) >= thirtyDaysAgo);
-    }
+    const now = new Date(); 
+    if (filterDate === 'last7') {
+      const sevenDaysAgo = new Date(new Date().setDate(now.getDate() - 7));
+      result = result.filter(item => new Date(item.createdAt) >= sevenDaysAgo);
+    } else if (filterDate === 'last30') {
+      const thirtyDaysAgo = new Date(new Date().setDate(now.getDate() - 30));
+       result = result.filter(item => new Date(item.createdAt) >= thirtyDaysAgo); 
+    }
 
     // Filter by Search Query
-    if (searchQuery.trim() !== '') {
-      const lowerQuery = searchQuery.toLowerCase();
-      result = result.filter(item =>
-        item.name.toLowerCase().includes(lowerQuery) ||
-        item.description.toLowerCase().includes(lowerQuery)
-      );
-    }
+    if (searchQuery.trim() !== '') {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(item =>
+        item.title.toLowerCase().includes(lowerQuery) ||
+        (item.description && item.description.toLowerCase().includes(lowerQuery))
+      );
+    }
 
     // Sort
     result.sort((a, b) => {
-      const dateA = new Date(a.listedOn);
-      const dateB = new Date(b.listedOn);
-      return sortOrder === 'recent' ? dateB - dateA : dateA - dateB;
-    });
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return sortOrder === 'recent' ? dateB - dateA : dateA - dateB;
+    });
 
     setFilteredListings(result);
 
-    // Recalculate selected items based on the *newly filtered* list
-    setSelectedItems(prevSelected => {
-        const currentFilteredIds = new Set(result.map(item => item.id));
-        const newSelected = new Set();
-        prevSelected.forEach(id => {
-            if (currentFilteredIds.has(id)) {
-                newSelected.add(id);
-            }
-        });
-        return newSelected;
-    });
+    // Recalculate selected items
+    setSelectedItems(prevSelected => {
+        const currentFilteredIds = new Set(result.map(item => item.listingId));
+        const newSelected = new Set();
+        prevSelected.forEach(id => {
+            if (currentFilteredIds.has(id)) {
+                newSelected.add(id);
+            }
+        });
+        return newSelected;
+    });
 
   }, [allListings, filterCategory, sortOrder, filterDate, searchQuery, filterStatus]); // Added filterStatus
 
 
   // --- Selection Handlers ---
   const handleSelectAll = (event) => {
-    if (event.target.checked) {
-      const allFilteredIds = new Set(filteredListings.map(item => item.id));
-      setSelectedItems(allFilteredIds);
-    } else {
-      setSelectedItems(new Set());
-    }
-  };
+    if (event.target.checked) {
+      const allFilteredIds = new Set(filteredListings.map(item => item.listingId)); // Use listingId
+      setSelectedItems(allFilteredIds);
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
 
   const handleSelectItem = (itemId, isChecked) => {
     setSelectedItems(prevSelected => {
@@ -218,40 +213,69 @@ export default function ManageListingsPage() {
   }, [selectedItems]);
 
 
-  // --- Action Handlers (Placeholders) ---
-  const handleEdit = (itemId) => {
-    setBulkActionMessage("");
-    // navigate(`/edit-listing/${itemId}`);
-    setBulkActionMessage(`Edit item ${itemId} (Placeholder)`);
-    setTimeout(() => setBulkActionMessage(''), 2000);
-  };
+  // --- Action Handlers (Now Functional) ---
+  const handleEdit = (itemId) => {
+    setBulkActionMessage("");
+    // Navigate to the new Edit page (we will create this next)
+    navigate(`/edit-listing/${itemId}`);
+  };
 
-  const handleDelete = (itemId) => {
-    setBulkActionMessage("");
-    if (window.confirm(`Are you sure you want to delete listing ID ${itemId}?`)) {
-      setAllListings(prev => prev.filter(item => item.id !== itemId)); // Optimistic update
-      setSelectedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
-      setBulkActionMessage(`Deleted item ${itemId}`);
-      setTimeout(() => setBulkActionMessage(''), 2000);
-    }
-  };
+  const handleDelete = async (itemId) => {
+    setBulkActionMessage("");
+    if (window.confirm(`Are you sure you want to delete listing ID ${itemId}?`)) {
+      try {
+        await deleteListing(itemId); // Call API
+        // Update state *after* successful API call
+        setAllListings(prev => prev.filter(item => item.listingId !== itemId));
+        setSelectedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
+        setBulkActionMessage(`Deleted item ${itemId}`);
+      } catch (err) {
+        console.error("Failed to delete item:", err);
+        setBulkActionMessage(`Error: Could not delete item ${itemId}.`);
+      } finally {
+         setTimeout(() => setBulkActionMessage(''), 2000);
+      }
+    }
+  };
 
   // Bulk delete
-  const handleBulkDelete = () => {
-    setBulkActionMessage("");
-    if (window.confirm(`Delete ${selectedItems.size} selected listing(s)?`)) {
-      setAllListings(prev => prev.filter(item => !selectedItems.has(item.id)));
-      setSelectedItems(new Set());
-      setBulkActionMessage(`Deleted ${selectedItems.size} listing(s)`);
-      setTimeout(() => setBulkActionMessage(''), 2000);
-    }
-  };
+  const handleBulkDelete = async () => {
+    setBulkActionMessage("");
+    const numToDelete = selectedItems.size;
+    if (numToDelete === 0) return;
+
+    if (window.confirm(`Delete ${numToDelete} selected listing(s)?`)) {
+      try {
+        // Create an array of delete promises
+        const deletePromises = Array.from(selectedItems).map(id => deleteListing(id));
+        // Wait for all to complete
+        await Promise.all(deletePromises);
+        
+        // Update state *after* successful API calls
+        setAllListings(prev => prev.filter(item => !selectedItems.has(item.listingId)));
+        setSelectedItems(new Set()); // Clear selection
+        setBulkActionMessage(`Deleted ${numToDelete} listing(s)`);
+      } catch (err) {
+         console.error("Failed to delete items:", err);
+         setBulkActionMessage(`Error: Could not delete all selected items.`);
+      } finally {
+         setTimeout(() => setBulkActionMessage(''), 2000);
+      }
+    }
+  };
 
    // --- Calculate Counts ---
    const counts = allListings.reduce((acc, item) => {
-       if (item.status === 'active') acc.active++;
-       else if (item.status === 'inactive') acc.inactive++;
-       else acc.others++;
+        const status = item.status?.toLowerCase() || 'other';
+       if (status === 'active' || status === 'available') {
+           acc.active++;
+       }
+       else if (status === 'inactive') {
+           acc.inactive++;
+       }
+       else {
+           acc.others++;
+       }
        return acc;
    }, { active: 0, inactive: 0, others: 0 });
 
@@ -301,7 +325,7 @@ export default function ManageListingsPage() {
             <div className="filter-group">
               <label htmlFor="category-filter" className="filter-label">Category</label>
               <select id="category-filter" className="filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                {categories.map(cat => <option key={cat.id} value={cat.id === 'all' ? 'all' : cat.name}>{cat.name}</option>)}
+                {categories.map(cat => <option key={cat.categoryId || 'all'} value={cat.name}>{cat.name}</option>)}
               </select>
             </div>
              <div className="filter-group">
@@ -349,8 +373,8 @@ export default function ManageListingsPage() {
             {/* Clickable Counts */}
             <div className="listing-counts">
               <button
-                 className={`listing-count-item ${filterStatus === 'active' ? 'active' : ''}`}
-                 onClick={() => setFilterStatus('active')}
+                 className={`listing-count-item ${filterStatus === 'available' ? 'active' : ''}`}
+                 onClick={() => setFilterStatus('available')}
                  style={{background:'none', border:'none', cursor:'pointer'}}
               >
                  Active: <strong>{counts.active}</strong>
@@ -394,60 +418,66 @@ export default function ManageListingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredListings.map(item => (
-                    <tr key={item.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.has(item.id)}
-                          onChange={e => handleSelectItem(item.id, e.target.checked)}
-                          aria-label={`Select listing ${item.name}`}
-                        />
-                      </td>
-                      <td>
-                        <div className="listing-product-info">
-                          {item.image ? (
-                             <img src={item.image} alt={item.name} className="listing-product-image" />
-                          ) : (
-                             <div className="listing-product-image icon-placeholder">{item.icon || '📦'}</div>
-                          )}
-                          <div className="listing-product-details">
-                            <div className="listing-product-name">
-                              {item.name}
-                              <span className={`status-badge status-${item.status}`} style={{marginLeft: '0.5em'}}>
-                                {item.status === 'active' && 'Active'}
-                                {item.status === 'inactive' && 'Inactive'}
-                                {item.status === 'sold' && 'Sold'}
-                                {item.status !== 'active' && item.status !== 'inactive' && item.status !== 'sold' && item.status}
-                              </span>
+                  {filteredListings.map(item => {
+                    // Find the cover image or first image
+                    const coverImage = item.listingImages?.find(img => img.coverPhoto)?.imageUrl || item.listingImages?.[0]?.imageUrl || null;
+                    const statusText = item.status?.toLowerCase() === 'available' ? 'Active' : 
+                                     item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
+                                     item.status?.toLowerCase() === 'sold' ? 'Sold' : 
+                                     'Other';
+                    const statusClass = item.status?.toLowerCase() || 'other';
+                    return (
+                      <tr key={item.listingId}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedItems.has(item.listingId)}
+                            onChange={e => handleSelectItem(item.listingId, e.target.checked)}
+                            aria-label={`Select listing ${item.title}`}
+                          />
+                        </td>
+                        <td>
+                          <div className="listing-product-info">
+                            {coverImage ? (
+                               <img src={`http://localhost:8080${coverImage}`} alt={item.title} className="listing-product-image" onError={(e) => { e.target.style.display = 'none'; }} />
+                            ) : (
+                               <div className="listing-product-image icon-placeholder">{'📦'}</div>
+                            )}
+                            <div className="listing-product-details">
+                              <div className="listing-product-name">
+                                {item.title}
+                                <span className={`status-badge status-${statusClass}`} style={{marginLeft: '0.5em', fontSize: '0.75rem', padding: '2px 6px', borderRadius: '10px', background: '#eee'}}>
+                                  {statusText}
+                                </span>
+                              </div>
+                              <div className="listing-product-desc">{item.description?.substring(0, 50)}{item.description?.length > 50 ? '...' : ''}</div>
                             </div>
-                            <div className="listing-product-desc">{item.description}</div>
                           </div>
-                        </div>
-                      </td>
-                      <td>{new Date(item.listedOn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}</td>
-                      <td>₱{item.price}</td>
-                      <td>{item.likes}</td>
-                      <td>
-                        <div className="listing-actions">
-                           <button
-                              className="btn btn-small btn-outline"
-                              onClick={() => handleEdit(item.id)}
-                              aria-label={`Edit listing ${item.name}`}
-                           >
-                             Edit
-                           </button>
-                           <button
-                             className="btn btn-small btn-delete"
-                             onClick={() => handleDelete(item.id)}
-                             aria-label={`Delete listing ${item.name}`}
-                           >
-                             Delete
-                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td>{new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}</td>
+                        <td>₱{item.price?.toFixed(2)}</td>
+                        <td>{item.likes?.length || 0}</td> {/* Display likes count */}
+                        <td>
+                          <div className="listing-actions">
+                             <button
+                                className="btn btn-small btn-outline"
+                                onClick={() => handleEdit(item.listingId)} // Use listingId
+                                aria-label={`Edit listing ${item.title}`}
+                             >
+                               Edit
+                             </button>
+                             <button
+                               className="btn btn-small btn-delete"
+                               onClick={() => handleDelete(item.listingId)} // Use listingId
+                               aria-label={`Delete listing ${item.title}`}
+                             >
+                               Delete
+                             </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

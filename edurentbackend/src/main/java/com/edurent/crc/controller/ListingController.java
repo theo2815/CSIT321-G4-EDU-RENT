@@ -117,9 +117,9 @@ public class ListingController {
     }
     // --- End UPDATED createListing ---
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteListing(@PathVariable Long id) {
-        listingService.deleteListing(id);
+    @DeleteMapping("/{listingId}")
+        public ResponseEntity<Void> deleteListing(@PathVariable Long listingId) {
+        listingService.deleteListing(listingId);
         return ResponseEntity.noContent().build();
     }
 }

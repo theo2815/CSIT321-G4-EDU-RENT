@@ -1,6 +1,5 @@
 package com.edurent.crc.dto;
 
-// We are not using Lombok anymore, so we must create getters, setters, and constructors.
 public class LoginRequest {
 
     private String email;

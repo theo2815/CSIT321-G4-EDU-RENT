@@ -59,6 +59,7 @@ function CategoryCardComponent({ category }) {
 
 export default function DashboardPage() {
   const [userName, setUserName] = useState('');
+  const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,6 +87,8 @@ export default function DashboardPage() {
         listingsPromise,
         categoriesPromise, // <-- ADDED
       ]);
+
+      setUserData(userResponse.data); // Store the entire user object
 
       // Process user
       if (userResponse.data && userResponse.data.fullName) {
@@ -266,7 +269,11 @@ export default function DashboardPage() {
       </main>
 
       {isModalOpen && selectedListing && (
-          <ProductDetailModal listing={selectedListing} onClose={closeModal} />
+          <ProductDetailModal 
+            listing={selectedListing} 
+            onClose={closeModal} 
+            currentUserId={userData?.userId}
+          />
       )}
       
     </div>
