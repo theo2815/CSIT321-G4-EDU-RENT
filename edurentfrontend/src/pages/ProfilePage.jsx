@@ -3,40 +3,74 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-// Import NEW API functions
-import { getCurrentUser, getUserListings, getUserReviews } from '../services/apiService';
+
+import { 
+  getCurrentUser, 
+  getUserListings, 
+  getListingById, 
+  getUserReviews,
+  getLikedListings, // <-- ADD THIS
+  likeListing,      // <-- ADD THIS
+  unlikeListing     // <-- ADD THIS
+} from '../services/apiService';
+
+
 import ShareIcon from '../assets/share.png';
 import ListingCard from '../components/ListingCard'; // Ensure this is imported
 import ProductDetailModal from '../components/ProductDetailModal'; // Import modal
+import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
+import ListingGridSkeleton from '../components/ListingGridSkeleton';
 
 import '../static/ProfilePage.css';
 import '../static/DashboardPage.css'; // For shared styles like listing-grid, empty-state, etc.
 
 // --- Loading Skeleton Component (Keep as before) ---
 function ProfileSkeleton() {
-  // Assuming styles are in ProfilePage.css or globally
-  return (
-    <main className="dashboard-body"> {/* Use main container */}
-      <div className="content-card profile-card skeleton"> {/* Add skeleton class */}
-        <div className="profile-card-left skeleton skeleton-avatar" style={{width: '120px', height: '120px', borderRadius:'50%'}}></div>
-        <div className="profile-card-center" style={{flexGrow: 1}}>
-            <div className="skeleton skeleton-text large" style={{width: '60%', height: '2rem', marginBottom: '1rem'}}></div>
-            <div className="skeleton skeleton-text medium" style={{width: '40%', height: '1rem', marginBottom: '1rem'}}></div>
+  return (
+    <main className="dashboard-body"> {/* Use main container */}
+      
+      {/* 1. Profile Card Skeleton (same as before) */}
+      <div className="content-card profile-card skeleton">
+        <div className="profile-card-left skeleton skeleton-avatar" style={{width: '120px', height: '120px', borderRadius:'50%'}}></div>
+        <div className="profile-card-center" style={{flexGrow: 1}}>
+            <div className="skeleton skeleton-text large" style={{width: '60%', height: '2rem', marginBottom: '1rem'}}></div>
+            <div className="skeleton skeleton-text medium" style={{width: '40%', height: '1rem', marginBottom: '1rem'}}></div>
+        </div>
+        <div className="profile-card-right">
+            <div className="skeleton skeleton-text" style={{width: '80px', height: '1.5rem', marginBottom: '0.5rem'}}></div>
+            <div className="skeleton skeleton-text" style={{width: '100px', height: '1rem', marginBottom: '0.5rem'}}></div>
+            <div className="skeleton skeleton-text" style={{width: '120px', height: '1rem', marginBottom: '1rem'}}></div>
+            <div style={{display: 'flex', gap: '0.5rem'}}>
+              <div className="skeleton" style={{width: '100px', height: '30px', borderRadius: '6px'}}></div>
+              <div className="skeleton" style={{width: '40px', height: '30px', borderRadius: '6px'}}></div>
+            </div>
+        </div>
+      </div>
+
+      {/* 2. NEW: Listings/Reviews Section Skeleton */}
+      <div className="content-card skeleton" style={{marginTop: '1.5rem'}}>
+        {/* Skeleton Tabs */}
+        <div className="profile-tabs" style={{ borderBottom: '1px solid var(--border-color-light)' }}>
+          <div className="skeleton skeleton-text" style={{ width: '100px', height: '2rem', marginBottom: '-1px' }}></div>
+          <div className="skeleton skeleton-text" style={{ width: '100px', height: '2rem', marginBottom: '-1px' }}></div>
         </div>
-        <div className="profile-card-right">
-            <div className="skeleton skeleton-text" style={{width: '80px', height: '1.5rem', marginBottom: '0.5rem'}}></div>
-            <div className="skeleton skeleton-text" style={{width: '100px', height: '1rem', marginBottom: '0.5rem'}}></div>
-            <div className="skeleton skeleton-text" style={{width: '120px', height: '1rem', marginBottom: '1rem'}}></div>
-            <div style={{display: 'flex', gap: '0.5rem'}}>
-              <div className="skeleton" style={{width: '100px', height: '30px', borderRadius: '6px'}}></div>
-              <div className="skeleton" style={{width: '40px', height: '30px', borderRadius: '6px'}}></div>
+
+        {/* Skeleton Listing Grid */}
+        <div className="profile-listings-section" style={{ paddingTop: '1.5rem' }}>
+          <div className="profile-listings-header">
+            <div className="skeleton skeleton-text" style={{ width: '150px', height: '1.75rem' }}></div>
+            <div className="profile-listings-actions">
+              <div className="skeleton" style={{ width: '200px', height: '40px', borderRadius: '6px' }}></div>
+              <div className="skeleton" style={{ width: '150px', height: '40px', borderRadius: '6px' }}></div>
             </div>
+          </div>
+          <ListingGridSkeleton count={3} /> {/* Show 3, or however many you want */}
         </div>
       </div>
-        <div className="content-card skeleton" style={{ height: '300px', marginTop: '1.5rem'}}></div> {/* Placeholder for listings/reviews card */}
-    </main>
-  );
- }
+
+    </main>
+  );
+}
 
 // --- Profile Details Modal Component (Keep as before) ---
 function ProfileDetailsModal({ user, onClose }) {
@@ -124,6 +158,9 @@ export default function ProfilePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListingModal, setSelectedListingModal] = useState(null); // State for product modal
+  const [likedListingIds, setLikedListingIds] = useState(new Set());
+  const [likingInProgress, setLikingInProgress] = useState(new Set());
+  const [isModalLoading, setIsModalLoading] = useState(false);
   const navigate = useNavigate();
 
   // --- Reusable Fetch Function ---
@@ -143,10 +180,12 @@ export default function ProfilePage() {
       // 2. Fetch User's Listings and Reviews in parallel
       const listingsPromise = getUserListings(userId);
       const reviewsPromise = getUserReviews(userId);
+      const likesPromise = getLikedListings();
 
-      const [listingsResponse, reviewsResponse] = await Promise.all([
+      const [listingsResponse, reviewsResponse, likesResponse] = await Promise.all([
           listingsPromise,
-          reviewsPromise
+          reviewsPromise,
+          likesPromise
       ]);
 
       console.log("Fetched user listings:", listingsResponse.data);
@@ -155,6 +194,11 @@ export default function ProfilePage() {
       setUserListings(listingsResponse.data || []);
       setOriginalListings(listingsResponse.data || []); // <-- Set original list for search
       setUserReviews(reviewsResponse.data || []);
+
+      if (likesResponse.data) {
+      const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
+      setLikedListingIds(likedIds);
+    }
 
     } catch (err) {
       console.error("Failed to fetch profile data:", err);
@@ -173,11 +217,44 @@ export default function ProfilePage() {
     fetchProfileData();
   }, [navigate]); // navigate is unlikely to change, but good practice
 
+
+  // --- NEW "SMART" FUNCTION ---
+const handleOpenListing = async (listingId) => {
+  if (!listingId) {
+    console.error("No listing ID provided");
+    return;
+  }
+  
+  // Close any modal that's already open and show skeleton
+  closeListingModal(); 
+  setIsModalLoading(true);
+
+  try {
+    console.log(`Fetching details for listingId: ${listingId}`);
+    const response = await getListingById(listingId); 
+
+    if (response.data) {
+      // We found the data! Set it to show the real modal.
+      setSelectedListingModal(response.data);
+    } else {
+      throw new Error(`Listing ${listingId} not found.`);
+    }
+
+  } catch (err) {
+    console.error("Failed to fetch listing for modal:", err);
+    alert(`Could not load item: ${err.message}.`);
+  } finally {
+    // Always hide the skeleton
+    setIsModalLoading(false); 
+  }
+};
+
   // --- Modal Handlers ---
   const openProfileModal = () => setIsModalOpen(true); // For Profile Details
   const closeProfileModal = () => setIsModalOpen(false);
-  const openListingModal = (listing) => { // For Product Details
-      setSelectedListingModal(listing);
+  
+    const openListingModal = (listing) => { // For Product Details
+    handleOpenListing(listing.listingId);
   };
   const closeListingModal = () => {
       setSelectedListingModal(null);
@@ -233,10 +310,63 @@ export default function ProfilePage() {
     }
   };
 
+  // --- ADD handleLikeToggle ---
+  const handleLikeToggle = async (listingId) => {
+    if (likingInProgress.has(listingId)) return;
+    setLikingInProgress(prev => new Set(prev).add(listingId));
+    const newLikedIds = new Set(likedListingIds);
+    const isCurrentlyLiked = likedListingIds.has(listingId);
+    if (isCurrentlyLiked) newLikedIds.delete(listingId);
+    else newLikedIds.add(listingId);
+    setLikedListingIds(newLikedIds);
+    try {
+      if (isCurrentlyLiked) await unlikeListing(listingId);
+      else await likeListing(listingId);
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+      setError("Failed to update like. Please refresh.");
+      setLikedListingIds(prevIds => {
+          const revertedIds = new Set(prevIds);
+          if (isCurrentlyLiked) revertedIds.add(listingId);
+          else revertedIds.delete(listingId);
+          return revertedIds;
+      });
+    } finally {
+      setLikingInProgress(prev => {
+        const next = new Set(prev);
+        next.delete(listingId);
+        return next;
+      });
+    }
+  };
+  // -------------------------
+
+  
+
   // --- Calculate Average Rating ---
   const averageRating = userReviews.length > 0
     ? (userReviews.reduce((sum, review) => sum + (review.rating || 0), 0) / userReviews.length).toFixed(1)
     : 0;
+
+  // --- NEW Universal Notification Click Handler ---
+const handleNotificationClick = async (notification) => {
+  console.log("Notification clicked:", notification);
+
+  // 1. Extract the listing ID
+  const urlParts = notification.linkUrl?.split('/');
+  const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+
+  if (!listingId) {
+    console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
+    alert("Could not open this notification: Invalid link.");
+    return;
+  }
+
+  // 2. Call the new master function
+  handleOpenListing(listingId); 
+};
+// --- End new function ---
+
 
   // --- Render Loading State ---
   if (isLoading) {
@@ -294,6 +424,7 @@ export default function ProfilePage() {
       <Header
         userName={userData.fullName?.split(' ')[0]}
         onLogout={handleLogout}
+        onNotificationClick={handleNotificationClick}
       />
 
       <main className="dashboard-body">
@@ -347,6 +478,9 @@ export default function ProfilePage() {
                           listing={listing}
                           onClick={openListingModal} // Use handler for product modal
                           currentUserId={userData?.userId}
+                          isLiked={likedListingIds.has(listing.listingId)}
+                          onLikeClick={handleLikeToggle}
+                          isLiking={likingInProgress.has(listing.listingId)}
                       />
                     ))}
                   </div>
@@ -394,8 +528,15 @@ export default function ProfilePage() {
           <ProductDetailModal
           listing={selectedListingModal}
           onClose={closeListingModal}
-          currentUserId={userData?.userId} 
+          currentUserId={userData?.userId}
+          isLiked={likedListingIds.has(selectedListingModal.listingId)}
+          onLikeClick={handleLikeToggle}
+          isLiking={likingInProgress.has(selectedListingModal.listingId)}
           />
+        )}
+
+        {isModalLoading && (
+          <ProductDetailModalSkeleton onClose={() => setIsModalLoading(false)} />
         )}
 
     </div>

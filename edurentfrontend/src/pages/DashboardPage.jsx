@@ -1,25 +1,42 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getCurrentUser, getListings, getCategories, getLikedListings, likeListing, unlikeListing } from '../services/apiService';
+import { getCurrentUser, getListings, getCategories, getLikedListings, likeListing, getListingById, unlikeListing } from '../services/apiService';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ListingCard from '../components/ListingCard';
+import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
+import ListingGridSkeleton from '../components/ListingGridSkeleton'; 
 import '../static/DashboardPage.css';
 import Header from '../components/Header'; 
 
 function LoadingSkeleton() {
-  return (
-    <div className="dashboard-body">
-      <div className="content-card skeleton skeleton-hero"></div>
-      <div>
-        <div className="skeleton skeleton-text large" style={{ width: '200px' }}></div>
-        <div className="category-grid">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="skeleton skeleton-text" style={{ height: '80px' }}></div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+  return (
+    <div className="dashboard-body">
+      {/* 1. Hero Card Skeleton (same as before) */}
+      <div className="content-card skeleton skeleton-hero"></div>
+
+      {/* 2. Category Skeleton (same as before) */}
+      <section>
+        <div className="skeleton skeleton-text large" style={{ width: '200px', height: '1.75rem', marginBottom: '1.5rem' }}></div>
+        <div className="category-grid">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="skeleton skeleton-text" style={{ height: '80px', borderRadius: '8px' }}></div>
+          ))}
+        </div>
+      </section>
+
+      {/* 3. NEW: Featured Items Skeleton */}
+      <section>
+        <div className="skeleton skeleton-text large" style={{ width: '250px', height: '1.75rem', marginBottom: '1.5rem' }}></div>
+        <ListingGridSkeleton count={3} /> {/* Show 3 for featured */}
+      </section>
+
+      {/* 4. NEW: All Listings Skeleton */}
+      <section>
+        <div className="skeleton skeleton-text large" style={{ width: '200px', height: '1.75rem', marginBottom: '1.5rem' }}></div>
+        <ListingGridSkeleton count={6} /> {/* Show 6 (or more) for all */}
+      </section>
+    </div>
+  );
 }
 
 function ErrorBoundary({ error, onRetry }) {
@@ -62,6 +79,9 @@ export default function DashboardPage() {
 
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   const [likingInProgress, setLikingInProgress] = useState(new Set());
+  const [isModalLoading, setIsModalLoading] = useState(false);
+  
+  
 
   const fetchDashboardData = useCallback(async () => {
     setIsLoading(true);
@@ -143,10 +163,42 @@ export default function DashboardPage() {
     }
   };
 
-  const openModal = (listing) => {
-    setSelectedListing(listing);
-    setIsModalOpen(true);
+  const handleOpenListing = async (listingId) => {
+    if (!listingId) {
+      console.error("No listing ID provided");
+      return;
+    }
+    
+    // Close any modal that's already open and show skeleton
+    closeModal(); 
+    setIsModalLoading(true);
+
+    try {
+      console.log(`Fetching details for listingId: ${listingId}`);
+      const response = await getListingById(listingId); 
+
+      if (response.data) {
+        // We found the data! Set it and open the real modal.
+        setSelectedListing(response.data);
+        setIsModalOpen(true);
+      } else {
+        throw new Error(`Listing ${listingId} not found.`);
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch listing for modal:", err);
+      alert(`Could not load item: ${err.message}.`);
+    } finally {
+      // Always hide the skeleton
+      setIsModalLoading(false); 
+    }
   };
+
+  // This function now just finds the ID and calls the new handler
+  const openModal = (listing) => {
+    handleOpenListing(listing.listingId);
+  };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedListing(null);
@@ -205,6 +257,25 @@ export default function DashboardPage() {
   };
   // --------------------------------
 
+ // --- NEW Universal Notification Click Handler ---
+  const handleNotificationClick = async (notification) => {
+    console.log("Notification clicked:", notification);
+
+    // 1. Extract the listing ID
+    const urlParts = notification.linkUrl?.split('/');
+    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+
+    if (!listingId) {
+      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
+      alert("Could not open this notification: Invalid link.");
+      return;
+    }
+
+    // 2. Call the new master function
+    handleOpenListing(listingId); 
+  };
+  // --- End new function ---
+
   if (isLoading) {
     return (
       <div className="dashboard-page">
@@ -227,6 +298,7 @@ export default function DashboardPage() {
         searchQuery={searchQuery}
         onSearchChange={handleSearch}
         onLogout={handleLogout}
+        onNotificationClick={handleNotificationClick}
       />
 
       <main className="dashboard-body">
@@ -329,6 +401,10 @@ export default function DashboardPage() {
            isLiking={likingInProgress.has(selectedListing.listingId)}
          />
       )}
+
+      {isModalLoading && (
+      <ProductDetailModalSkeleton onClose={() => setIsModalLoading(false)} />
+    )}
       
     </div>
   );

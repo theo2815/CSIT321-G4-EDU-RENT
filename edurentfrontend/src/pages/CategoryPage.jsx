@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ProductDetailModal from '../components/ProductDetailModal';
+import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 // Import all necessary API functions, including for "likes"
 import { 
   getCurrentUser, 
@@ -11,6 +12,7 @@ import {
   getListingsByCategoryId,
   getLikedListings,
   likeListing,
+  getListingById,
   unlikeListing
 } from '../services/apiService';
 
@@ -43,6 +45,7 @@ export default function CategoryPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
+  const [isModalLoading, setIsModalLoading] = useState(false);
 
   // State to track liked item IDs for fast lookups
   const [likedListingIds, setLikedListingIds] = useState(new Set());
@@ -145,14 +148,54 @@ export default function CategoryPage() {
   };
 
   /**
+   * Fetches the full listing data and opens the modal, showing a skeleton first.
+   */
+  const handleOpenListing = async (listingId) => {
+    if (!listingId) {
+      console.error("No listing ID provided");
+      return;
+    }
+    
+    // Close any modal that's already open and show skeleton
+    closeModal(); 
+    setIsModalLoading(true);
+
+    try {
+      console.log(`Fetching details for listingId: ${listingId}`);
+      const response = await getListingById(listingId); 
+
+      if (response.data) {
+        // We found the data! Set it and open the real modal.
+        setSelectedListing(response.data);
+        setIsModalOpen(true);
+      } else {
+        throw new Error(`Listing ${listingId} not found.`);
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch listing for modal:", err);
+      alert(`Could not load item: ${err.message}.`);
+    } finally {
+      // Always hide the skeleton
+      setIsModalLoading(false); 
+    }
+  };
+
+  /**
    * Opens the product detail modal with the selected listing.
    */
-  const openModal = (listing) => { setSelectedListing(listing); setIsModalOpen(true); };
+  const openModal = (listing) => {
+    // Just call the new handler with the ID
+    handleOpenListing(listing.listingId);
+  };
 
   /**
    * Closes the product detail modal.
    */
-  const closeModal = () => { setIsModalOpen(false); setSelectedListing(null); };
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedListing(null);
+  };
 
   /**
    * Toggles the "like" status of a listing with an optimistic update.
@@ -208,6 +251,25 @@ export default function CategoryPage() {
       }
     };
 
+  // --- NEW Universal Notification Click Handler ---
+  const handleNotificationClick = async (notification) => {
+    console.log("Notification clicked:", notification);
+
+    // 1. Extract the listing ID
+    const urlParts = notification.linkUrl?.split('/');
+    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+
+    if (!listingId) {
+      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
+      alert("Could not open this notification: Invalid link.");
+      return;
+    }
+
+    // 2. Call the new master function
+    handleOpenListing(listingId); 
+  };
+  // --- End new function ---
+
   if (isLoading) {
     return (
         <div className="profile-page">
@@ -242,6 +304,7 @@ export default function CategoryPage() {
         onLogout={handleLogout}
         searchQuery=""
         onSearchChange={()=>{}} // Header search is disabled on this page
+        onNotificationClick={handleNotificationClick}
       />
 
       <main className="category-page-container">
@@ -310,6 +373,9 @@ export default function CategoryPage() {
             isLiking={likingInProgress.has(selectedListing.listingId)}
          />
        )}
+       {isModalLoading && (
+          <ProductDetailModalSkeleton onClose={() => setIsModalLoading(false)} />
+        )}
     </div>
   );
 }

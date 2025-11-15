@@ -231,3 +231,27 @@
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
 }
+
+
+.notification-bell {
+  position: relative; /* Required to position the badge */
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;  /* Adjust position as needed */
+  right: -5px; /* Adjust position as needed */
+  background-color: #e53935; /* Red */
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  line-height: 1;
+  pointer-events: none; /* Don't let badge block clicks */
+}
+

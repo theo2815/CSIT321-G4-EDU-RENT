@@ -15,8 +15,8 @@
   position: absolute;
   /* Adjust top based on header height, e.g., calc(100% + 10px) relative to header */
   /* Or use fixed positioning if header isn't relative */
-  top: 55px; /* Example: Adjust based on your header height + desired gap */
-  right: 80px; /* Example: Align roughly under the bell icon area */
+  top: calc(100% + 10px); /* Example: Adjust based on your header height + desired gap */
+  right: 150px; /* Example: Align roughly under the bell icon area */
   width: 360px; /* Width of the popup */
   max-height: 450px; /* Limit height */
   background-color: var(--bg-light); /* White background */
@@ -139,4 +139,140 @@
 
 .load-more-btn:hover {
   text-decoration: underline;
+}
+
+/* --- Filter Bar --- */
+.popup-filter-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background-color: #f8f9fa; /* Light gray bg */
+  border-bottom: 1px solid var(--border-color);
+}
+
+.filter-btn-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px; /* Pill shape */
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-btn.active,
+.filter-btn:hover {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.mark-all-btn {
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  cursor: pointer;
+}
+
+.mark-all-btn:hover {
+  text-decoration: underline;
+}
+
+/* --- Unread Indicator --- */
+.notification-list-item.unread {
+  background-color: #e7f5ff; /* Light blue */
+  font-weight: 500;
+}
+
+.notification-list-item.unread .notification-text strong {
+  font-weight: 700;
+}
+
+/* --- Header 3-Dot Menu --- */
+.popup-header-options {
+  position: relative; /* For dropdown positioning */
+}
+
+/* We can reuse .notification-options-btn and .notification-dropdown-menu */
+/* but we'll add a modifier for the header menu's position */
+.popup-header-options .notification-dropdown-menu {
+  top: 100%; /* Position below the button */
+  right: 0;
+  /* You can add more specific styles if needed */
+}
+
+/* --- 3-Dot Menu --- */
+.notification-item-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative; /* For dropdown */
+  margin-left: auto; /* Push to the right */
+  padding-left: 0.5rem;
+}
+
+.notification-options-btn {
+  background: none;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.notification-options-btn:hover {
+  background-color: #e9ecef;
+  color: var(--text-color);
+}
+
+/* 3-Dot Dropdown Menu */
+.notification-dropdown-menu {
+  position: absolute;
+  top: 100%; /* Position below the button */
+  right: 0;
+  background-color: var(--bg-light);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  width: 150px; /* Set a width */
+  z-index: 10;
+  overflow: hidden; /* For border-radius */
+}
+
+.notification-dropdown-menu button {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.notification-dropdown-menu button:hover {
+  background-color: #f8f9fa; /* Light gray */
+}
+
+.notification-dropdown-menu button.delete {
+  color: #e53935; /* Red for delete */
+}
+.notification-dropdown-menu button.delete:hover {
+  background-color: #ffebee; /* Light red */
 }

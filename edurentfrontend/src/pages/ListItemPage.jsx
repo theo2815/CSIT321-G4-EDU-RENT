@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
+import ProductDetailModal from '../components/ProductDetailModal';
+import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 // --- UPDATED IMPORTS ---
 import { 
   getCurrentUser, 
   getCategories, 
   getSchools, 
-  createListing 
+  getListingById,
+  createListing,
+  likeListing,    
+  unlikeListing
 } from '../services/apiService';
 
 // Import CSS
@@ -86,6 +91,14 @@ export default function ListItemPage() {
   const [allowDelivery, setAllowDelivery] = useState(false);
   const [deliveryOption, setDeliveryOption] = useState('');
   const fileInputRef = useRef(null); 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState(null); 
+  const [userData, setUserData] = useState(null);
+
+  // Like State (needed for the modal)
+  const [likedListingIds, setLikedListingIds] = useState(new Set());     
+  const [likingInProgress, setLikingInProgress] = useState(new Set()); 
+  const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
   
   // --- NEW Submission State ---
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,6 +121,7 @@ export default function ListItemPage() {
           schoolsPromise
         ]);
 
+        setUserData(userResponse.data); 
         setUserName(userResponse.data?.fullName?.split(' ')[0] || 'User');
         setCategories(categoriesResponse.data || []); // <-- Use API data
         setSchools(schoolsResponse.data || []); // <-- Use API data
@@ -248,6 +262,102 @@ export default function ListItemPage() {
     }
   };
 
+  // --- NEW Universal Notification Click Handler ---
+  const handleNotificationClick = async (notification) => {
+    console.log("Notification clicked:", notification);
+
+    // 1. Extract the listing ID from the notification's URL
+    const urlParts = notification.linkUrl?.split('/');
+    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+
+    if (!listingId) {
+      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
+      alert("Could not open this notification: Invalid link.");
+      return;
+    }
+
+    closeModal(); // Close any modal that's already open
+    setIsNotificationLoading(true); // <-- SHOW THE SKELETON
+
+    console.log(`Fetching details for listingId: ${listingId}`);
+
+    try {
+      // 2. Fetch that specific listing's data from the API
+      // We must have `getListingById` imported from apiService.js
+      const response = await getListingById(listingId); 
+
+      if (response.data) {
+        // 3. We found the listing! Call openModal with the data.
+        openModal(response.data);
+      } else {
+        throw new Error(`Listing ${listingId} not found.`);
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch listing for notification:", err);
+      alert(`Could not load item: ${err.message}. It may have been deleted.`);
+      // As a fallback, navigate to the main browse page
+      navigate('/browse');
+    } finally { 
+      setIsNotificationLoading(false); // <-- HIDE THE SKELETON
+    }
+  };
+  // --- End new function ---
+
+  // --- Modal Handlers ---
+  const openModal = (listing) => {
+    setSelectedListing(listing);
+    setIsModalOpen(true);
+    // Optionally refresh like status
+  };
+  
+  const closeModal = () => {
+    setSelectedListing(null);
+    setIsModalOpen(false);
+  };
+
+  // --- Like Handler (copied from Dashboard/Manage) ---
+  const handleLikeToggle = async (listingId) => {
+    if (likingInProgress.has(listingId)) return;
+    setLikingInProgress(prev => new Set(prev).add(listingId));
+    
+    const newLikedIds = new Set(likedListingIds);
+    const isCurrentlyLiked = likedListingIds.has(listingId);
+    
+    if (isCurrentlyLiked) {
+      newLikedIds.delete(listingId);
+    } else {
+      newLikedIds.add(listingId);
+    }
+    setLikedListingIds(newLikedIds);
+    
+    try {
+      if (isCurrentlyLiked) {
+        await unlikeListing(listingId);
+      } else {
+        await likeListing(listingId);
+      }
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+      // Revert state
+      setLikedListingIds(prevIds => {
+          const revertedIds = new Set(prevIds);
+          if (isCurrentlyLiked) {
+            revertedIds.add(listingId);
+          } else {
+            revertedIds.delete(listingId);
+          }
+          return revertedIds;
+      });
+    } finally {
+      setLikingInProgress(prev => {
+        const next = new Set(prev);
+        next.delete(listingId);
+        return next;
+      });
+    }
+  };
+
   // --- Render ---
   if (isLoading) {
     return (
@@ -265,7 +375,10 @@ export default function ListItemPage() {
 
   return (
     <div className="profile-page"> 
-      <Header userName={userName} onLogout={handleLogout} />
+      <Header userName={userName} 
+      onLogout={handleLogout}
+      onNotificationClick={handleNotificationClick} 
+      />
 
       <form onSubmit={handleListNow}>
         <div className="list-item-page-container">
@@ -463,6 +576,20 @@ export default function ListItemPage() {
           </section>
         </div>
       </form>
+      {isModalOpen && selectedListing && (
+        <ProductDetailModal
+          listing={selectedListing}
+          onClose={closeModal}
+          currentUserId={userData?.userId}
+          isLiked={likedListingIds.has(selectedListing.listingId)}
+          onLikeClick={handleLikeToggle}
+          isLiking={likingInProgress.has(selectedListing.listingId)}
+        />
+      )}
+
+      {isNotificationLoading && (
+        <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
+      )}
     </div>
   );
 }

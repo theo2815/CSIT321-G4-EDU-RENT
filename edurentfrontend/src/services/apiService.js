@@ -248,3 +248,72 @@ export const unlikeListing = async (listingId) => {
     }
 };
 // --- End NEW Functions ---
+
+// --- NEW: Notification Functions ---
+export const getMyNotifications = async (unreadOnly = false) => {
+  try {
+    const params = {};
+    if (unreadOnly) {
+      params.unread = true;
+    }
+    // Calls GET /api/v1/notifications/my-notifications
+    // Token is added by the interceptor
+    const response = await apiClient.get('/notifications/my-notifications', { params });
+    return response;
+  } catch (error) {
+    console.error("Error during getMyNotifications API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+export const markNotificationAsRead = async (notificationId) => {
+  try {
+    // Calls PUT /api/v1/notifications/{notificationId}/read
+    // Token is added by the interceptor
+    const response = await apiClient.put(`/notifications/${notificationId}/read`);
+    return response;
+  } catch (error) {
+    console.error(`Error during markNotificationAsRead(${notificationId}) API call:`, error.response || error.message);
+    throw error;
+  }
+
+
+};
+
+// --- NEW: Mark All as Read ---
+export const markAllNotificationsAsRead = async () => {
+  try {
+    // Calls PUT /api/v1/notifications/read-all
+    const response = await apiClient.put('/notifications/read-all');
+    return response;
+  } catch (error) {
+    console.error("Error during markAllNotificationsAsRead API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+// --- NEW: Delete Notification ---
+export const deleteNotification = async (notificationId) => {
+  try {
+    // Calls DELETE /api/v1/notifications/{notificationId}
+    const response = await apiClient.delete(`/notifications/${notificationId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during deleteNotification(${notificationId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+// --- End NEW Functions ---
+
+// --- NEW: Mark as Unread ---
+export const markNotificationAsUnread = async (notificationId) => {
+  try {
+    // Calls PUT /api/v1/notifications/{notificationId}/unread
+    const response = await apiClient.put(`/notifications/${notificationId}/unread`);
+    return response;
+  } catch (error) {
+    console.error(`Error during markNotificationAsUnread(${notificationId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+// --- END NEW Function ---

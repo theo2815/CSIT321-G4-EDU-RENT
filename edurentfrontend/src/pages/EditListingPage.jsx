@@ -272,6 +272,43 @@ export default function EditListingPage() {
     }
   };
 
+  // --- NEW Universal Notification Click Handler ---
+  const handleNotificationClick = async (notification) => {
+    console.log("Notification clicked:", notification);
+
+    // 1. Extract the listing ID from the notification's URL
+    const urlParts = notification.linkUrl?.split('/');
+    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+
+    if (!listingId) {
+      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
+      alert("Could not open this notification: Invalid link.");
+      return;
+    }
+
+    console.log(`Fetching details for listingId: ${listingId}`);
+
+    try {
+      // 2. Fetch that specific listing's data from the API
+      // We must have `getListingById` imported from apiService.js
+      const response = await getListingById(listingId); 
+
+      if (response.data) {
+        // 3. We found the listing! Call openModal with the data.
+        openModal(response.data);
+      } else {
+        throw new Error(`Listing ${listingId} not found.`);
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch listing for notification:", err);
+      alert(`Could not load item: ${err.message}. It may have been deleted.`);
+      // As a fallback, navigate to the main browse page
+      navigate('/browse');
+    }
+  };
+  // --- End new function ---
+
   // --- Render ---
   if (isLoading) {
     return <div className="profile-page"><Header userName="" onLogout={handleLogout} /><ListItemSkeleton /></div>;
@@ -282,7 +319,10 @@ export default function EditListingPage() {
 
   return (
     <div className="profile-page">
-      <Header userName={userName} onLogout={handleLogout} />
+      <Header userName={userName} 
+      onLogout={handleLogout} 
+      onNotificationClick={handleNotificationClick}
+      />
 
       {/* --- Changed submit handler --- */}
       <form onSubmit={handleUpdate}>
