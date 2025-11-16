@@ -15,6 +15,39 @@ import '../static/CategoriesSidebar.css'; // Reusing close button style
 // Controls how many notifications are loaded per page
 const NOTIFICATIONS_PER_PAGE = 5;
 
+
+// --- NEW: Skeleton Component ---
+/**
+ * Renders a single skeleton item that mimics a notification list item.
+ */
+function NotificationItemSkeleton() {
+  return (
+    <li className="notification-skeleton-item">
+      <div className="skeleton skeleton-icon"></div>
+      <div className="skeleton-text-container">
+        <div className="skeleton skeleton-line"></div>
+        <div className="skeleton skeleton-line short"></div>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Renders a list of skeleton items.
+ */
+function NotificationsListSkeleton() {
+  return (
+    <ul className="notification-skeleton-list">
+      <NotificationItemSkeleton />
+      <NotificationItemSkeleton />
+      <NotificationItemSkeleton />
+      <NotificationItemSkeleton />
+      <NotificationItemSkeleton />
+    </ul>
+  );
+}
+// --- END: Skeleton Component ---
+
 /**
  * A popup component to display, filter, and manage notifications.
  *
@@ -28,7 +61,8 @@ export default function NotificationsPopup({
   onRefresh, // Function to tell Header to refetch data after an action
   currentFilter, // The currently active filter ('all' or 'unread')
   onFilterChange, // Function to set the filter in Header
-  onNotificationClick
+  onNotificationClick,
+  isLoading
 }) {
   // State for pagination
   const [visibleCount, setVisibleCount] = useState(NOTIFICATIONS_PER_PAGE);
@@ -222,25 +256,30 @@ export default function NotificationsPopup({
 
         {/* Main content area for the list */}
         <div className="popup-content">
-          {notifications.length === 0 ? (
-            <div className="notification-message">
-              {currentFilter === 'unread' ? "You're all caught up!" : "No notifications yet."}
-            </div>
-          ) : (
-            <ul className="notification-list">
-              {displayedNotifications.map(notification => (
-                <li
-                  key={notification.notificationId}
-                  className={`notification-list-item ${!notification.isRead ? 'unread' : ''}`}
-                 onClick={() => handleItemClick(notification)}
-                  role="link"
-                  tabIndex={0}
-                >
-                  <span className="notification-icon">{getNotificationIcon(notification.type)}</span>
-                  <div className="notification-details">
-                    <span className="notification-text">{renderNotificationText(notification)}</span>
-                    <span className="notification-timestamp">{formatTimestamp(notification.createdAt)}</span>
-                 </div>
+          {isLoading ? (
+            // 1. Show skeleton while loading
+            <NotificationsListSkeleton />
+          ) : notifications.length === 0 ? (
+            // 2. Show empty message if not loading and no notifications
+            <div className="notification-message">
+              {currentFilter === 'unread' ? "You're all caught up!" : "No notifications yet."}
+            </div>
+          ) : (
+            // 3. Show the list
+            <ul className="notification-list">
+              {displayedNotifications.map(notification => (
+                <li
+                  key={notification.notificationId}
+                  className={`notification-list-item ${!notification.isRead ? 'unread' : ''}`}
+                  onClick={() => handleItemClick(notification)}
+                  role="link"
+                  tabIndex={0}
+                >
+                  <span className="notification-icon">{getNotificationIcon(notification.type)}</span>
+                  <div className="notification-details">
+                    <span className="notification-text">{renderNotificationText(notification)}</span>
+                    <span className="notification-timestamp">{formatTimestamp(notification.createdAt)}</span>
+                  </div>
 
                   {/* --- UPDATED: 3-Dot Menu Logic --- */}
                   <div className="notification-item-right">
@@ -253,23 +292,29 @@ export default function NotificationsPopup({
                    </button>
                     {activeDropdown === notification.notificationId && (
                       <div className="notification-dropdown-menu">
-                        {/* --- Show "Mark as Unread" if it's already read --- */}
                         {notification.isRead ? (
-                          <button onClick={(e) => handleMarkAsUnreadClick(e, notification.notificationId)}>
+                          <button 
+                            data-action="mark-unread" 
+                            onClick={(e) => handleMarkAsUnreadClick(e, notification.notificationId)}
+                          >
                             Mark as Unread
-                         </button>
+                         </button>
                         ) : (
-                          <button onClick={(e) => handleMarkAsReadClick(e, notification.notificationId)}>
-                       Mark as Read
-                          </button>
+                          <button 
+                            data-action="mark-read"
+                             onClick={(e) => handleMarkAsReadClick(e, notification.notificationId)}
+                          >
+                            Mark as Read
+                         </button>
                         )}
                         <button
-                         className="delete"
-                         onClick={(e) => handleDeleteClick(e, notification.notificationId)}
+                          data-action="delete"
+                          className="delete" 
+                          onClick={(e) => handleDeleteClick(e, notification.notificationId)}
                         >
-                          Delete this notification
+                          Delete
                         </button>
-                      </div>
+                     </div>
                     )}
                    </div>
                   {/* --- END: 3-Dot Menu Logic --- */}

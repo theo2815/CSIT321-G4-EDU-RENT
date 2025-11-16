@@ -408,6 +408,7 @@ export default function ManageListingsPage() {
   return (
     <div className="profile-page"> {/* Container for Header */}
       <Header userName={userName} 
+      profilePictureUrl={userData?.profilePictureUrl}
       onLogout={handleLogout} 
       onNotificationClick={handleNotificationClick}
       />

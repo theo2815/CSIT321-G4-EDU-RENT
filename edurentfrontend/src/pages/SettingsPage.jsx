@@ -546,6 +546,7 @@ export default function SettingsPage() {
     // Reuse profile-page class for header/overall page structure if desired
     <div className="profile-page">
       <Header userName={userData?.fullName?.split(' ')[0]} 
+      profilePictureUrl={userData?.profilePictureUrl}
       onLogout={handleLogout}
       onNotificationClick={handleNotificationClick} 
       />

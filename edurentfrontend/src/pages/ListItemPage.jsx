@@ -1,23 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+// --- Import Hooks ---
+import useAuth from '../hooks/useAuth';
+import usePageLogic from '../hooks/usePageLogic';
+
+// --- Import Components ---
 import Header from '../components/Header';
-import ProductDetailModal from '../components/ProductDetailModal';
-import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
-// --- UPDATED IMPORTS ---
+// ProductDetailModal and Skeleton are now handled by usePageLogic
+
+// --- Import API Functions ---
 import { 
-  getCurrentUser, 
   getCategories, 
   getSchools, 
-  getListingById,
-  createListing,
-  likeListing,    
-  unlikeListing
+  createListing 
 } from '../services/apiService';
 
 // Import CSS
 import '../static/ListItemPage.css';
+import '../static/SettingsPage.css';  // For toggle styles
 
-// --- Skeleton Component (no changes) ---
+// --- Page-Specific Skeleton Component ---
 function ListItemSkeleton() {
   return (
     <div className="skeleton-list-item-container">
@@ -34,28 +37,22 @@ function ListItemSkeleton() {
 
       {/* Skeleton Right Column */}
       <section className="skeleton-details-section">
-        {/* Category */}
         <div className="skeleton skeleton-form-label"></div>
         <div className="skeleton skeleton-form-input"></div>
-        {/* Title */}
         <div className="skeleton skeleton-form-label"></div>
         <div className="skeleton skeleton-form-input"></div>
-        {/* Condition */}
         <div className="skeleton skeleton-form-label"></div>
         <div className="skeleton-condition-buttons">
           {Array.from({ length: 4 }).map((_, i) => ( 
             <div key={i} className="skeleton skeleton-condition-button"></div>
           ))}
         </div>
-        {/* Description */}
         <div className="skeleton skeleton-form-label"></div>
         <div className="skeleton skeleton-textarea"></div>
-        {/* Option */}
         <div className="skeleton skeleton-form-label"></div>
         <div className="skeleton skeleton-toggle"></div>
         <div className="skeleton skeleton-form-label" style={{ marginTop: '0.75rem' }}></div>
         <div className="skeleton skeleton-form-input" style={{ marginBottom: '1.5rem' }}></div>
-        {/* Deal Method */}
         <div className="skeleton skeleton-form-label"></div>
         <div className="skeleton skeleton-form-input" style={{ height: '30px', marginBottom: '1rem' }}></div>
         <div className="skeleton skeleton-form-input" style={{ height: '30px' }}></div>
@@ -63,25 +60,38 @@ function ListItemSkeleton() {
     </div>
   );
 }
-// --- END Skeleton Component ---
-
-// --- MOCK DATA REMOVED ---
 
 const CONDITION_OPTIONS = ['Brand New', 'Like New', 'Lightly Used', 'Well Used', 'Heavily Used'];
 
 export default function ListItemPage() {
-  const [userName, setUserName] = useState('');
+  
+  // --- 1. Use Hooks ---
+  // Gets user data, auth status, and logout function.
+  const { userData, userName, isLoadingAuth, authError, logout } = useAuth();
+  
+  // Gets modal component and notification click handler.
+  // We pass 'null' for likesHook since this page doesn't need it,
+  // but usePageLogic can still handle notifications.
+  const { 
+    handleNotificationClick, 
+    ModalComponent
+  } = usePageLogic(userData, null);
+  // --------------------
+
+  // --- 2. Local Page State ---
+  // This state is for data needed to populate the form.
   const [categories, setCategories] = useState([]);
-  const [schools, setSchools] = useState([]); // <-- State for schools
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [schools, setSchools] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true); // Loading for categories/schools
+  const [error, setError] = useState(null); // Page-specific errors (e.g., submission fail)
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  // --- Form State ---
+  // --- 3. Form-Specific State ---
+  // This state manages the form inputs.
   const [photos, setPhotos] = useState([]); 
   const [selectedCategory, setSelectedCategory] = useState('');
   const [title, setTitle] = useState('');
-  // const [selectedSchool, setSelectedSchool] = useState(''); // <-- REMOVED
   const [condition, setCondition] = useState(''); 
   const [description, setDescription] = useState('');
   const [option, setOption] = useState('sale'); 
@@ -91,57 +101,41 @@ export default function ListItemPage() {
   const [allowDelivery, setAllowDelivery] = useState(false);
   const [deliveryOption, setDeliveryOption] = useState('');
   const fileInputRef = useRef(null); 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState(null); 
-  const [userData, setUserData] = useState(null);
-
-  // Like State (needed for the modal)
-  const [likedListingIds, setLikedListingIds] = useState(new Set());     
-  const [likingInProgress, setLikingInProgress] = useState(new Set()); 
-  const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
   
-  // --- NEW Submission State ---
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-
-  // --- Fetch Initial Data (UPDATED) ---
+  // --- 4. Fetch Initial Form Data ---
+  // Runs once the user is authenticated.
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Fetch user, categories, and schools in parallel
-        const userPromise = getCurrentUser();
-        const categoriesPromise = getCategories();
-        const schoolsPromise = getSchools(); // <-- Fetch schools
+    if (userData) { 
+      const fetchData = async () => {
+        setIsLoadingData(true);
+        setError(null);
+        try {
+          // Fetch data needed to populate the form dropdowns
+          const categoriesPromise = getCategories();
+          const schoolsPromise = getSchools(); 
 
-        const [userResponse, categoriesResponse, schoolsResponse] = await Promise.all([
-          userPromise,
-          categoriesPromise,
-          schoolsPromise
-        ]);
+          const [categoriesResponse, schoolsResponse] = await Promise.all([
+            categoriesPromise,
+            schoolsPromise
+          ]);
 
-        setUserData(userResponse.data); 
-        setUserName(userResponse.data?.fullName?.split(' ')[0] || 'User');
-        setCategories(categoriesResponse.data || []); // <-- Use API data
-        setSchools(schoolsResponse.data || []); // <-- Use API data
+          setCategories(categoriesResponse.data || []);
+          setSchools(schoolsResponse.data || []);
 
-      } catch (err) {
-        console.error("Failed to fetch initial data:", err);
-        setError("Could not load page data. Please try again.");
-        if (err.message === "No authentication token found." || err.response?.status === 401 || err.response?.status === 403) {
-            navigate('/login');
+        } catch (err) {
+          console.error("Failed to fetch initial data:", err);
+          setError("Could not load page data. Please try again.");
+        } finally {
+          setIsLoadingData(false);
         }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [navigate]);
+      };
+      fetchData();
+    }
+  }, [userData]); // Re-run if userData becomes available
 
-  // --- Handlers (Photo handlers, etc. no changes) ---
-  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/login'); };
+  // --- 5. Form Handlers ---
 
+  // Triggers the hidden file input
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
     addPhotos(files);
@@ -150,6 +144,7 @@ export default function ListItemPage() {
     }
   };
 
+  // Adds new files to the photos state with previews
   const addPhotos = (newFiles) => {
     const availableSlots = 10 - photos.length;
     const filesToAdd = newFiles.slice(0, availableSlots);
@@ -160,32 +155,33 @@ export default function ListItemPage() {
     setPhotos(prevPhotos => [...prevPhotos, ...newPhotoPreviews]);
   };
 
-   const removePhoto = (indexToRemove) => {
-     // TODO: Revoke object URL before removing
-     // URL.revokeObjectURL(photos[indexToRemove].previewUrl);
-     setPhotos(prevPhotos => prevPhotos.filter((_, index) => index !== indexToRemove));
-   };
+  // Removes a photo from the preview list
+  const removePhoto = (indexToRemove) => {
+    // TODO: Revoke object URL to prevent memory leaks
+    // URL.revokeObjectURL(photos[indexToRemove].previewUrl);
+    setPhotos(prevPhotos => prevPhotos.filter((_, index) => index !== indexToRemove));
+  };
 
-  const handleDragOver = (event) => {
+  // Drag-and-drop photo handlers
+  const handleDragOver = (event) => { 
     event.preventDefault(); 
     event.currentTarget.classList.add('dragging');
   };
   const handleDragLeave = (event) => {
     event.currentTarget.classList.remove('dragging');
   };
-   const handleDrop = (event) => {
+  const handleDrop = (event) => { 
     event.preventDefault(); 
     event.currentTarget.classList.remove('dragging');
     const files = Array.from(event.dataTransfer.files);
     addPhotos(files);
-   };
+  };
 
-
+  // Resets the entire form to its default state
   const handleClearDetails = () => {
     setPhotos([]);
     setSelectedCategory('');
     setTitle('');
-    // setSelectedSchool(''); // <-- REMOVED
     setCondition('');
     setDescription('');
     setOption('sale');
@@ -197,26 +193,26 @@ export default function ListItemPage() {
     // TODO: Revoke all object URLs
   };
 
-  // --- NEW handleListNow Function ---
+  // Handles the final form submission
   const handleListNow = async (e) => { 
     e.preventDefault();
+    
     // --- Validation ---
     if (photos.length === 0 || !selectedCategory || !title || !condition || !description || !price) {
         alert("Please fill in all required fields and add at least one photo.");
         return;
     }
-     if (allowMeetup && !meetupPlace.trim()) {
-        alert("Please enter a meet-up place.");
-        return;
-     }
-      if (allowDelivery && !deliveryOption.trim()) {
-         alert("Please add a delivery option.");
-         return;
-      }
-    // --- End Validation ---
-
-    setIsSubmitting(true); // Indicate loading/submission
-    setError(null); // Clear previous errors
+    if (allowMeetup && !meetupPlace.trim()) {
+      alert("Please enter a meet-up place.");
+      return;
+    }
+    if (allowDelivery && !deliveryOption.trim()) {
+      alert("Please add a delivery option.");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setError(null);
 
     // --- Prepare FormData ---
     const listingData = new FormData();
@@ -229,7 +225,7 @@ export default function ListItemPage() {
     });
     listingData.append('categoryId', selectedCategory);
     listingData.append('title', title);
-    // listingData.append('schoolId', selectedSchool); // <-- REMOVED
+    // 'schoolId' is no longer needed; backend gets it from the user token.
     listingData.append('condition', condition);
     listingData.append('description', description);
     listingData.append('listingType', option === 'rent' ? 'For Rent' : 'For Sale');
@@ -238,146 +234,65 @@ export default function ListItemPage() {
     if (allowMeetup) listingData.append('meetupLocation', meetupPlace);
     listingData.append('allowDelivery', allowDelivery);
     if (allowDelivery) listingData.append('deliveryOptions', deliveryOption);
-    // -------------------------
-
+    
     console.log("Submitting FormData..."); 
-
+    
     try {
       // --- Call API Service ---
       const response = await createListing(listingData);
-      // ------------------------
-
       console.log("Listing created successfully:", response.data);
       alert("Item listed successfully!"); 
       handleClearDetails(); // Clear the form
-      navigate('/dashboard'); // Navigate after success
+      navigate('/profile'); // Navigate after success
 
     } catch (err) {
       console.error("Failed to list item:", err);
-      const errorMsg = err.response?.data?.message || err.message || "Failed to list item. Please check details and try again.";
+      const errorMsg = err.response?.data?.message || err.message || "Failed to list item.";
       setError(errorMsg); 
       alert(`Error: ${errorMsg}`); 
     } finally {
-      setIsSubmitting(false); // Stop loading indicator
+      setIsSubmitting(false);
     }
   };
 
-  // --- NEW Universal Notification Click Handler ---
-  const handleNotificationClick = async (notification) => {
-    console.log("Notification clicked:", notification);
-
-    // 1. Extract the listing ID from the notification's URL
-    const urlParts = notification.linkUrl?.split('/');
-    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
-
-    if (!listingId) {
-      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
-      alert("Could not open this notification: Invalid link.");
-      return;
-    }
-
-    closeModal(); // Close any modal that's already open
-    setIsNotificationLoading(true); // <-- SHOW THE SKELETON
-
-    console.log(`Fetching details for listingId: ${listingId}`);
-
-    try {
-      // 2. Fetch that specific listing's data from the API
-      // We must have `getListingById` imported from apiService.js
-      const response = await getListingById(listingId); 
-
-      if (response.data) {
-        // 3. We found the listing! Call openModal with the data.
-        openModal(response.data);
-      } else {
-        throw new Error(`Listing ${listingId} not found.`);
-      }
-
-    } catch (err) {
-      console.error("Failed to fetch listing for notification:", err);
-      alert(`Could not load item: ${err.message}. It may have been deleted.`);
-      // As a fallback, navigate to the main browse page
-      navigate('/browse');
-    } finally { 
-      setIsNotificationLoading(false); // <-- HIDE THE SKELETON
-    }
-  };
-  // --- End new function ---
-
-  // --- Modal Handlers ---
-  const openModal = (listing) => {
-    setSelectedListing(listing);
-    setIsModalOpen(true);
-    // Optionally refresh like status
-  };
+  // --- 6. Render Logic ---
   
-  const closeModal = () => {
-    setSelectedListing(null);
-    setIsModalOpen(false);
-  };
+  // Combine loading states from auth and local data fetching
+  const isPageLoading = isLoadingAuth || isLoadingData;
+  // Combine error states from auth and local page errors
+  const pageError = authError || error;
 
-  // --- Like Handler (copied from Dashboard/Manage) ---
-  const handleLikeToggle = async (listingId) => {
-    if (likingInProgress.has(listingId)) return;
-    setLikingInProgress(prev => new Set(prev).add(listingId));
-    
-    const newLikedIds = new Set(likedListingIds);
-    const isCurrentlyLiked = likedListingIds.has(listingId);
-    
-    if (isCurrentlyLiked) {
-      newLikedIds.delete(listingId);
-    } else {
-      newLikedIds.add(listingId);
-    }
-    setLikedListingIds(newLikedIds);
-    
-    try {
-      if (isCurrentlyLiked) {
-        await unlikeListing(listingId);
-      } else {
-        await likeListing(listingId);
-      }
-    } catch (err) {
-      console.error("Failed to toggle like:", err);
-      // Revert state
-      setLikedListingIds(prevIds => {
-          const revertedIds = new Set(prevIds);
-          if (isCurrentlyLiked) {
-            revertedIds.add(listingId);
-          } else {
-            revertedIds.delete(listingId);
-          }
-          return revertedIds;
-      });
-    } finally {
-      setLikingInProgress(prev => {
-        const next = new Set(prev);
-        next.delete(listingId);
-        return next;
-      });
-    }
-  };
-
-  // --- Render ---
-  if (isLoading) {
+  if (isPageLoading) {
     return (
         <div className="profile-page"> 
-            <Header userName="" onLogout={handleLogout} />
+            <Header userName="" onLogout={logout} />
             <div className="list-item-page-container skeleton"> 
                 <ListItemSkeleton />
             </div>
         </div>
       );
   }
-   if (error) {
-     return <div className="profile-page"><Header userName={userName} onLogout={handleLogout} /><div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div></div>;
+  
+   if (pageError) {
+     return (
+       <div className="profile-page">
+         <Header userName={userName} onLogout={logout} />
+         <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>
+           Error: {pageError}
+           {/* You can add a retry button here if needed */}
+         </div>
+       </div>
+     );
   }
 
+  // --- Main Page Render ---
   return (
     <div className="profile-page"> 
-      <Header userName={userName} 
-      onLogout={handleLogout}
-      onNotificationClick={handleNotificationClick} 
+      <Header 
+        userName={userName}                 // From useAuth
+        profilePictureUrl={userData?.profilePictureUrl}
+        onLogout={logout}                 // From useAuth
+        onNotificationClick={handleNotificationClick} // From usePageLogic
       />
 
       <form onSubmit={handleListNow}>
@@ -386,45 +301,45 @@ export default function ListItemPage() {
           {/* Left Column: Photos */}
           <section className="photos-section">
             <input
-               type="file"
-               multiple 
-               accept="image/*" 
-               ref={fileInputRef}
-               onChange={handleFileSelect}
-               style={{ display: 'none' }} 
-               id="photoInput"
-             />
-             <div
-               className="photo-upload-box"
-               onClick={() => fileInputRef.current?.click()} 
-               onDragOver={handleDragOver}
-               onDragLeave={handleDragLeave}
-               onDrop={handleDrop}
-             >
-               <div className="photo-upload-icon">➕</div>
-               <div className="photo-upload-text">Add photo</div>
-               <div>or drag photo here</div>
-             </div>
-             <div className="photo-upload-note">(Up to 10 photos)</div>
+              type="file"
+              multiple 
+              accept="image/*" 
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              style={{ display: 'none' }} 
+              id="photoInput"
+            />
+            <div
+              className="photo-upload-box"
+              onClick={() => fileInputRef.current?.click()} 
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="photo-upload-icon">➕</div>
+              <div className="photo-upload-text">Add photo</div>
+              <div>or drag photo here</div>
+            </div>
+            <div className="photo-upload-note">(Up to 10 photos)</div>
 
-             {/* Image Previews */}
-             {photos.length > 0 && (
-               <div className="image-preview-grid">
-                   {photos.map((photo, index) => (
-                       <div key={index} className="image-preview-item">
-                           <img src={photo.previewUrl} alt={`Preview ${index + 1}`} />
-                           <button
-                               type="button" 
-                               className="remove-image-btn"
-                               onClick={() => removePhoto(index)}
-                               aria-label={`Remove image ${index + 1}`}
-                           >
-                             &times;
-                           </button>
-                       </div>
-                   ))}
-               </div>
-             )}
+            {/* Image Previews */}
+            {photos.length > 0 && (
+              <div className="image-preview-grid">
+                  {photos.map((photo, index) => (
+                      <div key={index} className="image-preview-item">
+                          <img src={photo.previewUrl} alt={`Preview ${index + 1}`} />
+                          <button
+                            type="button" 
+                            className="remove-image-btn"
+                            onClick={() => removePhoto(index)}
+                            aria-label={`Remove image ${index + 1}`}
+                          >
+                            &times;
+                          </button>
+                      </div>
+                  ))}
+              </div>
+            )}
           </section>
 
           {/* Right Column: Details */}
@@ -455,7 +370,7 @@ export default function ListItemPage() {
               />
             </div>
 
-            {/* --- SCHOOL FIELD REMOVED --- */}
+            {/* School field is removed, as it's handled by the backend */}
 
             {/* Condition */}
             <div className="form-field-group">
@@ -554,7 +469,7 @@ export default function ListItemPage() {
               )}
             </div>
 
-            {/* --- ACTION BUTTONS (UPDATED) --- */}
+            {/* Action Buttons */}
             <div className="action-buttons">
               <button 
                 type="button" 
@@ -576,20 +491,12 @@ export default function ListItemPage() {
           </section>
         </div>
       </form>
-      {isModalOpen && selectedListing && (
-        <ProductDetailModal
-          listing={selectedListing}
-          onClose={closeModal}
-          currentUserId={userData?.userId}
-          isLiked={likedListingIds.has(selectedListing.listingId)}
-          onLikeClick={handleLikeToggle}
-          isLiking={likingInProgress.has(selectedListing.listingId)}
-        />
-      )}
-
-      {isNotificationLoading && (
-        <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
-      )}
+      
+      {/* This renders the modal. It will only appear if 
+        usePageLogic's 'openModal' function is called (e.g., by a notification).
+      */}
+      <ModalComponent />
+      
     </div>
   );
 }

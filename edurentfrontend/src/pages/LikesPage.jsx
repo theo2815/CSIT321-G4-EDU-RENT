@@ -1,183 +1,93 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react'; // No more useState, useEffect, useCallback
 import { Link, useNavigate } from 'react-router-dom';
+
+// --- Import All Our Hooks ---
+import useAuth from '../hooks/useAuth';
+import useLikes from '../hooks/useLikes';
+import usePageLogic from '../hooks/usePageLogic';
+
+// --- Import Components ---
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
-import ProductDetailModal from '../components/ProductDetailModal';
-import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
-// Import all necessary API functions for this page
-import {
-  getCurrentUser,
-  getLikedListings,
-  likeListing,
-  getListingById,
-  unlikeListing 
-} from '../services/apiService';
+// Modals are handled by usePageLogic
 
 // Import CSS
 import '../static/LikesPage.css';
 import '../static/DashboardPage.css'; // For shared grid and empty state styles
 
+// --- Error Display Component (Helper) ---
+function ErrorDisplay({ error, onRetry }) {
+  return (
+    <div className="error-container" style={{ margin: '2rem auto', maxWidth: '600px'}}>
+      <div className="error-title">⚠️ Something went wrong</div>
+      <div className="error-message">{error}</div>
+      <button className="error-retry-btn" onClick={onRetry}>
+        Try Again
+      </button>
+    </div>
+  );
+}
+
+// --- Main Page Component ---
 export default function LikesPage() {
-  const [userName, setUserName] = useState('');
-  const [userData, setUserData] = useState(null); // Store full user object
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState(null);
-  const [likedListings, setLikedListings] = useState([]); // Store full liked listing objects
   
-  // State to track liked item IDs for fast lookups
-  const [likedListingIds, setLikedListingIds] = useState(new Set());
-  const [isModalLoading, setIsModalLoading] = useState(false);
+  // 1. Get Auth state (user, loading, error, logout)
+  const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
+
+  // 2. Get Likes state (This is our MAIN data source for this page)
+  const likesHook = useLikes(); // We get this to pass to usePageLogic
+  const { 
+    likedListings, // The full list of liked listing objects
+    likedListingIds,
+    likingInProgress,
+    isLoadingLikes,
+    likeError,
+    handleLikeToggle, // This is the function from the hook
+    refetchLikes
+  } = likesHook;
+
+  // 3. Get Modal logic (and pass in the likes data)
+  const { 
+    openModal,
+    handleNotificationClick, 
+    ModalComponent // This is the ready-to-render Modal component
+  } = usePageLogic(userData, likesHook); // Pass the likesHook in
+
+  // --- All other state and logic is now handled by hooks! ---
+
+  // --- Combined Loading/Error States ---
+  const isPageLoading = isLoadingAuth || isLoadingLikes;
+  const pageError = authError || likeError;
+
+  // This handler can retry auth or like-fetching
+  const handleRetry = () => {
+    if (authError) retryAuth();
+    if (likeError) refetchLikes();
+    // Fallback
+    if (!authError && !likeError) {
+       retryAuth();
+       refetchLikes();
+    }
+  };
   
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
-
-  /**
-   * Fetches the current user and their full list of liked items.
-   */
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // Fetch user and liked listings in parallel
-      const userPromise = getCurrentUser();
-      const likesPromise = getLikedListings(); // Use API
-
-      const [userResponse, likesResponse] = await Promise.all([
-        userPromise,
-        likesPromise
-      ]);
-
-      // Process user
-      setUserData(userResponse.data);
-      if (userResponse.data && userResponse.data.fullName) {
-        setUserName(userResponse.data.fullName.split(' ')[0]);
-      } else {
-        setUserName('User');
-      }
-
-      // Process liked listings
-      const likedItems = likesResponse.data || [];
-      setLikedListings(likedItems); // Set the full listing objects
-
-      // Populate the set of liked IDs
-      const likedIds = new Set(likedItems.map(listing => listing.listingId));
-      setLikedListingIds(likedIds);
-
-    } catch (err) {
-      console.error("Failed to fetch data:", err);
-      setError("Could not load your liked items. Please try again.");
-      if (err.message === "No authentication token found." || err.response?.status === 401 || err.response?.status === 403) {
-         navigate('/login');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [navigate]);
-
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  /**
-   * Logs the user out and navigates to the login page.
-   */
-  const handleLogout = () => {
-    localStorage.removeItem('eduRentUserData');
-    navigate('/login');
-  };
-
-  /**
-   * Fetches the full listing data and opens the modal, showing a skeleton first.
-   */
-  const handleOpenListing = async (listingId) => {
-    if (!listingId) {
-      console.error("No listing ID provided");
-      return;
-    }
-    
-    // Close any modal that's already open and show skeleton
-    closeModal(); 
-    setIsModalLoading(true);
-
-    try {
-      console.log(`Fetching details for listingId: ${listingId}`);
-      const response = await getListingById(listingId); 
-
-      if (response.data) {
-        // We found the data! Set it and open the real modal.
-        setSelectedListing(response.data);
-        setIsModalOpen(true);
-      } else {
-        throw new Error(`Listing ${listingId} not found.`);
-      }
-
-    } catch (err) {
-      console.error("Failed to fetch listing for modal:", err);
-      alert(`Could not load item: ${err.message}.`);
-    } finally {
-      // Always hide the skeleton
-      setIsModalLoading(false); 
-    }
-  };
-
-  /**
-   * Opens the product detail modal with the selected listing.
-   */
-  const openModal = (listing) => {
-    // Just call the new handler with the ID
-    handleOpenListing(listing.listingId);
-  };
-
-  /**
-   * Closes the product detail modal.
-   */
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedListing(null);
-  };
-
-
-  /**
-   * Toggles the "like" status. On this page, this function only
-   * handles "unliking" and removes the item from the view optimistically.
-   */
-  const handleLikeToggle = async (listingId) => {
-    // Optimistic Update: Remove from UI immediately
-    setLikedListings(prevListings => 
-      prevListings.filter(listing => listing.listingId !== listingId)
-    );
-    setLikedListingIds(prevIds => {
-      const newIds = new Set(prevIds);
-      newIds.delete(listingId);
-      return newIds;
-    });
-
-    // API Call
-    try {
-      // Only call unlike, as items here are always liked to begin with
-      await unlikeListing(listingId); 
-      console.log(`Unliked item ${listingId}`);
-    } catch (err) {
-      console.error("Failed to toggle like:", err);
-      setError("Failed to update like. Please refresh.");
-      // Revert state on error by re-fetching all data
-      fetchData(); 
-    }
-  };
-
   /**
    * Renders the main content of the page based on loading, error, or data state.
    */
   const renderContent = () => {
-    if (isLoading) {
+    // Show skeleton while loading auth or likes
+    if (isPageLoading) {
       return <ListingGridSkeleton count={4} />;
     }
-    if (error) {
-      return <p style={{ color: 'red', textAlign: 'center' }}>Error: {error}</p>;
+    
+    // Show a combined error message
+    if (pageError) {
+      return (
+         <ErrorDisplay error={pageError} onRetry={handleRetry} />
+      );
     }
+    
+    // Show empty state if the user has no likes
     if (likedListings.length === 0) {
       return (
         <div className="empty-state">
@@ -190,6 +100,8 @@ export default function LikesPage() {
         </div>
       );
     }
+    
+    // Render the grid of liked listings
     return (
       <div className="listing-grid">
         {likedListings.map(listing => (
@@ -197,44 +109,24 @@ export default function LikesPage() {
             key={listing.listingId}
             listing={listing}
             onClick={openModal}
-            // isLiked is always true for items on this page
-            isLiked={true} 
-            // onLikeClick will *unlike* and remove the item from this view
-            onLikeClick={handleLikeToggle}
-            // Pass ownership status to the card
-            isOwner={userData?.userId === listing.user?.userId}
+            isLiked={true} // Item on this page is always liked
+            onLikeClick={handleLikeToggle} // This will unlike and remove it
+            currentUserId={userData?.userId}
+            isLiking={likingInProgress.has(listing.listingId)}
           />
         ))}
       </div>
     );
   };
 
-  // --- NEW Universal Notification Click Handler ---
-  const handleNotificationClick = async (notification) => {
-    console.log("Notification clicked:", notification);
-
-    // 1. Extract the listing ID
-    const urlParts = notification.linkUrl?.split('/');
-    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
-
-    if (!listingId) {
-      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
-      alert("Could not open this notification: Invalid link.");
-      return;
-    }
-
-    // 2. Call the new master function
-    handleOpenListing(listingId); 
-  };
-  // --- End new function ---
-
   return (
     <div className="profile-page">
       <Header
         userName={userName}
-        onLogout={handleLogout}
-        searchQuery=""
-        onSearchChange={() => {}} // No search bar functionality on this page
+        profilePictureUrl={userData?.profilePictureUrl}
+        onLogout={logout}
+        searchQuery="" // No search on this page
+        onSearchChange={() => {}}
         onNotificationClick={handleNotificationClick}
       />
 
@@ -243,21 +135,8 @@ export default function LikesPage() {
         {renderContent()}
       </main>
 
-      {/* Pass full like-functionality props to the modal */}
-      {isModalOpen && selectedListing && (
-        <ProductDetailModal
-          listing={selectedListing}
-          onClose={closeModal}
-          currentUserId={userData?.userId}
-          // The modal needs the *dynamic* like status
-          isLiked={likedListingIds.has(selectedListing.listingId)} 
-          onLikeClick={handleLikeToggle}
-        />
-      )}
-      {isModalLoading && (
-        <ProductDetailModalSkeleton onClose={() => setIsModalLoading(false)} />
-      )}
-
+      {/* Render the modal component from usePageLogic */}
+      <ModalComponent />
     </div>
   );
 }

@@ -12,10 +12,10 @@
 }
 
 .notifications-popup {
-  position: absolute;
+  position: fixed;
   /* Adjust top based on header height, e.g., calc(100% + 10px) relative to header */
   /* Or use fixed positioning if header isn't relative */
-  top: calc(100% + 10px); /* Example: Adjust based on your header height + desired gap */
+  top: 70px; /* Example: Adjust based on your header height + desired gap */
   right: 150px; /* Example: Align roughly under the bell icon area */
   width: 360px; /* Width of the popup */
   max-height: 450px; /* Limit height */
@@ -242,37 +242,122 @@
 /* 3-Dot Dropdown Menu */
 .notification-dropdown-menu {
   position: absolute;
-  top: 100%; /* Position below the button */
+  top: 100%;
   right: 0;
   background-color: var(--bg-light);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  width: 150px; /* Set a width */
+  min-width: 170px;
   z-index: 10;
-  overflow: hidden; /* For border-radius */
+  overflow: hidden;
+  padding: 0.25rem 0;
 }
 
+/* Dropdown Menu Buttons */
 .notification-dropdown-menu button {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   width: 100%;
   padding: 0.6rem 1rem;
   background: none;
   border: none;
   text-align: left;
   font-size: 0.85rem;
+  font-weight: 500;
   color: var(--text-color);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
 }
 
+/* Default bullet icon */
+.notification-dropdown-menu button::before {
+  content: '•';
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+/* Mark as Read / Unread */
+.notification-dropdown-menu button[data-action="mark-read"]::before {
+  content: '✔️';
+}
+.notification-dropdown-menu button[data-action="mark-unread"]::before {
+  content: '🔵';
+}
+
+/* Delete Button */
+.notification-dropdown-menu button[data-action="delete"] {
+  color: #e53935;
+}
+.notification-dropdown-menu button[data-action="delete"]::before {
+  content: '🗑️';
+  color: #e53935;
+}
+
+/* Hover States */
 .notification-dropdown-menu button:hover {
-  background-color: #f8f9fa; /* Light gray */
+  background-color: #f8f9fa;
+  color: var(--primary-color);
 }
 
-.notification-dropdown-menu button.delete {
-  color: #e53935; /* Red for delete */
+.notification-dropdown-menu button[data-action="delete"]:hover {
+  background-color: #ffebee;
+  color: #c62828;
 }
-.notification-dropdown-menu button.delete:hover {
-  background-color: #ffebee; /* Light red */
+
+
+/* --- Notification Skeleton --- */
+.notification-skeleton-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.notification-skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.notification-skeleton-item:last-child {
+  border-bottom: none;
+}
+
+.skeleton {
+  background: #f0f0f0;
+  border-radius: 4px;
+  animation: skeleton-loading 1.5s infinite ease-in-out;
+}
+
+@keyframes skeleton-loading {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.skeleton-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-text-container {
+  flex-grow: 1;
+}
+
+.skeleton-line {
+  height: 10px;
+  width: 100%;
+}
+
+.skeleton-line.short {
+  width: 60%;
+  margin-top: 8px;
+  height: 8px;
 }

@@ -1,25 +1,25 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react'; // No more useState, useEffect, useCallback
 import { Link, useNavigate } from 'react-router-dom';
+
+// --- Import All Hooks ---
+import useAuth from '../hooks/useAuth';
+import usePageData from '../hooks/usePageData';
+import useSearch from '../hooks/useSearch';
+import usePageLogic from '../hooks/usePageLogic';
+import useFilteredListings from '../hooks/useFilteredListings'; // For filtering by type
+import useLikes from '../hooks/useLikes';
+
+// --- Import Components ---
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
-import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
-
-// Import all necessary API functions, including for "likes"
-import {
-  getCurrentUser,
-  getListings,
-  getLikedListings,
-  likeListing,
-  getListingById,
-  unlikeListing
-} from '../services/apiService'; 
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
-import ProductDetailModal from '../components/ProductDetailModal';
+// ProductDetailModal and Skeleton are now handled internally by usePageLogic
 
-// Import CSS (Reuse styles)
+// --- Import CSS (Reuse styles) ---
 import '../static/BrowsePage.css';
 import '../static/DashboardPage.css';
 
+// --- SVG Icon Component ---
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -28,301 +28,146 @@ const Icons = {
   ),
 };
 
+// --- Main Page Component ---
 export default function ForSalePage() {
-  const [userName, setUserName] = useState('');
-  const [userData, setUserData] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState(null);
-  const [allSaleListings, setAllSaleListings] = useState([]); // Master list of sale items
-  const [filteredSaleListings, setFilteredSaleListings] = useState([]); // List to display
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
-  const [likingInProgress, setLikingInProgress] = useState(new Set());
+  const navigate = useNavigate(); // Keep for CTA button
 
-  // State to track liked item IDs for fast lookups
-  const [likedListingIds, setLikedListingIds] = useState(new Set());
-  const [isModalLoading, setIsModalLoading] = useState(false);
+  // 1. Authentication Hook: Manages user data, login status, and auth errors.
+  const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
 
-  /**
-   * Fetches user data, all listings, and liked listings in parallel.
-   * Filters all listings to only include items for sale.
-   */
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // Set up all data requests in parallel
-      const userPromise = getCurrentUser();
-      const listingsPromise = getListings();
-      const likesPromise = getLikedListings(); // Added like request
+  // 2. Page Data Hook: Fetches all listings/categories once the user is authenticated.
+  const { allListings, isLoadingData, dataError, refetchData } = usePageData(!!userData);
+  
+  // 3. Filtering Hook: Filters the master list to *only* include 'sale' items.
+  const saleListings = useFilteredListings(allListings, 'sale');
+  
+  // 4. Search Hook: Takes the pre-filtered 'saleListings' and makes them searchable.
+  const { searchQuery, handleSearch, filteredListings } = useSearch(
+    saleListings, // Pass the already-filtered list
+    ['title', 'description', 'category.name']
+  );
 
-      // Await all promises
-      const [userResponse, listingsResponse, likesResponse] = await Promise.all([
-        userPromise,
-        listingsPromise,
-        likesPromise // Added promise to array
-      ]);
-      
-      setUserData(userResponse.data);
+  // 5. Likes Hook: Manages all like-related state and logic.
+  const likesHook = useLikes();
+  const { 
+    likedListingIds, 
+    likingInProgress, 
+    isLoadingLikes, 
+    likeError, 
+    handleLikeToggle,
+    refetchLikes
+  } = likesHook;
 
-      if (userResponse.data && userResponse.data.fullName) {
-        setUserName(userResponse.data.fullName.split(' ')[0]);
-      } else {
-        setUserName('User');
-      }
+  // 6. Page Logic Hook: Manages modals and notifications.
+  // It receives 'likesHook' to pass all like data to the modal.
+  const { 
+    openModal,
+    handleNotificationClick, 
+    ModalComponent
+  } = usePageLogic(userData, likesHook); // <-- Pass the whole likesHook in
 
-      // Process Listings: Fetch ALL, then filter for 'SALE'
-      const allItems = listingsResponse.data || [];
-      const saleItems = allItems.filter(item => 
-        item.listingType.toUpperCase().includes('SALE')
-      );
-      
-      setAllSaleListings(saleItems);
-      setFilteredSaleListings(saleItems);
+  // --- All component state (useState) and logic functions are now in the hooks ---
 
-      // Process Liked Listings
-      const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
-      setLikedListingIds(likedIds);
+  // Combine loading and error states from all hooks.
+  const isPageLoading = isLoadingAuth || isLoadingData || isLoadingLikes;
+  const pageError = authError || dataError || likeError;
 
-    } catch (err) {
-      console.error("Failed to fetch data:", err);
-      let errorMsg = "Could not load data. Please try again.";
-      if (err.message === "No authentication token found." || err.response?.status === 403 || err.response?.status === 401) {
-        errorMsg = "Please log in to view this page.";
-        setTimeout(() => navigate('/login'), 1500);
-      }
-      setError(errorMsg);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [navigate]); // navigate is a dependency for the redirect logic
-
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  /**
-   * Filters the 'allSaleListings' based on the search query.
-   */
-  const handleSearchChange = (e) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery(query);
-
-    const filtered = allSaleListings.filter(listing => { // Filter from allSaleListings
-      const titleMatch = listing.title.toLowerCase().includes(query);
-      const descriptionMatch = listing.description.toLowerCase().includes(query);
-      const categoryMatch = listing.category && listing.category.name &&
-                            listing.category.name.toLowerCase().includes(query);
-      return titleMatch || descriptionMatch || categoryMatch;
-    });
-    setFilteredSaleListings(filtered);
-  };
-
-  /**
-   * Logs the user out and navigates to the login page.
-   */
-  const handleLogout = () => {
-    localStorage.removeItem('eduRentUserData');
-    navigate('/login');
-  };
-
-  /**
-   * Fetches the full listing data and opens the modal, showing a skeleton first.
-   */
-  const handleOpenListing = async (listingId) => {
-    if (!listingId) {
-      console.error("No listing ID provided");
-      return;
-    }
-    
-    // Close any modal that's already open and show skeleton
-    closeModal(); 
-    setIsModalLoading(true);
-
-    try {
-      console.log(`Fetching details for listingId: ${listingId}`);
-      const response = await getListingById(listingId); 
-
-      if (response.data) {
-        // We found the data! Set it and open the real modal.
-        setSelectedListing(response.data);
-        setIsModalOpen(true);
-      } else {
-        throw new Error(`Listing ${listingId} not found.`);
-      }
-
-    } catch (err) {
-      console.error("Failed to fetch listing for modal:", err);
-      alert(`Could not load item: ${err.message}.`);
-    } finally {
-      // Always hide the skeleton
-      setIsModalLoading(false); 
+  // Retries fetching data for any hook that failed.
+  const handleRetry = () => {
+    if (authError) retryAuth();
+    if (dataError) refetchData();
+    if (likeError) refetchLikes();
+    // Fallback
+    if (!authError && !dataError && !likeError) {
+       retryAuth();
+       refetchData();
+       refetchLikes();
     }
   };
-
-  /**
-   * Opens the product detail modal with the selected listing.
-   */
-  const openModal = (listing) => {
-    // Just call the new handler with the ID
-    handleOpenListing(listing.listingId);
-  };
-
-  /**
-   * Closes the product detail modal.
-   */
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedListing(null);
-  };
-
-  /**
-   * Toggles the "like" status of a listing with an optimistic update.
-   */
-  const handleLikeToggle = async (listingId) => {
-    // --- NEW: Prevent spam clicks ---
-    if (likingInProgress.has(listingId)) {
-      console.log("Like action already in progress for item:", listingId);
-      return; // Do nothing
-    }
-    // --------------------------------
-
-    // 1. Add to loading state
-    setLikingInProgress(prev => new Set(prev).add(listingId));
-
-    // 2. Optimistic update
-    const newLikedIds = new Set(likedListingIds);
-    const isCurrentlyLiked = likedListingIds.has(listingId);
-
-    if (isCurrentlyLiked) {
-      newLikedIds.delete(listingId);
-    } else {
-      newLikedIds.add(listingId);
-    }
-    setLikedListingIds(newLikedIds);
-
-    // 3. API call
-    try {
-      if (isCurrentlyLiked) {
-        await unlikeListing(listingId);
-        console.log(`Unliked item ${listingId}`);
-      } else {
-        await likeListing(listingId);
-        console.log(`Liked item ${listingId}`);
-      }
-    } catch (err) {
-      console.error("Failed to toggle like:", err);
-      // Revert state on error
-      setError("Failed to update like. Please refresh.");
-      setLikedListingIds(prevIds => {
-          const revertedIds = new Set(prevIds);
-          if (isCurrentlyLiked) revertedIds.add(listingId);
-          else revertedIds.delete(listingId);
-          return revertedIds;
-      });
-    } finally {
-      // 4. Remove from loading state
-      setLikingInProgress(prev => {
-        const next = new Set(prev);
-        next.delete(listingId);
-        return next;
-      });
-    }
-  };
-
-  // --- NEW Universal Notification Click Handler ---
-  const handleNotificationClick = async (notification) => {
-    console.log("Notification clicked:", notification);
-
-    // 1. Extract the listing ID
-    const urlParts = notification.linkUrl?.split('/');
-    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
-
-    if (!listingId) {
-      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
-      alert("Could not open this notification: Invalid link.");
-      return;
-    }
-
-    // 2. Call the new master function
-    handleOpenListing(listingId); 
-  };
-  // --- End new function ---
-
-  if (isLoading) {
-      return (
-          <div className="profile-page">
-              <Header userName="" onLogout={handleLogout} searchQuery="" onSearchChange={()=>{}} />
-              <main className="browse-page-container">
-                  <div className="browse-search-bar skeleton" style={{ height: '60px', marginBottom: '2rem' }}></div>
-                  <section className="browse-section">
-                      <div className="skeleton skeleton-listing-text" style={{ height: '2rem', width: '200px', marginBottom: '1.5rem' }}></div>
-                      <ListingGridSkeleton count={8} />
-                  </section>
-              </main>
-          </div>
-      );
-    }
-  if (error) {
-     return (
+  
+  // --- Render Loading State ---
+  if (isPageLoading) {
+    return (
         <div className="profile-page">
-            <Header userName={userName} onLogout={handleLogout} searchQuery="" onSearchChange={()=>{}} />
-            <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
+            <Header userName="" onLogout={logout} searchQuery="" onSearchChange={()=>{}} />
+            <main className="browse-page-container">
+                <div className="browse-search-bar skeleton" style={{ height: '60px', marginBottom: '2rem' }}></div>
+                <section className="browse-section">
+                    <div className="skeleton skeleton-listing-text" style={{ height: '2rem', width: '200px', marginBottom: '1.5rem' }}></div>
+                    <ListingGridSkeleton count={8} />
+                </section>
+            </main>
         </div>
+    );
+  }
+  
+  // --- Render Error State ---
+  if (pageError) {
+     return (
+       <div className="profile-page">
+           <Header userName={userName} onLogout={logout} searchQuery="" onSearchChange={()=>{}} />
+           <div style={{ padding: '2rem', textAlign: 'center' }}>
+             <div style={{color: 'red', marginBottom: '1rem'}}>Error: {pageError}</div>
+             <button className="error-retry-btn" onClick={handleRetry}>Try Again</button>
+           </div>
+       </div>
      );
   }
 
+  // --- Render For Sale Page ---
   return (
     <div className="profile-page">
       <Header
-        userName={userName}
-        onLogout={handleLogout}
-        searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
-        onNotificationClick={handleNotificationClick}
+        userName={userName}             // From useAuth
+        profilePictureUrl={userData?.profilePictureUrl}
+        onLogout={logout}             // From useAuth
+        searchQuery={searchQuery}     // From useSearch
+        onSearchChange={handleSearch} // From useSearch
+        onNotificationClick={handleNotificationClick} // From usePageLogic
       />
 
       <main className="browse-page-container">
+        {/* Search Bar */}
         <div className="browse-search-bar">
            <span className="browse-search-icon"><Icons.Search /></span>
            <input
              type="text"
              className="browse-search-input"
-             placeholder="Search for items to buy..." // Updated placeholder
+             placeholder="Search for items to buy..."
              value={searchQuery}
-             onChange={handleSearchChange}
+             onChange={handleSearch}
              aria-label="Search items for sale"
            />
         </div>
 
+        {/* For Sale Section */}
         <section className="browse-section">
           <h2 className="browse-section-title">Items For Sale</h2>
-          {filteredSaleListings.length > 0 ? (
+          {/* We display the FINAL 'filteredListings' from the search hook */}
+          {filteredListings.length > 0 ? (
             <div className="listing-grid">
-              {filteredSaleListings.map(listing => (
-                <ListingCard
-                  key={listing.listingId}
-                  listing={listing}
-                  onClick={openModal}
-                  // Pass like and owner status to the card
-                  isLiked={likedListingIds.has(listing.listingId)}
-                  onLikeClick={handleLikeToggle}
-                  isOwner={userData?.userId === listing.user?.userId}
-                  currentUserId={userData?.userId}
-                  isLiking={likingInProgress.has(listing.listingId)}
+              {filteredListings.map(listing => (
+                <ListingCard 
+                  key={listing.listingId} 
+                  listing={listing} 
+                  onClick={openModal}                     // From usePageLogic
+                  isLiked={likedListingIds.has(listing.listingId)} // From usePageLogic
+                  onLikeClick={handleLikeToggle}          // From usePageLogic
+                  isOwner={userData?.userId === listing.user?.userId} // Prop from original code
+                  currentUserId={userData?.userId}        // From useAuth
+                  isLiking={likingInProgress.has(listing.listingId)} // From usePageLogic
                 />
               ))}
             </div>
           ) : (
+            // Smart text: shows a different message if a search is active
             <p style={{ color: 'var(--text-muted)' }}>
               No items found for sale {searchQuery ? 'matching your search' : ''}.
             </p>
           )}
         </section>
 
+        {/* Call to Action Card */}
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
@@ -332,21 +177,8 @@ export default function ForSalePage() {
         </section>
       </main>
 
-      {/* Pass like status and handler to the modal */}
-      {isModalOpen && selectedListing && (
-        <ProductDetailModal 
-          listing={selectedListing} 
-          onClose={closeModal} 
-          currentUserId={userData?.userId}
-          isLiked={likedListingIds.has(selectedListing.listingId)}
-          onLikeClick={handleLikeToggle}
-          isLiking={likingInProgress.has(selectedListing.listingId)}
-        />
-      )}
-
-      {isModalLoading && (
-        <ProductDetailModalSkeleton onClose={() => setIsModalLoading(false)} />
-      )}
+      {/* Modal rendering is now handled by this single component from usePageLogic */}
+      <ModalComponent />
     </div>
   );
 }

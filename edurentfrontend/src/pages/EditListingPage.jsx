@@ -62,6 +62,7 @@ export default function EditListingPage() {
   const { listingId } = useParams(); // <-- Get listingId from URL
   const [userName, setUserName] = useState('');
   const [categories, setCategories] = useState([]);
+  const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // Start true to fetch data
   const [isSubmitting, setIsSubmitting] = useState(false); // For submit button
   const [error, setError] = useState(null);
@@ -105,6 +106,7 @@ export default function EditListingPage() {
 
         // 1. Set User
         setUserName(userResponse.data?.fullName?.split(' ')[0] || 'User');
+        setUserData(userResponse.data);
         // 2. Set Categories
         setCategories(categoriesResponse.data || []);
 
@@ -320,6 +322,7 @@ export default function EditListingPage() {
   return (
     <div className="profile-page">
       <Header userName={userName} 
+      profilePictureUrl={userData?.profilePictureUrl}
       onLogout={handleLogout} 
       onNotificationClick={handleNotificationClick}
       />

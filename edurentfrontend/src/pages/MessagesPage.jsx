@@ -356,6 +356,7 @@ export default function MessagesPage() {
   return (
     <div className="profile-page"> {/* Reuse class for header consistency */}
       <Header userName={userName} 
+      profilePictureUrl={userData?.profilePictureUrl}
       onLogout={handleLogout} 
       onNotificationClick={handleNotificationClick}
       />

@@ -63,8 +63,6 @@ public class UserEntity implements UserDetails {
     // --- Relationships ---
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "school_id", nullable = false)
-    // @JsonBackReference(value = "school-users")
-    @JsonIgnore
     private SchoolEntity school;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

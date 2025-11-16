@@ -1,26 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react'; // Keep useState/useEffect for local data
 import { useParams, useNavigate, Link } from 'react-router-dom';
+
+// --- Import Hooks ---
+import useAuth from '../hooks/useAuth';
+import usePageLogic from '../hooks/usePageLogic';
+import useSearch from '../hooks/useSearch';
+import useLikes from '../hooks/useLikes';
+// We don't use usePageData here, as this page has custom data-fetching needs.
+
+// --- Import Components ---
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
-import ProductDetailModal from '../components/ProductDetailModal';
-import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
-// Import all necessary API functions, including for "likes"
-import { 
-  getCurrentUser, 
-  getCategories,
-  getListingsByCategoryId,
-  getLikedListings,
-  likeListing,
-  getListingById,
-  unlikeListing
-} from '../services/apiService';
+// ProductDetailModal and Skeleton are now handled internally by usePageLogic
 
-// Import CSS
+// --- Import API Functions (for this page's specific logic) ---
+import { getCategories, getListingsByCategoryId } from '../services/apiService';
+
+// --- Import CSS ---
 import '../static/CategoryPage.css';
-import '../static/BrowsePage.css'; // For search bar style
-import '../static/DashboardPage.css'; // For listing grid, empty state, CTA
+import '../static/BrowsePage.css'; // For search bar
+import '../static/DashboardPage.css'; // For grid and empty state
 
+// --- SVG Icon Component ---
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -29,251 +31,120 @@ const Icons = {
   ),
 };
 
+// --- Main Page Component ---
 export default function CategoryPage() {
-  const { categoryId } = useParams();
-  const [userName, setUserName] = useState('');
-  const [userData, setUserData] = useState(null);
-  const [categoryInfo, setCategoryInfo] = useState(null);
-  const [categoryListings, setCategoryListings] = useState([]);
-  const [filteredListings, setFilteredListings] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { categoryId } = useParams(); // Get category ID from the URL
   const navigate = useNavigate();
-  const [likingInProgress, setLikingInProgress] = useState(new Set());
+
+  // 1. Authentication Hook: Manages user data and login status.
+  const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
   
+  // 2. Likes Hook: Manages all like-related state and logic.
+  const likesHook = useLikes();
+  const { 
+    likedListingIds, 
+    likingInProgress, 
+    isLoadingLikes, 
+    likeError, 
+    handleLikeToggle,
+    refetchLikes
+  } = likesHook;
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState(null);
-  const [isModalLoading, setIsModalLoading] = useState(false);
+  // 3. Page Logic Hook: Manages modals and notifications.
+  // It receives 'likesHook' to pass all like data to the modal.
+  const { 
+    openModal,
+    handleNotificationClick, 
+    ModalComponent
+  } = usePageLogic(userData, likesHook); // <-- Pass the whole likesHook in
 
-  // State to track liked item IDs for fast lookups
-  const [likedListingIds, setLikedListingIds] = useState(new Set());
+  // 4. Local State: Manages data specific *only* to this category page.
+  const [categoryInfo, setCategoryInfo] = useState(null);
+  const [categoryListings, setCategoryListings] = useState([]); // Master list for this category
+  const [isLoadingPageData, setIsLoadingPageData] = useState(true);
+  const [pageDataError, setPageDataError] = useState(null);
 
-  /**
-   * Fetches user data, category info, category listings, and liked listings in parallel.
-   */
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    const catIdNumber = parseInt(categoryId, 10);
-
-    if (isNaN(catIdNumber)) {
-        setError("Invalid category specified.");
-        setIsLoading(false);
-        return;
-    }
-
-    try {
-      // Set up all data requests in parallel
-      const userPromise = getCurrentUser();
-      const categoriesPromise = getCategories();
-      const listingsPromise = getListingsByCategoryId(catIdNumber);
-      const likesPromise = getLikedListings(); // Added like request
-
-      // Await all promises
-      // <--- THIS IS THE FIX: Changed 'likesResponse' to 'likesPromise' in the array
-      const [userResponse, categoriesResponse, listingsResponse, likesResponse] = await Promise.all([
-        userPromise,
-        categoriesPromise,
-        listingsPromise,
-        likesPromise // <-- Was 'likesResponse', which caused the error
-      ]);
-
-      // Process user
-      setUserData(userResponse.data);
-      if (userResponse.data && userResponse.data.fullName) {
-        setUserName(userResponse.data.fullName.split(' ')[0]);
-      } else {
-          setUserName('User');
-      }
-
-      // Process category info (find name from all categories)
-      const allCategories = categoriesResponse.data || [];
-      const currentCategory = allCategories.find(cat => cat.categoryId === catIdNumber);
-      if (!currentCategory) {
-          throw new Error(`Category with ID ${catIdNumber} not found.`);
-      }
-      setCategoryInfo(currentCategory);
-
-      // Process listings
-      setCategoryListings(listingsResponse.data || []);
-      setFilteredListings(listingsResponse.data || []);
-
-      // Process Liked Listings
-      const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
-      setLikedListingIds(likedIds);
-
-    } catch (err) {
-      console.error("Failed to fetch category data:", err);
-      let errorMsg = err.message || "Could not load category data. Please try again.";
-      if (err.response?.status === 404) {
-        errorMsg = `Category with ID ${catIdNumber} not found.`;
-      }
-      if (err.message === "No authentication token found." || err.response?.status === 401 || err.response?.status === 403) {
-          errorMsg = "Please log in to view this page.";
-          setTimeout(() => navigate('/login'), 1500);
-      }
-      setError(errorMsg);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [categoryId, navigate]);
-
-  // Fetch data on component mount or when fetchData changes
+  // 5. Search Hook: Takes the local 'categoryListings' and makes them searchable.
+  const { searchQuery, handleSearch, filteredListings } = useSearch(
+    categoryListings,
+    ['title', 'description'] // Only search title and description
+  );
+  
+  // --- Local Data Fetching ---
+  // This useEffect runs when the user or categoryId changes.
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!userData || !categoryId) return; // Wait for user and category ID
 
-  /**
-   * Filters the 'categoryListings' based on the search query.
-   */
-  const handleSearchChange = (e) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery(query);
+    const fetchData = async () => {
+      setIsLoadingPageData(true);
+      setPageDataError(null);
+      const catIdNumber = parseInt(categoryId, 10);
 
-    const filtered = categoryListings.filter(listing =>
-      listing.title.toLowerCase().includes(query) ||
-      listing.description.toLowerCase().includes(query)
-    );
-    setFilteredListings(filtered);
-  };
-
-  /**
-   * Logs the user out and navigates to the login page.
-   */
-  const handleLogout = () => {
-    localStorage.removeItem('eduRentUserData');
-    navigate('/login');
-  };
-
-  /**
-   * Fetches the full listing data and opens the modal, showing a skeleton first.
-   */
-  const handleOpenListing = async (listingId) => {
-    if (!listingId) {
-      console.error("No listing ID provided");
-      return;
-    }
-    
-    // Close any modal that's already open and show skeleton
-    closeModal(); 
-    setIsModalLoading(true);
-
-    try {
-      console.log(`Fetching details for listingId: ${listingId}`);
-      const response = await getListingById(listingId); 
-
-      if (response.data) {
-        // We found the data! Set it and open the real modal.
-        setSelectedListing(response.data);
-        setIsModalOpen(true);
-      } else {
-        throw new Error(`Listing ${listingId} not found.`);
+      if (isNaN(catIdNumber)) {
+          setPageDataError("Invalid category specified.");
+          setIsLoadingPageData(false);
+          return;
       }
 
-    } catch (err) {
-      console.error("Failed to fetch listing for modal:", err);
-      alert(`Could not load item: ${err.message}.`);
-    } finally {
-      // Always hide the skeleton
-      setIsModalLoading(false); 
-    }
-  };
-
-  /**
-   * Opens the product detail modal with the selected listing.
-   */
-  const openModal = (listing) => {
-    // Just call the new handler with the ID
-    handleOpenListing(listing.listingId);
-  };
-
-  /**
-   * Closes the product detail modal.
-   */
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedListing(null);
-  };
-
-  /**
-   * Toggles the "like" status of a listing with an optimistic update.
-   */
-  const handleLikeToggle = async (listingId) => {
-      // --- NEW: Prevent spam clicks ---
-      if (likingInProgress.has(listingId)) {
-        console.log("Like action already in progress for item:", listingId);
-        return; // Do nothing
-      }
-      // --------------------------------
-  
-      // 1. Add to loading state
-      setLikingInProgress(prev => new Set(prev).add(listingId));
-  
-      // 2. Optimistic update
-      const newLikedIds = new Set(likedListingIds);
-      const isCurrentlyLiked = likedListingIds.has(listingId);
-  
-      if (isCurrentlyLiked) {
-        newLikedIds.delete(listingId);
-      } else {
-        newLikedIds.add(listingId);
-      }
-      setLikedListingIds(newLikedIds);
-  
-      // 3. API call
       try {
-        if (isCurrentlyLiked) {
-          await unlikeListing(listingId);
-          console.log(`Unliked item ${listingId}`);
-        } else {
-          await likeListing(listingId);
-          console.log(`Liked item ${listingId}`);
+        // Fetch category info and the listings for that category
+        const categoriesPromise = getCategories(); // Fetch all to find the name
+        const listingsPromise = getListingsByCategoryId(catIdNumber);
+
+        const [categoriesResponse, listingsResponse] = await Promise.all([
+          categoriesPromise,
+          listingsPromise,
+        ]);
+
+        // Find the current category's name from the full list
+        const allCategories = categoriesResponse.data || [];
+        const currentCategory = allCategories.find(cat => cat.categoryId === catIdNumber);
+        
+        if (!currentCategory) {
+            throw new Error(`Category with ID ${catIdNumber} not found.`);
         }
+        setCategoryInfo(currentCategory);
+
+        // Set the master list of listings for this category
+        setCategoryListings(listingsResponse.data || []);
+
       } catch (err) {
-        console.error("Failed to toggle like:", err);
-        // Revert state on error
-        setError("Failed to update like. Please refresh.");
-        setLikedListingIds(prevIds => {
-            const revertedIds = new Set(prevIds);
-            if (isCurrentlyLiked) revertedIds.add(listingId);
-            else revertedIds.delete(listingId);
-            return revertedIds;
-        });
+        console.error("Failed to fetch category data:", err);
+        let errorMsg = err.message || "Could not load category data. Please try again.";
+        if (err.response?.status === 404) {
+          errorMsg = `Category with ID ${catIdNumber} not found.`;
+        }
+        setPageDataError(errorMsg);
       } finally {
-        // 4. Remove from loading state
-        setLikingInProgress(prev => {
-          const next = new Set(prev);
-          next.delete(listingId);
-          return next;
-        });
+        setIsLoadingPageData(false);
       }
     };
+    
+    fetchData();
+  }, [categoryId, userData]); // Re-run if category or user changes
 
-  // --- NEW Universal Notification Click Handler ---
-  const handleNotificationClick = async (notification) => {
-    console.log("Notification clicked:", notification);
+  // Combine loading and error states from hooks and local state
+  const isPageLoading = isLoadingAuth || isLoadingPageData || isLoadingLikes;
+  const pageError = authError || pageDataError || likeError;
 
-    // 1. Extract the listing ID
-    const urlParts = notification.linkUrl?.split('/');
-    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
-
-    if (!listingId) {
-      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
-      alert("Could not open this notification: Invalid link.");
-      return;
+  // This handler can retry auth, likes, or this page's specific data
+  const handleRetry = () => {
+    if (authError) retryAuth();
+    if (likeError) refetchLikes();
+    if (pageDataError) {
+       // Re-run the local useEffect logic by triggering a re-render
+       // (This is a simple way to force the effect to run again)
+       // A more complex solution would be to move fetchData outside useEffect,
+       // but for this case, a reload is simple and effective.
+       window.location.reload(); 
     }
-
-    // 2. Call the new master function
-    handleOpenListing(listingId); 
   };
-  // --- End new function ---
 
-  if (isLoading) {
+  // --- Loading State ---
+  if (isPageLoading) {
     return (
         <div className="profile-page">
-            <Header userName="" onLogout={handleLogout} />
+            <Header userName="" onLogout={logout} />
             <main className="category-page-container">
                 <div className="category-page-header skeleton" style={{ height: '2.5rem', width: '200px', marginBottom: '1.5rem' }}></div>
                 <div className="browse-search-bar skeleton" style={{ height: '60px', marginBottom: '2rem' }}></div>
@@ -283,99 +154,91 @@ export default function CategoryPage() {
     );
   }
 
-  if (error) {
+  // --- Error State ---
+  if (pageError) {
      return (
         <div className="profile-page">
-            <Header userName={userName} onLogout={handleLogout} />
+            <Header userName={userName} onLogout={logout} />
             <main className="category-page-container">
-                <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
+                <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {pageError}</div>
                 <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                    <Link to="/dashboard" className="cta-button">Back to Dashboard</Link>
+                    <button onClick={handleRetry} className="error-retry-btn">Try Again</button>
+                    <Link to="/dashboard" className="cta-button" style={{marginLeft: '1rem'}}>Back to Dashboard</Link>
                 </div>
             </main>
         </div>
      );
   }
 
+  // --- Main Page Render ---
   return (
     <div className="profile-page">
       <Header
-        userName={userName}
-        onLogout={handleLogout}
-        searchQuery=""
-        onSearchChange={()=>{}} // Header search is disabled on this page
-        onNotificationClick={handleNotificationClick}
+        userName={userName}         // From useAuth
+        profilePictureUrl={userData?.profilePictureUrl}
+        onLogout={logout}         // From useAuth
+        searchQuery=""            // Disable header search
+        onSearchChange={()=>{}}   // Disable header search
+        onNotificationClick={handleNotificationClick} // From usePageLogic
       />
 
       <main className="category-page-container">
         <div className="category-page-header">
             <h1 className="category-page-title">
+              {/* Display category icon (using your original logic) */}
               {categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>{categoryInfo.icon}</span>}
               {!categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>📦</span>} 
               {categoryInfo?.name || 'Category'}
             </h1>
         </div>
 
-        {/* Search Bar (Specific to this category) */}
+        {/* This page has its own search bar */}
         <div className="browse-search-bar" style={{marginBottom: '2rem'}}>
            <span className="browse-search-icon"><Icons.Search /></span>
            <input
              type="text"
              className="browse-search-input"
              placeholder={`Search in ${categoryInfo?.name || 'this category'}...`}
-             value={searchQuery}
-             onChange={handleSearchChange}
+             value={searchQuery}       // From useSearch
+             onChange={handleSearch}   // From useSearch
              aria-label={`Search items in ${categoryInfo?.name}`}
            />
         </div>
 
         <section>
+          {/* Display the final filtered list from useSearch */}
           {filteredListings.length > 0 ? (
             <div className="listing-grid">
               {filteredListings.map(listing => (
                 <ListingCard
                   key={listing.listingId} 
                   listing={listing}
-                  onClick={openModal}
-                  // Pass like and owner status to the card
-                  isLiked={likedListingIds.has(listing.listingId)}
-                  onLikeClick={handleLikeToggle}
-                  isOwner={userData?.userId === listing.user?.userId}
-                  currentUserId={userData?.userId}
-                  isLiking={likingInProgress.has(listing.listingId)}
+                  onClick={openModal}                   // From usePageLogic
+                  isLiked={likedListingIds.has(listing.listingId)} // From usePageLogic
+                  onLikeClick={handleLikeToggle}        // From usePageLogic
+                  isOwner={userData?.userId === listing.user?.userId} // Prop from original code
+                  currentUserId={userData?.userId}      // From useAuth
+                  isLiking={likingInProgress.has(listing.listingId)} // From usePageLogic
                 />
               ))}
             </div>
           ) : (
+            // Empty state (using your original logic)
             <div className="empty-state">
-                <div className="empty-state-icon">{categoryInfo?.icon || '📂'}</div>
-                <div className="empty-state-title">No Listings Found</div>
-                <p>
-                    There are currently no items listed in the "{categoryInfo?.name || 'selected'}" category
-                    {searchQuery ? ' matching your search' : ''}.
-                </p>
-                 <Link to="/dashboard" className="cta-button" style={{marginTop: '1rem'}}>Back to Dashboard</Link>
+               <div className="empty-state-icon">{categoryInfo?.icon || '📂'}</div>
+               <div className="empty-state-title">No Listings Found</div>
+               <p>
+                 There are currently no items listed in the "{categoryInfo?.name || 'selected'}" category
+                 {searchQuery ? ' matching your search' : ''}.
+               </p>
+                <Link to="/dashboard" className="cta-button" style={{marginTop: '1rem'}}>Back to Dashboard</Link>
             </div>
           )}
         </section>
       </main>
 
-      
-
-       {/* Pass like status and handler to the modal */}
-       {isModalOpen && selectedListing && (
-         <ProductDetailModal 
-            listing={selectedListing} 
-            onClose={closeModal} 
-            currentUserId={userData?.userId}
-            isLiked={likedListingIds.has(selectedListing.listingId)}
-            onLikeClick={handleLikeToggle}
-            isLiking={likingInProgress.has(selectedListing.listingId)}
-         />
-       )}
-       {isModalLoading && (
-          <ProductDetailModalSkeleton onClose={() => setIsModalLoading(false)} />
-        )}
+      {/* Modal rendering is now handled by this single component from usePageLogic */}
+      <ModalComponent />
     </div>
   );
 }
