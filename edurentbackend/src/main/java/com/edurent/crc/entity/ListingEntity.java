@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
@@ -23,6 +25,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "listings")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ListingEntity {
 
     @Id
@@ -73,6 +76,7 @@ public class ListingEntity {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     // @JsonBackReference(value = "user-listings")
+    @JsonIgnoreProperties({"listings", "hibernateLazyInitializer", "handler"}) 
     private UserEntity user;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -92,11 +96,10 @@ public class ListingEntity {
     @JsonManagedReference(value = "listing-likes")
     private Set<LikeEntity> likes;
 
-    @OneToMany(mappedBy = "listing", fetch = FetchType.LAZY)
-    @JsonManagedReference(value = "listing-conversations")
+    @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private Set<ConversationEntity> conversations;
 
-    // TODO: Add other relationships (Transactions, Reviews, Likes) later if needed, likely LAZY + JsonIgnore
 
     // Constructors
     public ListingEntity() {

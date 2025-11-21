@@ -316,4 +316,80 @@ export const markNotificationAsUnread = async (notificationId) => {
     throw error;
   }
 };
-// --- END NEW Function ---
+
+
+// --- Chat / Conversations ---
+
+export const startConversation = async (listingId, starterId, receiverId) => {
+  try {
+    const response = await apiClient.post('/conversations', null, {
+      params: {
+        listingId,
+        starterId,
+        receiverId
+      }
+    });
+    return response;
+  } catch (error) {
+    console.error("Error during startConversation API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+export const getConversationsForUser = async (userId) => {
+  try {
+    const response = await apiClient.get(`/conversations/user/${userId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during getConversationsForUser(${userId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+
+export const getMessages = async (conversationId) => {
+  try {
+    const response = await apiClient.get(`/conversations/${conversationId}/messages`);
+    return response;
+  } catch (error) {
+    console.error(`Error during getMessages(${conversationId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+
+export const sendMessage = async (content, conversationId, senderId) => {
+  try {
+    const response = await apiClient.post(`/conversations/${conversationId}/messages`, 
+      { content }, 
+      { params: { senderId } }
+    );
+    return response;
+  } catch (error) {
+    console.error("Error during sendMessage API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+// --- NEW: Delete & Archive Conversations ---
+
+export const deleteConversation = async (conversationId) => {
+  try {
+    // DELETE /api/v1/conversations/{conversationId}
+    const response = await apiClient.delete(`/conversations/${conversationId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during deleteConversation(${conversationId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+
+export const archiveConversation = async (conversationId) => {
+  try {
+    // PUT /api/v1/conversations/{conversationId}/archive
+    const response = await apiClient.put(`/conversations/${conversationId}/archive`);
+    return response;
+  } catch (error) {
+    console.error(`Error during archiveConversation(${conversationId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+// -------------------------------------------

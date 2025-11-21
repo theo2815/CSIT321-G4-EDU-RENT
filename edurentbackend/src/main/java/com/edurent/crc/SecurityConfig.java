@@ -58,6 +58,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/uploads/listing-images/**").permitAll()
 
                 // All other requests must be authenticated
+                .requestMatchers("/api/v1/conversations/**").authenticated()
                 .anyRequest().authenticated()
             )
             

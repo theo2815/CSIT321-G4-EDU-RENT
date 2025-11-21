@@ -11,6 +11,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
@@ -29,6 +30,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "users")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class UserEntity implements UserDetails {
 
     @Id
@@ -63,10 +65,11 @@ public class UserEntity implements UserDetails {
     // --- Relationships ---
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "school_id", nullable = false)
+    @JsonIgnoreProperties({"users", "hibernateLazyInitializer", "handler"})
     private SchoolEntity school;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference(value = "user-listings")
+    //@JsonManagedReference(value = "user-listings")
     @JsonIgnore
     private Set<ListingEntity> listings;
 

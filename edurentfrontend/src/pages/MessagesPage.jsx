@@ -1,19 +1,31 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+
+// --- Components ---
 import Header from '../components/Header';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
+import ListingCard from '../components/ListingCard'; 
+
+// --- API Services ---
 import { 
   getCurrentUser, 
   getListingById,
-  likeListing,     
-  unlikeListing    
+  likeListing,       
+  unlikeListing,
+  getConversationsForUser, 
+  getMessages,               
+  sendMessage,               
+  getLikedListings,
+  deleteConversation, 
+  archiveConversation 
 } from '../services/apiService';
 
-// Import CSS
-import '../static/MessagesPage.css'; // Make sure this is the correct path
+// --- Styles & Assets ---
+import '../static/MessagesPage.css';
+import defaultAvatar from '../assets/default-avatar.png';
 
-// --- NEW: SVG Icons Object ---
+// --- Icons Configuration ---
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -34,6 +46,16 @@ const Icons = {
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
       <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/>
     </svg>
+  ),
+  ChevronDown: () => (
+     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+       <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+     </svg>
+  ),
+  MenuDots: () => ( 
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+    </svg>
   )
 };
 
@@ -41,7 +63,7 @@ const Icons = {
 function MessagesSkeleton() {
   return (
     <div className="messages-skeleton-container">
-      <aside className="skeleton-conversations-sidebar">
+       <aside className="skeleton-conversations-sidebar">
         <div className="skeleton skeleton-conversation-header"></div>
         <div className="skeleton skeleton-conversation-search"></div>
         {Array.from({ length: 5 }).map((_, index) => (
@@ -61,237 +83,361 @@ function MessagesSkeleton() {
   );
 }
 
-// --- Mock Data (Replace with API fetch later) ---
-const MOCK_CONVERSATIONS = [
-  {
-    id: 1,
-    otherUser: { id: 101, name: 'Jane Doe', avatar: null },
-    product: { id: 2, title: 'Bluetooth Headphones', price: 25, icon: '🎧' },
-    lastMessagePreview: 'Okay, sounds good!',
-    messages: [
-      { id: 10, senderId: 101, text: 'Hi! Is the headphone still available for rent?', timestamp: '10:30 AM' },
-      { id: 11, senderId: 5, text: 'Yes, it is!', timestamp: '10:31 AM' }, // Assume current user ID is 5
-      { id: 12, senderId: 101, text: 'Great! Can I pick it up tomorrow around 2 PM?', timestamp: '10:32 AM' },
-      { id: 13, senderId: 5, text: 'Okay, sounds good!', timestamp: '10:33 AM' },
-    ]
-  },
-  {
-    id: 2,
-    otherUser: { id: 102, name: 'Mike Ross', avatar: null },
-    product: { id: 1, title: 'Intro to CS Textbook', price: 45, icon: '📚' },
-    lastMessagePreview: 'Thanks!',
-    messages: [
-      { id: 20, senderId: 102, text: 'Hello, wondering about the condition of the CS book?', timestamp: 'Yesterday' },
-      { id: 21, senderId: 5, text: 'It\'s in excellent condition, almost like new.', timestamp: 'Yesterday' },
-      { id: 22, senderId: 102, text: 'Thanks!', timestamp: 'Yesterday' },
-    ]
-  },
-    {
-    id: 3,
-    otherUser: { id: 103, name: 'Alice', avatar: null },
-    product: { id: 6, title: 'Microscope', price: 50, icon: '🔬' },
-    lastMessagePreview: 'Is the price negotiable?',
-    messages: [
-        { id: 30, senderId: 103, text: 'Is the price negotiable?', timestamp: '2 days ago' },
-    ]
-  },
-];
-
-// Assume current user's ID
-const CURRENT_USER_ID = 5;
+// --- Helper Function ---
+const formatMessageTime = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
 
 export default function MessagesPage() {
+  // --- State Management ---
+  const [userData, setUserData] = useState(null);
   const [userName, setUserName] = useState('');
-  const [conversations, setConversations] = useState(MOCK_CONVERSATIONS); // All conversations
-  const [filteredConversations, setFilteredConversations] = useState(MOCK_CONVERSATIONS); // Filtered list
-  const [selectedConversation, setSelectedConversation] = useState(null); // The active chat
+  const [conversations, setConversations] = useState([]);
+  const [filteredConversations, setFilteredConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messages, setMessages] = useState([]); 
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(true); // Added loading state
-  const [error, setError] = useState(null); // Added error state
+  
+  const [activeFilter, setActiveFilter] = useState('All Messages');
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
-  // --- ADD THIS BLOCK ---
-  const [userData, setUserData] = useState(null);
+  // --- Chat Action Menu State ---
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
-  
-  // Like State (needed for the modal)
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   const [likingInProgress, setLikingInProgress] = useState(new Set());
   const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
-  // --- END BLOCK ---
   
-  // --- NEW: State for mobile view ---
   const [isChatVisible, setIsChatVisible] = useState(false);
 
   const navigate = useNavigate();
-  const chatContentRef = useRef(null);
-  // --- NEW: Ref for auto-growing textarea ---
-  const textareaRef = useRef(null);
+  const location = useLocation(); 
+  const chatContentRef = useRef(null); 
+  const textareaRef = useRef(null); 
+  const intervalRef = useRef(null); 
 
-  // --- Fetch User Data ---
-  useEffect(() => {
-    const fetchUser = async () => {
-        setIsLoading(true);
-        setError(null);
-      try {
-        const userResponse = await getCurrentUser();
-        if (userResponse.data && userResponse.data.fullName) {
-          setUserData(userResponse.data);
-          setUserName(userResponse.data.fullName.split(' ')[0]);
-        }
-        // TODO: Fetch actual conversations from API
-        // const convResponse = await getConversations();
-        // setConversations(convResponse.data);
-        // setFilteredConversations(convResponse.data);
-      } catch (err) {
-        console.error("Failed to fetch user data:", err);
-        setError("Could not load messages."); // Set error message
-        if (err.message === "No authentication token found.") {
-            navigate('/login');
-        }
-      } finally {
-        setIsLoading(false); // Stop loading
+  // --- Primary Data Fetching Strategy ---
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const userResponse = await getCurrentUser();
+      const currentUser = userResponse.data;
+      if (!currentUser) throw new Error("No user data.");
+      
+      setUserData(currentUser);
+      setUserName(currentUser.fullName.split(' ')[0]);
+      const userId = currentUser.userId;
+
+      const convResponse = await getConversationsForUser(userId);
+      const convs = convResponse.data || [];
+
+      // --- MERGED LOGIC: Robust Processing for Conversations ---
+      const processedConvs = convs.map(conv => {
+          // Fix: Robust check for participants
+          if (!conv.participants) return null;
+
+          // Fix: Robust find logic for 'other user' (handles DTO vs Entity structure)
+          const otherParticipant = conv.participants.find(p => {
+              const pUserId = p.userId || p.user?.userId || p.user?.id; 
+              return pUserId !== userId;
+          });
+          
+          // Get user object (might be direct userDTO or nested user object)
+          const otherUserObj = otherParticipant || otherParticipant?.user || {};
+
+          const otherUser = { 
+              userId: otherUserObj.userId || otherUserObj.id || 0, 
+              fullName: otherUserObj.fullName || otherUserObj.name || 'Unknown User', 
+              profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null 
+          };
+          
+          // Image Extraction
+          let productImageUrl = null;
+          if (conv.listing) {
+               productImageUrl = conv.listing.imageUrl 
+                    || (conv.listing.listingImages && conv.listing.listingImages.length > 0 ? conv.listing.listingImages[0].imageUrl : null)
+                    || (conv.listing.images && conv.listing.images.length > 0 ? conv.listing.images[0].imageUrl : null);
+          }
+
+          return {
+              id: conv.conversationId,
+              otherUser: {
+                  id: otherUser.userId,
+                  name: otherUser.fullName,
+                  avatar: otherUser.profilePictureUrl
+              },
+              product: conv.listing ? {
+                  ...conv.listing, 
+                  id: conv.listing.listingId,
+                  title: conv.listing.title,
+                  price: conv.listing.price,
+                  // Merged Fix: Check both 'owner' and 'user' fields for ownerId
+                  ownerId: conv.listing.owner?.userId || conv.listing.user?.userId, 
+                  image: productImageUrl, 
+                  // Fix: Store URL string, do not render JSX here
+                  iconUrl: productImageUrl 
+              } : null,
+              
+              lastMessagePreview: conv.lastMessageContent || 'Start a conversation', 
+              lastMessageDate: conv.lastMessageTimestamp || conv.listing?.createdAt,
+              
+              isUnread: false, 
+              isArchived: conv.isArchivedForCurrentUser || false 
+          };
+      }).filter(Boolean); // Remove nulls
+
+      setConversations(processedConvs);
+      
+      // Handle Deep Linking
+      const passedConvId = location.state?.openConversationId;
+      if (passedConvId) {
+          const targetConv = processedConvs.find(c => c.id === passedConvId);
+          if (targetConv) {
+              setSelectedConversation(targetConv);
+              setIsChatVisible(true);
+              window.history.replaceState({}, document.title);
+          }
       }
-    };
-    fetchUser();
-  }, [navigate]);
 
-  // --- Scroll to bottom when selected conversation changes or messages update ---
+      const likesResponse = await getLikedListings();
+      const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
+      setLikedListingIds(likedIds);
+
+    } catch (err) {
+      console.error("Failed to fetch messages data:", err);
+      setError("Could not load messages.");
+      if (err.message === "No authentication token found." || err.response?.status === 401) {
+          navigate('/login');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [navigate, location.state]);
+
+  useEffect(() => {
+    fetchData();
+    return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchData]);
+
+  // --- Filter Logic ---
+  useEffect(() => {
+    if (!userData) return;
+
+    let result = conversations;
+
+    if (activeFilter === 'Selling') {
+        result = result.filter(c => c.product && c.product.ownerId === userData.userId);
+    } else if (activeFilter === 'Buying') {
+        result = result.filter(c => c.product && c.product.ownerId !== userData.userId);
+    } else if (activeFilter === 'Unread') {
+        result = result.filter(c => c.isUnread);
+    } else if (activeFilter === 'Archived') {
+        result = result.filter(c => c.isArchived);
+    } else {
+        result = result.filter(c => !c.isArchived); 
+    }
+
+    if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        result = result.filter(conv =>
+          conv.otherUser.name.toLowerCase().includes(query) ||
+          (conv.product && conv.product.title.toLowerCase().includes(query))
+        );
+    }
+
+    setFilteredConversations(result);
+  }, [activeFilter, searchQuery, conversations, userData]);
+
+  // --- Message Polling Logic ---
+  useEffect(() => {
+      if (selectedConversation && userData) {
+          const fetchMsgs = async () => {
+              try {
+                  const response = await getMessages(selectedConversation.id);
+                  const mappedMessages = response.data.map(msg => ({
+                      id: msg.messageId,
+                      senderId: msg.sender?.userId,
+                      text: msg.content,
+                      timestamp: formatMessageTime(msg.sentAt)
+                  }));
+                  setMessages(mappedMessages);
+              } catch (err) {
+                  console.error("Error polling messages:", err);
+              }
+          };
+          fetchMsgs();
+          intervalRef.current = setInterval(fetchMsgs, 5000);
+          return () => clearInterval(intervalRef.current);
+      }
+  }, [selectedConversation, userData]);
+
+  // --- Auto-Scroll Logic ---
   useEffect(() => {
     if (chatContentRef.current) {
       chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight;
     }
-  }, [selectedConversation?.messages.length]); // Re-run when message count changes
+  }, [messages]);
 
-  // --- Search Handler ---
+
+  // --- UI Handlers ---
   const handleSearchChange = (e) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery(query);
-    const filtered = conversations.filter(conv =>
-      conv.otherUser.name.toLowerCase().includes(query) ||
-      conv.product.title.toLowerCase().includes(query) ||
-      conv.lastMessagePreview.toLowerCase().includes(query)
-    );
-    setFilteredConversations(filtered);
+    setSearchQuery(e.target.value);
   };
 
-  // --- Select Conversation Handler ---
   const handleSelectConversation = (conversation) => {
     setSelectedConversation(conversation);
-    setIsChatVisible(true); // --- NEW: Show chat view on mobile ---
+    setIsChatVisible(true); 
+    setMessages([]); 
+    setIsChatMenuOpen(false);
   };
 
-  // --- NEW: Handler to go back to list on mobile ---
   const handleBackToList = () => {
     setIsChatVisible(false);
   };
 
-  // --- NEW: Textarea Change Handler (for auto-growing) ---
   const handleTextareaChange = (e) => {
     setNewMessage(e.target.value);
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'; // Reset height
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`; // Set to content height
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   };
 
-  // --- Send Message Handler (Placeholder) ---
-  const handleSendMessage = () => {
-      if (!newMessage.trim() || !selectedConversation) return;
+  const handleSendMessage = async () => {
+      if (!newMessage.trim() || !selectedConversation || !userData) return;
 
-      console.log(`Sending message "${newMessage}" to conversation ${selectedConversation.id}`);
-      // TODO: Implement API call to send message
-      // try {
-      //     await sendMessageApi(selectedConversation.id, newMessage);
-            // Optimistic update (add message locally, then update if API fails)
-            const messageToSend = {
-                id: Date.now(), // Temporary ID
-                senderId: CURRENT_USER_ID,
-                text: newMessage,
-                timestamp: 'Just now'
-            };
-            // Update the state
-            setSelectedConversation(prev => ({
-                ...prev,
-                messages: [...prev.messages, messageToSend]
-            }));
-            // Update the main conversations list preview (optional)
-            setConversations(prevConvs => prevConvs.map(c =>
-              c.id === selectedConversation.id ? {...c, lastMessagePreview: newMessage} : c
-            ));
-            setFilteredConversations(prevConvs => prevConvs.map(c =>
-              c.id === selectedConversation.id ? {...c, lastMessagePreview: newMessage} : c
-            ));
-            setNewMessage(''); // Clear input
+      const textToSend = newMessage;
+      setNewMessage(''); 
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-            // --- NEW: Reset textarea height after sending ---
-            if (textareaRef.current) {
-              textareaRef.current.style.height = 'auto';
-            }
-      // } catch (error) { console.error("Failed to send message", error); }
+      try {
+          const tempId = Date.now();
+          const optimisticMsg = {
+              id: tempId,
+              senderId: userData.userId,
+              text: textToSend,
+              timestamp: formatMessageTime(new Date())
+          };
+          setMessages(prev => [...prev, optimisticMsg]);
+
+          await sendMessage(textToSend, selectedConversation.id, userData.userId);
+          
+      } catch (error) { 
+          console.error("Failed to send message", error); 
+          alert("Failed to send message. Please try again.");
+      }
   };
 
-  // --- Logout Handler ---
   const handleLogout = () => {
     localStorage.removeItem('eduRentUserData');
     navigate('/login');
   };
 
-  // --- NEW Universal Notification Click Handler ---
   const handleNotificationClick = async (notification) => {
-    console.log("Notification clicked:", notification);
-
-    // 1. Extract the listing ID from the notification's URL
     const urlParts = notification.linkUrl?.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
 
-    if (!listingId) {
-      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
-      alert("Could not open this notification: Invalid link.");
-      return;
-    }
+    if (!listingId) return;
 
-    closeModal(); // Close any modal that's already open
-    setIsNotificationLoading(true); // <-- SHOW THE SKELETON
-
-    console.log(`Fetching details for listingId: ${listingId}`);
+    closeModal(); 
+    setIsNotificationLoading(true);
 
     try {
-      // 2. Fetch that specific listing's data from the API
-      // We must have `getListingById` imported from apiService.js
       const response = await getListingById(listingId); 
-
       if (response.data) {
-        // 3. We found the listing! Call openModal with the data.
-        openModal(response.data);
-      } else {
-        throw new Error(`Listing ${listingId} not found.`);
+        setSelectedListing(response.data);
+        setIsModalOpen(true);
       }
-
     } catch (err) {
-      console.error("Failed to fetch listing for notification:", err);
-      alert(`Could not load item: ${err.message}. It may have been deleted.`);
-      // As a fallback, navigate to the main browse page
+      console.error("Failed to fetch listing:", err);
       navigate('/browse');
     } finally {
-      setIsNotificationLoading(false); // <-- HIDE THE SKELETON
+      setIsNotificationLoading(false); 
     }
   };
-  // --- End new function ---
 
-  // Modal Handlers
-  const openModal = (listing) => {
-    setSelectedListing(listing);
-    setIsModalOpen(true);
+  // --- Archive Handler ---
+  const handleArchiveChat = async () => {
+      if (!selectedConversation) return;
+      const convId = selectedConversation.id;
+      
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, isArchived: !c.isArchived } : c));
+      setSelectedConversation(null); 
+      setIsChatMenuOpen(false);
+      setIsChatVisible(false); 
+
+      try {
+          await archiveConversation(convId);
+      } catch (err) {
+          console.error("Failed to archive:", err);
+          alert("Failed to archive conversation.");
+          fetchData(); 
+      }
+  };
+
+  // --- Delete Handler ---
+  const handleDeleteChat = async () => {
+      if (!selectedConversation) return;
+      if (!window.confirm("Are you sure you want to delete this conversation? This cannot be undone.")) return;
+      
+      const convId = selectedConversation.id;
+      
+      setConversations(prev => prev.filter(c => c.id !== convId));
+      setSelectedConversation(null);
+      setIsChatMenuOpen(false);
+      setIsChatVisible(false);
+
+      try {
+          await deleteConversation(convId);
+      } catch (err) {
+          console.error("Failed to delete:", err);
+          alert("Failed to delete conversation.");
+          fetchData(); 
+      }
+  };
+
+  // --- Modal Logic ---
+  const openModal = async (listingSummary) => {
+    // The listing object in the chat is a summary. 
+    // We must fetch the full details (description, condition, school, etc.) 
+    // from the API to display the modal correctly.
+    
+    const listingId = listingSummary.id || listingSummary.listingId;
+    if (!listingId) return;
+
+    setIsNotificationLoading(true); // Show the skeleton loader
+    
+    try {
+      const response = await getListingById(listingId);
+      if (response.data) {
+        setSelectedListing(response.data); // Set the FULL listing data
+        setIsModalOpen(true);
+      }
+    } catch (err) {
+      console.error("Failed to load listing details:", err);
+      alert("Could not load item details. It may have been deleted.");
+    } finally {
+      setIsNotificationLoading(false);
+    }
   };
 
   const closeModal = () => {
-    setSelectedListing(null);
     setIsModalOpen(false);
+    setSelectedListing(null);
   };
 
-  // Like Handler (copied from Dashboard/Manage)
   const handleLikeToggle = async (listingId) => {
     if (likingInProgress.has(listingId)) return;
     setLikingInProgress(prev => new Set(prev).add(listingId));
@@ -299,29 +445,19 @@ export default function MessagesPage() {
     const newLikedIds = new Set(likedListingIds);
     const isCurrentlyLiked = likedListingIds.has(listingId);
     
-    if (isCurrentlyLiked) {
-      newLikedIds.delete(listingId);
-    } else {
-      newLikedIds.add(listingId);
-    }
+    if (isCurrentlyLiked) newLikedIds.delete(listingId);
+    else newLikedIds.add(listingId);
     setLikedListingIds(newLikedIds);
     
     try {
-      if (isCurrentlyLiked) {
-        await unlikeListing(listingId);
-      } else {
-        await likeListing(listingId);
-      }
+      if (isCurrentlyLiked) await unlikeListing(listingId);
+      else await likeListing(listingId);
     } catch (err) {
       console.error("Failed to toggle like:", err);
-      // Revert state
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
-          if (isCurrentlyLiked) {
-            revertedIds.add(listingId);
-          } else {
-            revertedIds.delete(listingId);
-          }
+          if (isCurrentlyLiked) revertedIds.add(listingId);
+          else revertedIds.delete(listingId);
           return revertedIds;
       });
     } finally {
@@ -333,12 +469,11 @@ export default function MessagesPage() {
     }
   };
 
-  // --- Render Loading/Error ---
+  // --- Render ---
   if (isLoading) {
       return (
-        <div className="profile-page"> {/* Container for Header */}
+        <div className="profile-page">
             <Header userName="" onLogout={handleLogout} />
-            {/* Render the Messages Skeleton */}
             <MessagesSkeleton />
         </div>
       );
@@ -352,9 +487,10 @@ export default function MessagesPage() {
       );
   }
 
-  // --- Render Messages Page ---
+  const filterOptions = ['All Messages', 'Selling', 'Buying', 'Unread', 'Archived'];
+
   return (
-    <div className="profile-page"> {/* Reuse class for header consistency */}
+    <div className="profile-page">
       <Header userName={userName} 
       profilePictureUrl={userData?.profilePictureUrl}
       onLogout={handleLogout} 
@@ -362,10 +498,31 @@ export default function MessagesPage() {
       />
 
       <div className="messages-page-container">
-        {/* Left Sidebar */}
+        {/* Left Sidebar: Conversation List */}
         <aside className={`conversations-sidebar ${isChatVisible ? 'mobile-hidden' : ''}`}>
           <div className="conversations-header">
-            <h1 className="conversations-title">Messages</h1>
+            <div className="message-filter-container">
+                <button 
+                    className="message-filter-btn" 
+                    onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                >
+                    {activeFilter} <Icons.ChevronDown />
+                </button>
+                {isFilterDropdownOpen && (
+                    <div className="filter-dropdown-menu">
+                        {filterOptions.map(option => (
+                            <button 
+                                key={option} 
+                                className={`filter-option ${activeFilter === option ? 'active' : ''}`}
+                                onClick={() => { setActiveFilter(option); setIsFilterDropdownOpen(false); }}
+                            >
+                                {option}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             <div className="conversation-search-bar">
               <span className="conversation-search-icon"><Icons.Search /></span>
               <input
@@ -377,6 +534,7 @@ export default function MessagesPage() {
               />
             </div>
           </div>
+
           <ul className="conversations-list">
             {filteredConversations.map(conv => (
               <li
@@ -385,20 +543,42 @@ export default function MessagesPage() {
                 onClick={() => handleSelectConversation(conv)}
                 role="button"
                 tabIndex={0}
-                aria-current={selectedConversation?.id === conv.id ? 'page' : undefined}
               >
                 <div className="conversation-avatar">
-                  {/* Placeholder for avatar image */}
+                   <img 
+                      src={conv.otherUser.avatar ? `http://localhost:8080${conv.otherUser.avatar}` : defaultAvatar} 
+                      alt={conv.otherUser.name}
+                      className="user-avatar"
+                      style={{width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover'}}
+                      onError={(e) => { 
+                          e.target.onerror = null; 
+                          e.target.src = defaultAvatar; 
+                        }}
+                   />
                 </div>
                 <div className="conversation-details">
-                  <div className="conversation-user-name">{conv.otherUser.name}</div>
-                  <div className="conversation-preview">{conv.lastMessagePreview}</div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.9rem'}}>
+                      <span className="conversation-user-name" style={{fontWeight:600}}>{conv.otherUser.name}</span>
+                      <span style={{fontSize:'0.75rem', color:'var(--text-muted)'}}>
+                          {formatMessageTime(conv.lastMessageDate)}
+                      </span>
+                  </div>
+                  
+                  {conv.product && (
+                      <div style={{fontSize:'0.8rem', color:'var(--primary-color)', fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                          {conv.product.title}
+                      </div>
+                  )}
+
+                  <div className="conversation-preview" style={{fontSize:'0.8rem', color:'var(--text-muted)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                      {conv.lastMessagePreview}
+                  </div>
                 </div>
               </li>
             ))}
               {filteredConversations.length === 0 && (
                 <li style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No conversations found.
+                    {activeFilter === 'All Messages' ? 'No conversations found.' : `No '${activeFilter}' conversations found.`}
                 </li>
             )}
           </ul>
@@ -408,62 +588,81 @@ export default function MessagesPage() {
         <main className={`chat-area ${!selectedConversation ? 'no-chat-selected' : ''} ${isChatVisible ? 'mobile-visible' : ''}`}>
           {selectedConversation ? (
             <>
-              {/* Chat Header */}
               <div className="chat-header">
-                {/* --- NEW: Back button for mobile --- */}
                 <button className="chat-back-button" onClick={handleBackToList}>
                   <Icons.BackArrow />
                 </button>
                 <div className="chat-user-info">
                   <span className="user-name">{selectedConversation.otherUser.name}</span>
-                  {/* Optional: Add online status indicator */}
                 </div>
+                
+                {/* --- ListingCard Integration --- */}
                 {selectedConversation.product && (
-                  <div className="chat-product-info">
-                    <span className="product-info-icon">{selectedConversation.product.icon || '📦'}</span>
-                    <div className="product-info-details">
-                      <div className="product-info-title">{selectedConversation.product.title}</div>
-                      <div className="product-info-price">${selectedConversation.product.price}</div>
-                    </div>
+                  <div className="chat-listing-card-wrapper" style={{ marginLeft: 'auto', marginRight: '10px' }}>
+                      <ListingCard
+                        listing={selectedConversation.product}
+                        onClick={() => openModal(selectedConversation.product)} 
+                        isLiked={likedListingIds.has(selectedConversation.product.listingId)}
+                        onLikeClick={handleLikeToggle}
+                        isLiking={likingInProgress.has(selectedConversation.product.listingId)}
+                        currentUserId={userData?.userId}
+                        variant="compact" 
+                      />
                   </div>
                 )}
+
+                {/* Chat Action Menu */}
+                <div style={{ marginLeft: 'auto', position: 'relative' }}>
+                      <button 
+                          className="icon-button" 
+                          onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
+                          style={{ fontSize: '1.5rem', cursor: 'pointer', padding: '0 5px' }}
+                      >
+                          ⋮
+                      </button>
+                      
+                      {isChatMenuOpen && (
+                          <div className="filter-dropdown-menu" style={{ right: 0, left: 'auto', top: '100%', width: '150px', zIndex: 100 }}>
+                              <button className="filter-option" onClick={handleArchiveChat}>
+                                  {selectedConversation.isArchived ? 'Unarchive' : 'Archive'}
+                              </button>
+                              <button className="filter-option" onClick={handleDeleteChat} style={{color: 'red'}}>
+                                  Delete
+                              </button>
+                          </div>
+                      )}
+                </div>
               </div>
 
-              {/* Chat Content */}
               <div className="chat-content" ref={chatContentRef}>
-                {selectedConversation.messages.map(msg => (
+                {messages.map(msg => (
                   <div
                     key={msg.id}
-                    className={`message-bubble-wrapper ${msg.senderId === CURRENT_USER_ID ? 'sent' : 'received'}`}
+                    className={`message-bubble-wrapper ${msg.senderId === userData.userId ? 'sent' : 'received'}`}
                   >
-                    <div className="message-bubble">
+                    <div className={`message-bubble ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
                       {msg.text}
                     </div>
-                    {/* --- MODIFIED: Added timestamp --- */}
                     <span className="message-timestamp">{msg.timestamp}</span>
                   </div>
                 ))}
               </div>
 
-              {/* Chat Input */}
               <div className="chat-input-area">
                 <textarea
-                  ref={textareaRef} // --- NEW: Attach ref
+                  ref={textareaRef}
                   className="chat-input"
                   placeholder="Type here..."
                   value={newMessage}
-                  onChange={handleTextareaChange} // --- MODIFIED: Use new handler
+                  onChange={handleTextareaChange}
                   onKeyPress={(e) => {
-                      // Send message on Enter key press (optional)
                       if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault(); // Prevent newline
+                          e.preventDefault();
                           handleSendMessage();
                       }
                   }}
-                  rows={1} // Start with 1 row, CSS handles basic height
+                  rows={1}
                 />
-                
-                {/* --- NEW: Conditional Send/Attachment Button --- */}
                 {newMessage.trim() ? (
                   <button className="icon-button send-button" onClick={handleSendMessage} aria-label="Send message">
                     <Icons.Send />
@@ -484,6 +683,7 @@ export default function MessagesPage() {
           )}
         </main>
       </div>
+      
       {isModalOpen && selectedListing && (
         <ProductDetailModal
           listing={selectedListing}

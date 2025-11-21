@@ -1,53 +1,78 @@
-// src/components/ListingCard.jsx
 import React from 'react';
 
-// --- UPDATED: Accept new props 'isLiked' and 'onLikeClick' ---
-export default function ListingCard({ listing, onClick, isLiked, onLikeClick, currentUserId, isLiking }) {  
-  // This handler is for opening the modal (clicking the whole card)
+// --- FIX: Use a Data URI for the placeholder to prevent network errors ---
+const defaultPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3e%3crect width='200' height='200' fill='%23f0f0f0'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='%23aaaaaa'%3eNo Image%3c/text%3e%3c/svg%3e";
+
+export default function ListingCard({ 
+  listing, 
+  onClick, 
+  isLiked, 
+  onLikeClick, 
+  currentUserId, 
+  isLiking,
+  variant = 'standard' // 'standard' | 'compact'
+}) { 
+  
   const handleClick = (e) => {
     if (onClick) {
       e.preventDefault();
-      onClick(listing); // Pass the listing data up
+      onClick(listing);
     }
   };
-
-  // --- NEW: Handler for the like button ---
+  
   const handleLikeClick = (e) => {
-    e.stopPropagation(); // PREVENT the modal from opening
+    e.stopPropagation(); 
     if (onLikeClick) {
-      onLikeClick(listing.listingId); // Pass the listing's ID up
+      onLikeClick(listing.listingId);
     }
   };
 
-  // --- Extract data with fallbacks, using backend names ---
-  const categoryName = listing?.category?.name || "Category"; // Optional chaining
-  const listingType = listing?.listingType || "For Sale"; // Backend field name
+  // --- Data Extraction ---
+  const categoryName = listing?.category?.name || "Category";
+  const listingType = listing?.listingType || "For Sale";
   const title = listing?.title || "No title";
-  const description = listing?.description || "No description available.";
+  const description = listing?.description || "";
   const price = listing?.price || 0;
 
-  // --- Determine Cover Image ---
-  // Find the image marked as cover, or take the first one, or use placeholder icon
-  const coverImage = listing?.images?.find(img => img.coverPhoto)?.imageUrl || // Find cover image URL
-                     listing?.images?.[0]?.imageUrl || // Fallback to first image URL
-                     null; // No image URL found
-  const displayIcon = listing?.icon || '📦'; // Keep icon as ultimate fallback
+  // --- FIX: Improved Image Logic ---
+  // 1. Check for single 'image' string (Used in MessagesPage DTO)
+  // 2. Check for 'listingImages' array (Used in standard Entity)
+  // 3. Check for 'images' array (Legacy)
+  let coverImageUrl = listing?.image || null;
 
-  // --- Determine Type Class and Text ---
+  if (!coverImageUrl) {
+      const rawImages = listing?.listingImages || listing?.images || [];
+      if (rawImages.length > 0) {
+          // Find cover photo or use the first one
+          const coverObj = rawImages.find(img => img.coverPhoto) || rawImages[0];
+          coverImageUrl = coverObj ? coverObj.imageUrl : null;
+      }
+  }
+  // --------------------------------
+
+  const displayIcon = listing?.icon || '📦';
+  
   const isRent = listingType.toUpperCase().includes('RENT');
   const typeClassName = isRent ? 'rent' : 'sale';
   const typeText = isRent ? 'For Rent' : 'For Sale';
-  const isOwner = currentUserId === listing?.user?.userId;
+  const isOwner = currentUserId === listing?.user?.userId || currentUserId === listing?.ownerId;
 
+  // Helper to format image URL
+  const getFullImageUrl = (path) => {
+      if (!path) return null;
+      return path.startsWith('http') ? path : `http://localhost:8080${path}`;
+  };
 
   return (
-    <div className="listing-card" onClick={handleClick} role="button" tabIndex={0}
-         onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleClick(e)}>
-
-
+    <div 
+      className={`listing-card ${variant === 'compact' ? 'compact' : ''}`} 
+      onClick={handleClick} 
+      role="button" 
+      tabIndex={0}
+      onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleClick(e)}
+    >
 
       <div className="listing-image">
-        {/* --- NEW LIKE BUTTON --- */}
         {!isOwner && (
           <button
             className={`like-button ${isLiked ? 'liked' : ''}`}
@@ -59,27 +84,42 @@ export default function ListingCard({ listing, onClick, isLiked, onLikeClick, cu
             {isLiking ? '...' : (isLiked ? '❤️' : '🤍')}
           </button>
         )}
-        {/* --- END LIKE BUTTON --- */}
 
-        {/* --- Display fetched image or fallback icon --- */}
-        {coverImage ? (
-           // Assuming imageUrl is relative path; adjust prefix if needed (e.g., if storing full URLs)
-          <img src={coverImage} alt={title} onError={(e) => e.target.style.display = 'none'} /> // Basic error handling
+        {coverImageUrl ? (
+          <img 
+            src={getFullImageUrl(coverImageUrl)} 
+            alt={title} 
+            // --- FIX: Use local Data URI fallback ---
+            onError={(e) => { 
+                e.target.onerror = null; 
+                e.target.src = defaultPlaceholder; 
+            }} 
+            // ----------------------------------------
+          />
         ) : (
-          <span style={{ fontSize: '3rem', color: 'var(--text-muted)' }}>{displayIcon}</span> // Show icon if no image URL
+          <span className="fallback-icon" style={{ fontSize: variant === 'compact' ? '1.5rem' : '3rem', color: 'var(--text-muted)' }}>
+            {displayIcon}
+          </span>
         )}
       </div>
 
       <div className="listing-content">
-        <div className="listing-category">{categoryName}</div>
+        {variant !== 'compact' && <div className="listing-category">{categoryName}</div>}
+        
         <h3 className="listing-title">{title}</h3>
-        {/* Shorten description for card if needed */}
-        <p className="listing-description">{description.substring(0, 100)}{description.length > 100 ? '...' : ''}</p>
+        
+        {variant !== 'compact' && (
+           <p className="listing-description">{description.substring(0, 100)}{description.length > 100 ? '...' : ''}</p>
+        )}
+
         <div className="listing-footer">
           <div className="listing-price">₱{price.toFixed(2)}</div>
-          <span className={`listing-type ${typeClassName}`}>
-            {typeText} {/* Use variable for text */}
-          </span>
+          
+          {variant !== 'compact' && (
+            <span className={`listing-type ${typeClassName}`}>
+              {typeText}
+            </span>
+          )}
         </div>
       </div>
     </div>

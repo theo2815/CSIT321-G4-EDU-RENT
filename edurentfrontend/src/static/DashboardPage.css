@@ -448,3 +448,83 @@
 .error-retry-btn:hover {
   background-color: #E53935;
 }
+
+/* --- Compact Listing Card (For Chat Header) --- */
+.listing-card.compact {
+  display: flex;
+  flex-direction: row; /* Horizontal layout */
+  width: 100%;
+  max-width: 260px;
+  height: 64px; /* Small fixed height */
+  padding: 4px;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  background: #fff;
+  margin: 0; /* Reset margin */
+}
+
+.listing-card.compact:hover {
+    transform: none; /* Disable lift effect */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Image adjustment */
+.listing-card.compact .listing-image {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.listing-card.compact .listing-image img {
+  border-radius: 4px;
+}
+
+/* Smaller Like Button */
+.listing-card.compact .like-button {
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  font-size: 0.7rem;
+  background: rgba(255,255,255,0.9);
+}
+
+/* Content adjustment */
+.listing-card.compact .listing-content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 2px;
+  flex-grow: 1;
+  min-width: 0; /* Allow text truncation */
+}
+
+.listing-card.compact .listing-title {
+  font-size: 0.85rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.listing-card.compact .listing-footer {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.listing-card.compact .listing-price {
+  font-size: 0.85rem;
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.listing-card.compact .fallback-icon {
+    font-size: 1.5rem !important;
+}

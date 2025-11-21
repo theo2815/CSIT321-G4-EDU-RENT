@@ -1,13 +1,29 @@
 package com.edurent.crc.entity;
 
-import jakarta.persistence.*;
-import java.util.Set;
+import java.time.LocalDateTime;
 import java.util.Objects;
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import java.util.Set;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "conversations")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ConversationEntity {
 
     @Id
@@ -16,18 +32,30 @@ public class ConversationEntity {
     private Long conversationId;
 
     // --- Relationships ---
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "listing_id", nullable = true)
-    @JsonBackReference(value = "listing-conversations")
+    //@JsonIgnoreProperties("conversations")
+    @JsonIgnoreProperties({"conversations", "hibernateLazyInitializer", "handler"})
     private ListingEntity listing;
 
-    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JsonManagedReference(value = "conversation-participants")
     private Set<ConversationParticipantEntity> participants;
 
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference(value = "conversation-messages")
+    @JsonIgnore 
     private Set<MessageEntity> messages;
+
+    // --- NEW: Transient fields for frontend display ---
+    @Transient
+    private String lastMessageContent;
+
+    @Transient
+    private LocalDateTime lastMessageTimestamp;
+
+    @Transient
+    private boolean isArchivedForCurrentUser;
+    // -------------------------------------------------
 
     // Constructors
     public ConversationEntity() {
@@ -65,6 +93,32 @@ public class ConversationEntity {
     public void setMessages(Set<MessageEntity> messages) {
         this.messages = messages;
     }
+
+    // --- NEW: Getters/Setters for transient fields ---
+    public String getLastMessageContent() {
+        return lastMessageContent;
+    }
+
+    public void setLastMessageContent(String lastMessageContent) {
+        this.lastMessageContent = lastMessageContent;
+    }
+
+    public LocalDateTime getLastMessageTimestamp() {
+        return lastMessageTimestamp;
+    }
+
+    public void setLastMessageTimestamp(LocalDateTime lastMessageTimestamp) {
+        this.lastMessageTimestamp = lastMessageTimestamp;
+    }
+
+    public boolean getIsArchivedForCurrentUser() {
+        return isArchivedForCurrentUser;
+    }
+
+    public void setIsArchivedForCurrentUser(boolean isArchivedForCurrentUser) {
+        this.isArchivedForCurrentUser = isArchivedForCurrentUser;
+    }
+    // -------------------------------------------------
 
     // equals, hashCode, toString (excluding relationships)
     @Override
