@@ -366,7 +366,7 @@ export default function EditListingPage() {
                 <div className="image-preview-grid">
                     {existingImages.map((image) => (
                         <div key={image.imageId} className="image-preview-item">
-                            <img src={`http://localhost:8080${image.imageUrl}`} alt="Existing item" />
+                            <img src={image.imageUrl} alt="Existing item" />
                             {/* --- This button was already active in your code --- */}
                             <button
                                 type="button"

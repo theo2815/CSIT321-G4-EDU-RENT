@@ -1,6 +1,6 @@
 // src/components/ProductDetailModal.jsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link} from 'react-router-dom';
 
 // Import CSS
 import '../static/ProductDetailModal.css';
@@ -76,7 +76,7 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
         {/* Image Section */}
         <section className="product-image-section">
           <img
-            src={`http://localhost:8080${currentImageUrl}`} 
+            src={currentImageUrl}
             alt={`${listing.title || 'Listing'} - Image ${currentImageIndex + 1}`}
             className="product-image-main"
             onError={(e) => { e.target.onerror = null; e.target.src="https://via.placeholder.com/400x400?text=Image+Error"; }}
@@ -204,7 +204,11 @@ className="seller-avatar"
                     }}
                 />
                   <div className="seller-details">
-                    <div className="seller-username">{seller.username}</div>
+                    <div className="seller-username">
+                        <Link to={`/profile/${seller.id}`} onClick={onClose} className="seller-link">
+                            {seller.username}
+                        </Link>
+                    </div>
                     <div className="seller-reviews">Reviews: N/A</div>
                   </div>
                 </div>

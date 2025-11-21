@@ -549,7 +549,7 @@ export default function ManageListingsPage() {
                         <td>
                           <div className="listing-product-info">
                             {coverImage ? (
-                               <img src={`http://localhost:8080${coverImage}`} alt={item.title} className="listing-product-image" onError={(e) => { e.target.style.display = 'none'; }} />
+                               <img src={coverImage} alt={item.title} className="listing-product-image" onError={(e) => { e.target.style.display = 'none'; }} />
                             ) : (
                                <div className="listing-product-image icon-placeholder">{'📦'}</div>
                             )}

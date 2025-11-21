@@ -30,7 +30,11 @@ function App() {
 
       {/* Main App Routes */}
       <Route path="/dashboard" element={<DashboardPage />} />
+
+
+      {/* --- Profile Routes --- */}
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/profile/:profileId" element={<ProfilePage />} />
 
       {/* Settings Routes */}
       {/* Define routes for each settings sub-page */}

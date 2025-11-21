@@ -13,7 +13,6 @@ export default function useFilteredListings(masterList, filterType) {
       return masterList;
     }
     
-    // --- FIX ---
     // Determine the string to match (and uppercase it)
     const typeMatch = filterType === 'sale' ? 'FOR SALE' : 'FOR RENT';
 
@@ -21,7 +20,6 @@ export default function useFilteredListings(masterList, filterType) {
       // Compare uppercase to uppercase
       listing.listingType?.toUpperCase() === typeMatch
     );
-    // --- END FIX ---
 
   }, [masterList, filterType]); // Dependencies
 

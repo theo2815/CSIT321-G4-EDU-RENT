@@ -64,7 +64,7 @@ export default function ListingCard({ listing, onClick, isLiked, onLikeClick, cu
         {/* --- Display fetched image or fallback icon --- */}
         {coverImage ? (
            // Assuming imageUrl is relative path; adjust prefix if needed (e.g., if storing full URLs)
-          <img src={`http://localhost:8080${coverImage}`} alt={title} onError={(e) => e.target.style.display = 'none'} /> // Basic error handling
+          <img src={coverImage} alt={title} onError={(e) => e.target.style.display = 'none'} /> // Basic error handling
         ) : (
           <span style={{ fontSize: '3rem', color: 'var(--text-muted)' }}>{displayIcon}</span> // Show icon if no image URL
         )}

@@ -247,3 +247,18 @@
      color: white;
   }
 }
+
+/* Style the actual link */
+.seller-link {
+  color: var(--primary-color); /* Use your brand color */
+  text-decoration: none;
+  font-weight: 700; /* Make it slightly bolder than normal text */
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+/* Add hover effect so users know it's interactive */
+.seller-link:hover {
+  color: var(--accent-color, #0056b3); /* Darker shade or accent color */
+  text-decoration: underline;
+  cursor: pointer;
+}
