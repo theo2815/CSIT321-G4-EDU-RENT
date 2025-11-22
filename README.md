@@ -1,205 +1,300 @@
-# 🛒 Edu-Rent (CSIT321-G4-EDU-RENT)
-
-Edu-Rent is a campus-wide marketplace where students can rent, buy, and sell items within their school community. This repository contains a Java Spring Boot backend and a React + Vite frontend alongside configuration and instructions to run and contribute.
-
------
-
-**Table of Contents**
-- **Overview**: What the project does
-- **Tech Stack**: Key technologies used
-- **Prerequisites**: What you need locally
-- **Quick Start**: Run backend and frontend locally
-- **Environment / Config**: Keys and properties
-- **Build & Test**: Build artifacts and run tests
-- **Project Structure**: Where code lives
-- **Contributing**: Branching and workflow
-- **Team** & **License**
+# 🛒 CSIT321-G4-EDU-RENT / Edu-Rent
+<div align="center">
+  <h3>A Campus-Wide E-Commerce Platform for Students</h3>
+  <p>Rent, Sell, and Buy Items Easily Within Your School Community</p>
+</div> 
 
 -----
 
-**Overview**
-- Edu-Rent provides a simple, local student marketplace (listings, images, messaging, likes, reviews, transactions). The backend exposes REST APIs and the frontend is a single-page React app that consumes those APIs.
-
-**Primary goals**
-- Simple local marketplace for students
-- Secure authentication & user profiles
-- Upload/list images and manage listings
-- Conversations and notifications between users
-
------
-
-**Tech Stack**
-- **Backend:** Java 17+, Spring Boot, Maven
-- **Frontend:** React, Vite, Node.js, npm
-- **Database / Auth:** Supabase (Postgres + Auth)
-- **Version control:** Git / GitHub
+## 📖 Table of Contents
+- [Overview](#-overview)
+- [Purpose](#-purpose)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Prerequisites](#-prerequisites)
+- [Setup & Installation](#-setup--installation)
+- [How to Run the Project](#-how-to-run-the-project)
+- [Usage Guide](#-usage-guide)
+- [Project Structure](#-project-structure)
+- [Team Members](#-team-members)
+- [License](#-license)
+- [Deployment](#-deployment)
 
 -----
 
-**Prerequisites**
-- JDK 17 or newer
-- Maven (or use the included wrapper)
-- Node.js (16+) and npm
-- Git
-- Supabase project (for production-like local testing)
+## 🌟 Overview
+Edu-Rent is a campus-based e-commerce platform where students can rent, sell, and buy items from fellow students. It eliminates the need to use multiple platforms or deal with distant or unreliable sellers. Everything happens within the school community, ensuring convenience, accessibility, and trust.
+
+## 🎯 Purpose
+The purpose of Edu-Rent is to:
+- Provide a centralized marketplace for students
+- Improve accessibility to needed items on campus
+- Simplify renting, selling, and buying
+- Promote student-to-student trust and convenience
+
+## ✨ Features
+### 🧑‍🎓 Student Marketplace
+- Browse available items
+- Rent, buy, or sell products
+- Upload item listings with images and descriptions
+
+### 🔐 Account & Profile Management
+- Register/Login
+- Manage personal listings
+- View rental or purchase history
+
+### 📊 Admin Dashboard (Future Scope)
+- Approve suspicious listings
+- Manage users and transactions
+
+### 🔎 Search & Filter
+- Search items by category, price, or availability
 
 -----
 
-**Quick Start (recommended)**
-Open two terminals (one for backend, one for frontend).
+## 🛠 Tech Stack
+*Backend*  
+- Java Spring Boot  
+- Maven  
+- RESTful APIs  
 
-- Backend (Windows cmd example using included Maven wrapper):
+*Frontend*  
+- React x vite  
+- Node.js  
+- npm 
 
-```cmd
-cd edurentbackend
-mvnw.cmd spring-boot:run
+*Database*  
+- Supabase
+
+*Version Control*  
+- Git & GitHub
+
+-----
+
+## 📋 Prerequisites
+Before running the project, make sure you have:
+- Java Development Kit (JDK 17+)
+- Apache Maven
+- Node.js & npm
+- Supabase
+
+-----
+
+## ⚙️ Setup & Installation
+
+### 📌 **Option 1: How to Contribute to the Edu-Rent Project**
+#### This guide outlines the step-by-step process for contributing code to the project. We use a "Fork and Pull Request" model to maintain code quality and a clean history.
+
+### Branch Naming Pattern
+#### To keep our work organized, please follow this pattern for all new branches:
+#### type/short-description
+ - type: Describes the kind of change you are making.
+ - feat: For a new feature (e.g., feat/student-profile-page).
+ - fix: For a bug fix (e.g., fix/login-password-mismatch).
+ - docs: For changes to documentation (e.g., docs/update-readme).
+ - style: For code style changes that don't affect logic (e.g., style/reformat-css-files).
+ - refactor: For code changes that neither fix a bug nor add a feature (e.g., refactor/simplify-view-logic).
+ - short-description: A few words separated by hyphens that summarize the change.
+
+----
+
+## Part 1: One-Time Setup
+#### You only need to do this once at the beginning.
+
+#### Step 1: Fork the Repository
+ - First, you need to create your own personal copy of the main project repository on GitHub.
+ - Navigate to the main repository URL: https://github.com/theo2815/CSIT321-G4-EDU-RENT
+ - In the top-right corner of the page, click the Fork button.
+ - This will create a new repository under your own GitHub account
+   (https://github.com/your-username/CSIT321-G4-EDU-RENT). This is your personal fork.
+
+----
+
+### Step 2: Clone Your Fork to Your Computer
+#### Now, download the code from your personal fork to your local machine.
+1. On your fork's GitHub page, click the green < > Code button.
+2. Copy the HTTPS URL provided.
+3. Open your terminal or Git Bash and run the following command, replacing the URL with the one you just copied:
+```bash
+git clone https://github.com/your-username/CSIT321-G4-EDU-RENT.git
+```
+4. Navigate into the newly created project folder:
+```bash
+cd CSIT321-G4-EDU-RENT
+```
+----
+
+### Step 3: Configure Remotes
+#### You need to tell your local repository about the original "upstream" project so you can keep your fork updated with the team's latest changes.
+1. Your fork is already configured as the origin remote. You can verify this by running git remote -v.
+
+2. Now, add the original project repository as a new remote called upstream
+```bash
+git remote add upstream https://github.com/theo2815/CSIT321-G4-EDU-RENT.git
+```
+3. Verify that you now have two remotes (origin and upstream) by runnin
+```bash
+git remote -v
+```
+----
+
+## Part 2: The Development Workflow
+#### Follow these steps every time you want to start a new feature or bug fix.
+
+### Step 1: Sync Your Fork
+#### Before you start writing any new code, you must update your fork with the latest changes from the main project.
+1. Make sure you are on your local main branch:
+```bash
+git checkout main
 ```
 
-The backend will run by default on `http://localhost:8080` (see `edurentbackend/src/main/resources/application.properties`).
+2. "Pull" the latest changes from the original (upstream) project into your local main branch:
+```bash
+git pull upstream main
+```
 
-- Frontend:
+3. Push these updates to your personal fork on GitHub (origin) to keep it in sync:
+```bash
+git push origin main
+```
 
-```cmd
+----
+
+### Step 2: Create a New Branch
+#### Never work directly on the main branch. Always create a new, descriptive branch for your task.
+1. Create and switch to your new branch, following the naming pattern:
+```bash
+# Example for a new feature:
+git checkout -b feat/add-shopping-cart
+```
+
+----
+
+### Step 3: Write Your Code
+#### This is where you do your work: add features, fix bugs, and make any other changes.
+
+### Step 4: Commit Your Changes
+#### Save your work to the branch's history.
+1. Stage all your changed files:
+```bash
+git add .
+```
+2. Commit the changes with a clear, descriptive message:
+```bash
+git commit -m "Feat: Add shopping cart functionality to browse all product"
+```
+
+----
+
+### Step 5: Push Your Branch to Your Fork
+#### Upload your new branch and its commits to your personal fork on GitHub.
+```bash
+git push -u origin feat/add-shopping-cart
+```
+----
+
+### Step 6: Create a Pull Request (PR)
+#### The final step is to propose your changes to the main project.
+
+1. Go to your fork's page on GitHub (https://github.com/your-username/CSIT321-G4-EDU-RENT).
+2. GitHub will automatically detect your newly pushed branch and show a green button that says "Compare & pull request." Click it.
+3. Give your pull request a clear title and a brief description of the changes you made.
+4. Click the "Create pull request" button.
+
+##### Your work is now submitted for review! The project lead can now review your code, suggest changes, and merge it into the main project.
+
+-----
+
+### 📌 **Option 2: Just Using the Project (Direct Clone)**
+
+If you just want to use the application:
+```bash
+# Clone the repository directly
+git clone https://github.com/theo2815/CSIT321-G4-EDU-RENT.git
+
+# Navigate to the project directory
+cd CSIT321-G4-EDU-RENT
+
+```
+
+-----
+
+## ▶️ How to Run the Project
+You will run two terminals: one for the backend and one for the frontend.
+
+### ✅ 1. Run the Backend (Spring Boot)
+```bash
+cd edurentbackend
+```
+
+```bash
+    mvn spring-boot:run
+```
+
+Backend runs at: http://localhost:8080
+
+### ✅ 2. Run the Frontend (React)
+```bash
 cd edurentfrontend
+```
+
+```bash
 npm install
+```
+
+Start the frontend:
+```bash
 npm run dev
 ```
 
-Frontend (Vite) runs by default at `http://localhost:5173`.
-
-Open `http://localhost:5173` and use the app. API calls target the backend (CORS must be enabled in the backend configuration; see `WebConfig.java`).
+Frontend runs at: http://localhost:5173
 
 -----
 
-**Environment / Configuration**
-
-- Backend: edit `edurentbackend/src/main/resources/application.properties` to configure database URL, username/password, JWT settings, and Supabase if used. Typical keys to update:
-
-    - `spring.datasource.url`
-    - `spring.datasource.username`
-    - `spring.datasource.password`
-    - `spring.jpa.hibernate.ddl-auto` (dev: update)
-
-- Frontend: place environment values in `edurentfrontend/.env` (Vite expects `VITE_` prefix). Create a file `edurentfrontend/.env` with:
-
-```
-VITE_SUPABASE_URL=https://your-supabase-url
-VITE_SUPABASE_ANON_KEY=your-anon-public-key
-VITE_API_BASE_URL=http://localhost:8080
-```
-
-Replace values with your Supabase project credentials and backend URL. The frontend uses `supabaseClient.js` and `services/apiService.js` to read these.
+## 🧪 Usage Guide
+1. Open your browser  
+2. Visit http://localhost:5173/login 
+3. Register or log in  
+4. Browse, add, rent, sell, or buy items  
 
 -----
 
-**Build & Test**
-
-- Backend build and tests (Windows):
-
-```cmd
-cd edurentbackend
-mvnw.cmd test        :: run unit tests
-mvnw.cmd package     :: builds the application jar in target/
-```
-
-To run the packaged jar after build:
-
-```cmd
-cd edurentbackend\target
-java -jar crc-0.0.1-SNAPSHOT.jar
-```
-
-- Frontend build:
-
-```cmd
-cd edurentfrontend
-npm run build
-```
-
-The built frontend will be in `edurentfrontend/dist` (Vite default).
+## 📁 Project Structure
+    CSIT321-G4-EDU-RENT/
+    │
+    ├── edurentbackend/        # Spring Boot backend
+    │   └── src/main/java/
+    │   └── src/main/resources/
+    │
+    ├── edurentfrontend/       # React frontend
+    │   └── src/
+    │
+    └── README.md
 
 -----
 
-**Project structure (top-level)**
-
-```
-CSIT321-G4-EDU-RENT/
-├─ edurentbackend/         # Spring Boot backend
-│  ├─ pom.xml
-│  └─ src/main/java/...    # controllers, services, entities, repositories
-│  └─ src/main/resources/application.properties
-├─ edurentfrontend/        # React + Vite frontend
-│  ├─ package.json
-│  └─ src/                 # components, pages, hooks, services, static CSS
-├─ uploads/                # listing images (dev/test)
-└─ README.md               # this file
-```
-
-Important files to inspect:
-- `edurentbackend/src/main/java/com/edurent/crc/controller` — REST controllers
-- `edurentbackend/src/main/resources/application.properties` — backend config
-- `edurentfrontend/src/supabaseClient.js` — Supabase init
-- `edurentfrontend/src/services/apiService.js` — API wrapper for frontend
+## 👥 Team Members
+| Name | Role |
+|------|------|
+| *Theo Cedric Chan* |  Developer |
+| *Andre Codilla* |  Developer |
+| *Ken Patrick Ranis* |  Developer |
 
 -----
 
-**Contributing**
-
-Follow the Fork → Branch → PR workflow. Keep branches short and focused.
-
-- Branch naming (examples):
-    - `feat/<short-description>` for new features
-    - `fix/<short-description>` for bug fixes
-    - `docs/<short-description>` for documentation
-
-- Typical workflow:
-
-```cmd
-# sync with upstream
-git checkout main
-git pull upstream main
-
-# create feature branch
-git checkout -b feat/add-some-endpoint
-
-# make changes, then
-git add .
-git commit -m "Feat: Add X feature"
-git push -u origin feat/add-some-endpoint
-```
-
-Open a Pull Request from your branch to `main` and request reviews.
+## 🌐 Deployment
+### 🚧 Status: In Development
+This project is currently intended for local development. Deployment steps will be added later.
 
 -----
 
-**API & Auth notes**
+<div align="center">
+  <p>Made with ❤️ by the Edu-Rent Team</p>
+  <p>© 2025 Edu-Rent. All rights reserved.</p>
+  <br>
+  <a href="#-csit321-g4-edu-rent--edu-rent">Back to Top ⬆️</a>
+</div>
 
-- The backend uses JWT-based authentication and exposes endpoints grouped by responsibility (users, listings, messages, notifications, etc.). See the `controller` package in the backend for route mappings and example request/response DTOs.
-- CORS and web configuration are in `WebConfig.java` and security configuration is in `SecurityConfig.java`.
 
------
 
-**Troubleshooting**
 
-- If frontend can't reach the backend, confirm `VITE_API_BASE_URL` and backend port. Also ensure CORS is enabled.
-- If database errors occur, ensure the `spring.datasource.*` properties are correct and the DB is reachable.
-
------
-
-**Team**
-- Theo Cedric Chan — Developer
-- Andre Codilla — Developer
-- Ken Patrick Ranis — Developer
-
------
-
-**License & Copyright**
-- © 2025 Edu-Rent. All rights reserved. (Adjust or add an open-source license if desired)
-
------
-
-If you want, I can also:
-- Add an example `edurentfrontend/.env.example` and `edurentbackend/.env.example` with the minimal variables.
-- Add a `docker-compose.yml` to run Postgres + backend + frontend locally.
-
-Would you like me to add any of those now? 
