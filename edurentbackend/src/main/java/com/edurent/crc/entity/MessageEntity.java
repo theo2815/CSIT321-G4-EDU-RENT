@@ -33,6 +33,9 @@ public class MessageEntity {
     @Column(name = "is_read")
     private Boolean isRead = false;
 
+    @Column(name = "attachment_url")
+    private String attachmentUrl;
+
     // --- Relationships ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id", nullable = false)
@@ -47,7 +50,15 @@ public class MessageEntity {
     public MessageEntity() {
     }
 
-    // Getters and Setters (Fixes MessageService errors)
+    // Getters and Setters 
+
+    public String getAttachmentUrl() {
+        return attachmentUrl;
+    }
+
+    public void setAttachmentUrl(String attachmentUrl) {
+        this.attachmentUrl = attachmentUrl;
+    }
     public Long getMessageId() {
         return messageId;
     }

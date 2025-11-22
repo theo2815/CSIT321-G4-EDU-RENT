@@ -1,9 +1,8 @@
 package com.edurent.crc.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.ArrayList;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -55,6 +54,11 @@ public class ConversationService {
             if (lastMsg != null) {
                 conv.setLastMessageContent(lastMsg.getContent());
                 conv.setLastMessageTimestamp(lastMsg.getSentAt());
+
+                // NEW: Populate Unread Status
+                boolean isUnread = !Boolean.TRUE.equals(lastMsg.getRead()) 
+                                   && !lastMsg.getSender().getUserId().equals(userId);
+                conv.setIsUnread(isUnread);
             }
 
             // B. Populate Archived Status (For the frontend filter)
@@ -99,7 +103,8 @@ public class ConversationService {
         ConversationParticipantEntity receiverParticipant = new ConversationParticipantEntity(receiverIdObj, savedConversation, receiver);
         participantRepository.save(receiverParticipant);
 
-        return savedConversation;
+        return conversationRepository.findById(savedConversation.getConversationId())
+                .orElse(savedConversation);
     }
 
     @Transactional

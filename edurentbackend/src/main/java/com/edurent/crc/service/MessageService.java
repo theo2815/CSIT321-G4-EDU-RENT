@@ -3,11 +3,17 @@ package com.edurent.crc.service;
 import java.util.HashMap;
 import java.util.List; // Updated
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import org.springframework.beans.factory.annotation.Autowired; // Updated
 import org.springframework.messaging.simp.SimpMessagingTemplate; // Updated
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import com.edurent.crc.entity.ConversationEntity;
 import com.edurent.crc.entity.MessageEntity;
@@ -15,6 +21,8 @@ import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.ConversationRepository;
 import com.edurent.crc.repository.MessageRepository;
 import com.edurent.crc.repository.UserRepository;
+import com.edurent.crc.repository.ConversationParticipantRepository;
+import com.edurent.crc.entity.ConversationParticipantEntity;
 
 @Service
 public class MessageService {
@@ -29,18 +37,56 @@ public class MessageService {
     private UserRepository userRepository;
 
     @Autowired
+    private ConversationParticipantRepository participantRepository;
+
+    @Autowired
     private SimpMessagingTemplate messagingTemplate; 
 
-    public List<MessageEntity> getMessagesForConversation(Long conversationId) { // Updated
-        return messageRepository.findByConversationId(conversationId);
+    // [UPDATED] Added pagination logic
+    public List<MessageEntity> getMessagesForConversation(Long conversationId, int page, int size) {
+        // 1. Fetch newest messages first (descending order)
+        Pageable pageable = PageRequest.of(page, size, Sort.by("sentAt").descending());
+        Page<MessageEntity> messagePage = messageRepository.findByConversationId(conversationId, pageable);
+        
+        // 2. Convert to mutable list
+        List<MessageEntity> messages = new ArrayList<>(messagePage.getContent());
+        
+        // 3. Reverse the list to chronological order (ASC) for the UI
+        Collections.reverse(messages);
+        
+        return messages;
     }
 
+    @Transactional
     public MessageEntity sendMessage(MessageEntity message, Long conversationId, Long senderId) {
         ConversationEntity conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new RuntimeException("Conversation not found: " + conversationId));
         
         UserEntity sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new RuntimeException("Sender not found: " + senderId));
+
+        // If User A deleted the chat, this will "undelete" it so they see the new message.
+        if (conversation.getParticipants() != null) {
+            for (ConversationParticipantEntity participant : conversation.getParticipants()) {
+                boolean updated = false;
+                
+                // 1. Undelete if deleted
+                if (participant.getIsDeleted()) {
+                    participant.setIsDeleted(false);
+                    updated = true;
+                }
+                
+                // 2. (Optional) Unarchive if archived, so it pops to the top
+                if (participant.getIsArchived()) {
+                    participant.setIsArchived(false);
+                    updated = true;
+                }
+
+                if (updated) {
+                    participantRepository.save(participant);
+                }
+            }
+        }
         
         message.setConversation(conversation);
         message.setSender(sender);
@@ -56,6 +102,7 @@ public class MessageService {
         socketResponse.put("text", savedMessage.getContent());
         socketResponse.put("timestamp", savedMessage.getSentAt().toString());
         socketResponse.put("conversationId", conversationId);
+        socketResponse.put("attachmentUrl", savedMessage.getAttachmentUrl());
 
         // 2. Broadcast to the specific conversation topic (for the open chat window)
         // Clients subscribed to "/topic/conversation.{id}" will receive this

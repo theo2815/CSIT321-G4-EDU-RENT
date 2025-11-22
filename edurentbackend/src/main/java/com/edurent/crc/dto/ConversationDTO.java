@@ -9,6 +9,7 @@ public class ConversationDTO {
     private List<UserDTO> participants;
     private String lastMessageContent;
     private LocalDateTime lastMessageTimestamp;
+    private boolean isUnread;
 
     // Constructors, Getters, Setters
     public ConversationDTO() {}
@@ -27,4 +28,7 @@ public class ConversationDTO {
     
     public LocalDateTime getLastMessageTimestamp() { return lastMessageTimestamp; }
     public void setLastMessageTimestamp(LocalDateTime lastMessageTimestamp) { this.lastMessageTimestamp = lastMessageTimestamp; }
+
+    public boolean getIsUnread() { return isUnread; }
+    public void setIsUnread(boolean isUnread) { this.isUnread = isUnread; }
 }

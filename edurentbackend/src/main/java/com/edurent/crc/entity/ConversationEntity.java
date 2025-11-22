@@ -57,6 +57,10 @@ public class ConversationEntity {
     private boolean isArchivedForCurrentUser;
     // -------------------------------------------------
 
+    // [NEW] Transient field for unread status
+    @Transient
+    private boolean isUnread;
+
     // Constructors
     public ConversationEntity() {
     }
@@ -95,6 +99,14 @@ public class ConversationEntity {
     }
 
     // --- NEW: Getters/Setters for transient fields ---
+
+    public boolean getIsUnread() {
+        return isUnread;
+    }
+
+    public void setIsUnread(boolean isUnread) {
+        this.isUnread = isUnread;
+    }
     public String getLastMessageContent() {
         return lastMessageContent;
     }

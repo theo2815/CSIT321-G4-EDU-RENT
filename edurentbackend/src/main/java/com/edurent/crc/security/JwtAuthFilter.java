@@ -14,14 +14,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.UserRepository;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest; // Import Logger
-import jakarta.servlet.http.HttpServletResponse; // Import LoggerFactory
-
-import com.edurent.crc.entity.UserEntity; // Ensure UserEntity is imported
-import io.jsonwebtoken.ExpiredJwtException; // Import specific exceptions
-import io.jsonwebtoken.JwtException; // Import base JWT exception
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import jakarta.servlet.FilterChain; // Import Logger
+import jakarta.servlet.ServletException; // Import LoggerFactory
+import jakarta.servlet.http.HttpServletRequest; // Ensure UserEntity is imported
+import jakarta.servlet.http.HttpServletResponse; // Import specific exceptions
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -36,6 +34,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_OK);
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         final String authHeader = request.getHeader("Authorization");
         final String jwt;

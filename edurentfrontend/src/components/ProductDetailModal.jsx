@@ -69,16 +69,19 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
     setIsStartingChat(true);
 
     try {
-        console.log(`Starting conversation... Listing: ${listing.listingId}, Starter: ${currentUserId}, Receiver: ${sellerId}`);
-        
         // Call the API to get or create the conversation
-        // Returns the conversation object
         const response = await startConversation(listing.listingId, currentUserId, sellerId);
         
-        const conversationId = response.data.conversationId;
+        // [FIX] Get the FULL object
+        const fullConversation = response.data;
         
-        // Navigate to messages page AND pass the conversation ID in the state
-        navigate('/messages', { state: { openConversationId: conversationId } });
+        // Navigate and pass the FULL object in state
+        navigate('/messages', { 
+            state: { 
+                openConversation: fullConversation, // Pass the whole object
+                openConversationId: fullConversation.conversationId 
+            } 
+        });
         onClose();
 
     } catch (error) {

@@ -24,7 +24,8 @@ import {
   deleteConversation, 
   archiveConversation,
   markConversationAsRead,
-  markConversationAsUnread 
+  markConversationAsUnread,
+  uploadMessageImage
 } from '../services/apiService';
 
 // Styling and static assets
@@ -157,16 +158,110 @@ export default function MessagesPage() {
   const stompClientRef = useRef(null);
   const conversationSubscriptionRef = useRef(null);
 
-  // Global click listener to close dropdown menus when clicking outside
+  // For pagination
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+
+  // State for "Scroll to Bottom" button
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const isNearBottomRef = useRef(true); 
+  const lastMessageIdRef = useRef(null); 
+
+  // Ref for hidden file input
+  const fileInputRef = useRef(null);
+
+  // [NEW] Helper to format date headers
+  const getDateLabel = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const now = new Date();
+    
+    // Reset time parts for accurate date comparison
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const n = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const y = new Date(n);
+    y.setDate(n.getDate() - 1);
+
+    if (d.getTime() === n.getTime()) return 'Today';
+    if (d.getTime() === y.getTime()) return 'Yesterday';
+    
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  // [NEW] Handle File Selection
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedConversation) return;
+
+    try {
+      // 1. Upload Image
+      const response = await uploadMessageImage(selectedConversation.id, file);
+      const imageUrl = response.data.url;
+
+      // 2. Send Message with Image URL (and optional text)
+      const tempTimestamp = new Date();
+      
+      // Optimistic Update
+      const optimisticMsg = {
+          id: Date.now(),
+          senderId: userData.userId,
+          text: '', // No text for image-only message
+          attachmentUrl: imageUrl,
+          timestamp: formatMessageTime(tempTimestamp),
+          rawDate: tempTimestamp.toISOString()
+      };
+      setMessages(prev => [...prev, optimisticMsg]);
+
+      // API Call
+      await sendMessage(
+          '', // Content is empty
+          selectedConversation.id, 
+          userData.userId, 
+          imageUrl 
+      );
+      
+    } catch (error) {
+      console.error("Failed to send image", error);
+      alert("Failed to send image.");
+    } finally {
+      // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // [UPDATED] Smart Auto-scroll Logic
   useEffect(() => {
-    const closeMenus = () => {
-      setIsFilterDropdownOpen(false);
-      setIsChatMenuOpen(false);
-      setActiveListMenuId(null);
-    };
-    document.addEventListener('click', closeMenus);
-    return () => document.removeEventListener('click', closeMenus);
-  }, []);
+    if (messages.length === 0) return;
+
+    const lastMsg = messages[messages.length - 1];
+    
+    // Check if the bottom-most message has actually changed
+    if (lastMsg.id !== lastMessageIdRef.current) {
+        lastMessageIdRef.current = lastMsg.id;
+
+        if (isNearBottomRef.current) {
+            // User is already at the bottom -> Auto-scroll
+            if (chatContentRef.current) {
+                chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight;
+            }
+        } else {
+            // User is reading history -> Show "New Message" button
+            setShowScrollBtn(true);
+        }
+    }
+  }, [messages]);
+
+  // helper function to trigger when the button is clicked
+  const scrollToBottom = () => {
+    if (chatContentRef.current) {
+      chatContentRef.current.scrollTo({
+        top: chatContentRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+      setShowScrollBtn(false);
+    }
+  };
 
   // Fetch initial data: User details, conversation list, and liked items
   const fetchData = useCallback(async () => {
@@ -229,8 +324,8 @@ export default function MessagesPage() {
               
               lastMessagePreview: conv.lastMessageContent || 'Start a conversation', 
               lastMessageDate: conv.lastMessageTimestamp || conv.listing?.createdAt,
+              isUnread: conv.isUnread || false,
               
-              isUnread: false, // Default false, WebSocket/Polling will update this
               isArchived: conv.isArchivedForCurrentUser || false 
           };
       }).filter(Boolean);
@@ -238,12 +333,53 @@ export default function MessagesPage() {
       setConversations(processedConvs);
       
       // 3. Handle Deep Linking (e.g., User clicked "Contact Seller" on a product page)
+      const passedConv = location.state?.openConversation;
       const passedConvId = location.state?.openConversationId;
       if (passedConvId) {
-          const targetConv = processedConvs.find(c => c.id === passedConvId);
+          // A. Try to find it in the list we just fetched
+          let targetConv = processedConvs.find(c => c.id === passedConvId);
+
+          // B. If NOT found (because it's brand new), we manually create it from the passed state
+          if (!targetConv && passedConv) {
+              // We need to map the raw backend format (passedConv) to our UI format
+              
+              // Find the "other" user (not me)
+              const participants = passedConv.participants || [];
+              const otherParticipantObj = participants.find(p => {
+                  const pId = p.user?.userId || p.userId; 
+                  return pId !== userId;
+              })?.user || {};
+
+              // Manually construct the UI object
+              targetConv = {
+                  id: passedConv.conversationId,
+                  otherUser: {
+                      id: otherParticipantObj.userId,
+                      name: otherParticipantObj.fullName || 'User',
+                      avatar: otherParticipantObj.profilePictureUrl
+                  },
+                  product: passedConv.listing ? {
+                      id: passedConv.listing.listingId,
+                      title: passedConv.listing.title,
+                      price: passedConv.listing.price,
+                      ownerId: passedConv.listing.user?.userId,
+                      image: passedConv.listing.images?.[0]?.imageUrl, // Simplified image check
+                      iconUrl: passedConv.listing.images?.[0]?.imageUrl
+                  } : null,
+                  lastMessagePreview: 'Start a conversation',
+                  lastMessageDate: new Date().toISOString(),
+                  isUnread: false
+              };
+
+              // [CRITICAL] Add this new conversation to the front of the list
+              setConversations(prev => [targetConv, ...prev]);
+          }
+
+          // C. Select it
           if (targetConv) {
-              setSelectedConversation(targetConv);
+              handleSelectConversation(targetConv); // This triggers message fetching
               setIsChatVisible(true);
+              // Clear state so it doesn't re-trigger on refresh
               window.history.replaceState({}, document.title);
           }
       }
@@ -270,18 +406,16 @@ export default function MessagesPage() {
   }, [fetchData]);
 
   // Manage WebSocket Connection
-  // Establishes the connection for real-time updates on conversation lists
   useEffect(() => {
     if (userData) {
       const socket = new SockJS('http://localhost:8080/ws');
       const stompClient = Stomp.over(socket);
-      // stompClient.debug = null; // Optional: Uncomment to disable browser console logs for sockets
+      // stompClient.debug = null; 
 
       stompClient.connect({}, () => {
         stompClientRef.current = stompClient;
         
         // Subscribe to the user's personal channel
-        // This listens for new messages globally to update the sidebar list (e.g., "Unread" indicators)
         stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
           const payload = JSON.parse(message.body);
           
@@ -298,7 +432,7 @@ export default function MessagesPage() {
                 ...conv,
                 lastMessagePreview: payload.text,
                 lastMessageDate: payload.timestamp,
-                isUnread: true // Mark as unread when notification received
+                isUnread: true 
               });
               return updatedConvs;
             } else {
@@ -313,7 +447,6 @@ export default function MessagesPage() {
         console.error("WebSocket error:", error);
       });
 
-      // Cleanup: Disconnect socket when component unmounts
       return () => {
         if (stompClientRef.current) {
           stompClientRef.current.disconnect();
@@ -323,7 +456,6 @@ export default function MessagesPage() {
   }, [userData, fetchData]);
 
   // Filter Logic
-  // Filters the conversation list based on the active tab (Selling, Buying, Unread, etc.)
   useEffect(() => {
     if (!userData) return;
 
@@ -352,14 +484,6 @@ export default function MessagesPage() {
     setFilteredConversations(result);
   }, [activeFilter, searchQuery, conversations, userData]);
 
-  // Auto-scroll Logic
-  // Automatically scrolls the chat window to the bottom when new messages arrive
-  useEffect(() => {
-    if (chatContentRef.current) {
-      chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight;
-    }
-  }, [messages]);
-
   // --- Handlers ---
 
   const handleSearchChange = (e) => {
@@ -367,9 +491,6 @@ export default function MessagesPage() {
   };
 
   // Handle clicking a conversation from the sidebar
-  // 1. Sets UI state
-  // 2. Subscribes to WebSocket for THIS specific chat
-  // 3. Fetches existing history
   const handleSelectConversation = async (conversation) => {
     if (activeListMenuId) return; 
 
@@ -377,6 +498,8 @@ export default function MessagesPage() {
     setSelectedConversation(conversation);
     setIsChatVisible(true); 
     setMessages([]); 
+    setPage(0);       
+    setHasMore(true);
     setIsChatMenuOpen(false);
 
     // Mark as read locally
@@ -393,25 +516,25 @@ export default function MessagesPage() {
         conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${conversation.id}`, (message) => {
             const payload = JSON.parse(message.body);
             
-            // FIX 1: Ignore my own messages from socket (we handle them optimistically in handleSendMessage)
             if (payload.senderId === userData.userId) return;
 
             const newMsg = {
                 id: payload.id,
                 senderId: payload.senderId,
                 text: payload.text,
-                timestamp: formatMessageTime(payload.timestamp)
+                attachmentUrl: payload.attachmentUrl, // [FIX] Ensure incoming socket messages have image
+                timestamp: formatMessageTime(payload.timestamp),
+                rawDate: payload.timestamp
             };
             setMessages(prev => [...prev, newMsg]);
             
-            // Mark read immediately if chat is open
             markConversationAsRead(conversation.id);
         });
     }
 
     try {
       const [messagesRes, _] = await Promise.all([
-          getMessages(conversation.id),
+          getMessages(conversation.id, 0),
           markConversationAsRead(conversation.id)
       ]);
 
@@ -419,9 +542,15 @@ export default function MessagesPage() {
           id: msg.messageId,
           senderId: msg.sender?.userId,
           text: msg.content,
-          timestamp: formatMessageTime(msg.sentAt)
+          attachmentUrl: msg.attachmentUrl, // [FIX] Added image loading for history
+          timestamp: formatMessageTime(msg.sentAt),
+          rawDate: msg.sentAt
       }));
       setMessages(mappedMessages);
+
+      if (messagesRes.data.length < 20) {
+          setHasMore(false);
+      }
 
     } catch (err) {
       console.error("Error loading conversation:", err);
@@ -440,7 +569,6 @@ export default function MessagesPage() {
   const handleArchiveListAction = async (e, conv) => {
     e.stopPropagation();
     setActiveListMenuId(null);
-    // Optimistic UI Update
     setConversations(prev => prev.map(c => 
       c.id === conv.id ? { ...c, isArchived: !c.isArchived } : c
     ));
@@ -452,7 +580,6 @@ export default function MessagesPage() {
     setActiveListMenuId(null);
     if (!window.confirm("Are you sure you want to delete this conversation?")) return;
     
-    // Optimistic UI Update
     setConversations(prev => prev.filter(c => c.id !== convId));
     if (selectedConversation?.id === convId) {
       setSelectedConversation(null);
@@ -465,7 +592,6 @@ export default function MessagesPage() {
     e.stopPropagation();
     setActiveListMenuId(null);
     const newStatus = !conv.isUnread; 
-    // Optimistic UI Update
     setConversations(prev => prev.map(c => 
       c.id === conv.id ? { ...c, isUnread: newStatus } : c
     ));
@@ -479,7 +605,6 @@ export default function MessagesPage() {
   
   const handleBackToList = () => {
     setIsChatVisible(false);
-    // Clean up subscription when leaving the chat view
     if (conversationSubscriptionRef.current) {
         conversationSubscriptionRef.current.unsubscribe();
         conversationSubscriptionRef.current = null;
@@ -489,7 +614,6 @@ export default function MessagesPage() {
 
   const handleTextareaChange = (e) => {
     setNewMessage(e.target.value);
-    // Auto-resize textarea
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
@@ -506,23 +630,24 @@ export default function MessagesPage() {
       const tempTimestamp = new Date();
       const formattedTime = formatMessageTime(tempTimestamp);
 
-      // FIX 2: Optimistic Update - Add message to Chat Window immediately
+      // Optimistic Update
       const optimisticMsg = {
           id: Date.now(), // Temp ID
           senderId: userData.userId,
           text: textToSend,
-          timestamp: formattedTime
+          timestamp: formattedTime,
+          rawDate: tempTimestamp.toISOString()
       };
       setMessages(prev => [...prev, optimisticMsg]);
 
-      // FIX 3: Optimistic Update - Update Sidebar List immediately
+      // Update Sidebar List
       setConversations(prevConvs => {
           const updatedConvs = [...prevConvs];
           const index = updatedConvs.findIndex(c => c.id === selectedConversation.id);
           if (index > -1) {
               const conv = updatedConvs[index];
-              updatedConvs.splice(index, 1); // Remove
-              updatedConvs.unshift({         // Add to top
+              updatedConvs.splice(index, 1); 
+              updatedConvs.unshift({ 
                   ...conv,
                   lastMessagePreview: textToSend,
                   lastMessageDate: tempTimestamp.toISOString(),
@@ -537,8 +662,59 @@ export default function MessagesPage() {
       } catch (error) { 
           console.error("Failed to send message", error); 
           alert("Failed to send message. Please try again.");
-          // Optional: Remove optimistic message on failure here
       }
+  };
+
+  // [UPDATED] Scroll Handler for Lazy Loading (With Image Support)
+  const handleScroll = async (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isNear = distanceFromBottom < 100;
+    isNearBottomRef.current = isNear;
+
+    if (isNear) {
+        setShowScrollBtn(false);
+    }
+
+    if (scrollTop === 0 && hasMore && !isFetchingMore) {
+      setIsFetchingMore(true);
+      const prevHeight = scrollHeight; 
+      const nextPage = page + 1;
+
+      try {
+        const response = await getMessages(selectedConversation.id, nextPage);
+        const newRawMessages = response.data;
+
+        if (newRawMessages.length > 0) {
+          const mappedNewMessages = newRawMessages.map(msg => ({
+            id: msg.messageId,
+            senderId: msg.sender?.userId,
+            text: msg.content,
+            attachmentUrl: msg.attachmentUrl, // [FIX] Added image loading for pagination
+            timestamp: formatMessageTime(msg.sentAt),
+            rawDate: msg.sentAt
+          }));
+
+          setMessages(prev => [...mappedNewMessages, ...prev]);
+          setPage(nextPage);
+
+          requestAnimationFrame(() => {
+             if (chatContentRef.current) {
+                chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight - prevHeight;
+             }
+          });
+
+          if (newRawMessages.length < 20) setHasMore(false);
+        } else {
+          setHasMore(false);
+        }
+      } catch (err) {
+        console.error("Failed to load older messages", err);
+      } finally {
+        setIsFetchingMore(false);
+      }
+    }
   };
 
   const handleLogout = () => {
@@ -762,7 +938,6 @@ export default function MessagesPage() {
                           {activeListMenuId === conv.id && (
                             <div 
                                 className="filter-dropdown-menu" 
-                                // Dropdown positioning fix: left: 'auto'
                                 style={{ right: '0', left: 'auto', top: '100%', width: '150px', zIndex: 50 }}
                             >
                                 <button className="filter-option" onClick={(e) => handleReadUnreadAction(e, conv)}>
@@ -845,21 +1020,70 @@ export default function MessagesPage() {
                 </div>
               </div>
 
-              <div className="chat-content" ref={chatContentRef}>
-                {messages.map(msg => (
-                  <div
-                    key={msg.id}
-                    className={`message-bubble-wrapper ${msg.senderId === userData.userId ? 'sent' : 'received'}`}
-                  >
-                    <div className={`message-bubble ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
-                      {msg.text}
+              <div className="chat-content" 
+              ref={chatContentRef}
+              onScroll={handleScroll}
+              >
+                {isFetchingMore && (
+                    <div style={{ textAlign: 'center', padding: '10px', fontSize: '0.8rem', color: '#888' }}>
+                        Loading history...
                     </div>
-                    <span className="message-timestamp">{msg.timestamp}</span>
-                  </div>
-                ))}
+                )}
+                {messages.map((msg, index) => {
+                  // Logic to determine if we need a header
+                  const prevMsg = messages[index - 1];
+                  const currentDateLabel = getDateLabel(msg.rawDate);
+                  const prevDateLabel = prevMsg ? getDateLabel(prevMsg.rawDate) : null;
+                  const showDateHeader = currentDateLabel !== prevDateLabel;
+
+                  return (
+                    <React.Fragment key={msg.id}>
+                      {/* Render Date Header if needed */}
+                      {showDateHeader && (
+                        <div className="date-header-badge">
+                          {currentDateLabel}
+                        </div>
+                      )}
+
+                      <div className={`message-bubble-wrapper ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
+                        <div className={`message-bubble ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
+                           {/* [FIX] Image Rendering Logic */}
+                          {msg.attachmentUrl && (
+                              <img 
+                                  src={msg.attachmentUrl} 
+                                  alt="Attachment" 
+                                  className="message-attachment"
+                                  onClick={() => window.open(msg.attachmentUrl, '_blank')}
+                              />
+                          )}
+                          {msg.text && <div>{msg.text}</div>}
+                        </div>
+                        <span className="message-timestamp">{msg.timestamp}</span>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
               </div>
 
+              {showScrollBtn && (
+                  <button 
+                      className="scroll-bottom-btn" 
+                      onClick={scrollToBottom}
+                  >
+                      ⬇ New Message
+                  </button>
+              )}
+
               <div className="chat-input-area">
+                {/* [FIX] Hidden File Input */}
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    style={{ display: 'none' }} 
+                    accept="image/*"
+                    onChange={handleFileSelect} 
+                />
+
                 <textarea
                   ref={textareaRef}
                   className="chat-input"
@@ -879,7 +1103,11 @@ export default function MessagesPage() {
                     <Icons.Send />
                   </button>
                 ) : (
-                  <button className="icon-button" aria-label="Attach file">
+                  <button 
+                      className="icon-button" 
+                      aria-label="Attach file"
+                      onClick={() => fileInputRef.current?.click()} // [FIX] Trigger file input
+                  >
                     <Icons.Attachment />
                   </button>
                 )}

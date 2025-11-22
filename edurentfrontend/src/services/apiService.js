@@ -346,9 +346,11 @@ export const getConversationsForUser = async (userId) => {
   }
 };
 
-export const getMessages = async (conversationId) => {
+export const getMessages = async (conversationId, page = 0, size = 20) => {
   try {
-    const response = await apiClient.get(`/conversations/${conversationId}/messages`);
+    const response = await apiClient.get(`/conversations/${conversationId}/messages`, {
+        params: { page, size }
+    });
     return response;
   } catch (error) {
     console.error(`Error during getMessages(${conversationId}) API call:`, error.response || error.message);
@@ -356,10 +358,12 @@ export const getMessages = async (conversationId) => {
   }
 };
 
-export const sendMessage = async (content, conversationId, senderId) => {
-  try {
+export const sendMessage = async (content, conversationId, senderId, attachmentUrl = null) => {
+    try {
     const response = await apiClient.post(`/conversations/${conversationId}/messages`, 
-      { content }, 
+      { content,
+        attachmentUrl 
+      }, 
       { params: { senderId } }
     );
     return response;
@@ -415,6 +419,22 @@ export const markConversationAsUnread = async (conversationId) => {
     return response;
   } catch (error) {
     console.error(`Error marking conversation ${conversationId} as unread:`, error.response || error.message);
+    throw error;
+  }
+};
+
+export const uploadMessageImage = async (conversationId, file) => {
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const response = await apiClient.post(
+        `/conversations/${conversationId}/messages/upload-image`, 
+        formData
+    );
+    return response;
+  } catch (error) {
+    console.error("Error uploading message image:", error.response || error.message);
     throw error;
   }
 };

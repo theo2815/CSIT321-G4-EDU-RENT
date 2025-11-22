@@ -17,7 +17,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.edurent.crc.repository.UserRepository;
 import com.edurent.crc.security.JwtAuthFilter;
@@ -29,55 +32,74 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthFilter jwtAuthFilter;
 
-    @Autowired // Inject UserRepository
+    @Autowired
     private UserRepository userRepository;
 
-    // This is the main security "rulebook"
+    @SuppressWarnings("removal")
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // Disable CSRF (Cross-Site Request Forgery) - not needed for stateless API
+            // 1. Disable CSRF (Not needed for JWT)
             .csrf(csrf -> csrf.disable())
             
-            // Enable CORS (Cross-Origin Resource Sharing)
-            .cors(cors -> cors.configurationSource(request -> {
-                CorsConfiguration config = new CorsConfiguration();
-                config.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173")); // Allow React dev server
-                config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                config.setAllowedHeaders(List.of("*"));
-                config.setAllowCredentials(true);
-                return config;
-            }))
-            
-            // Define which endpoints are public vs. private
-            .authorizeHttpRequests(authz -> authz
-                // These endpoints are public (no token required)
-                .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/api/v1/schools/**").permitAll() // Example: letting users see schools before login
-                .requestMatchers("/api/v1/categories/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/uploads/listing-images/**").permitAll()
+            // 2. Use our custom CORS Configuration Bean
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // All other requests must be authenticated
+            // [NEW] Debug why access is denied
+            .exceptionHandling(e -> e
+                .authenticationEntryPoint((request, response, authException) -> {
+                    System.out.println("⚠️ SECURITY BLOCK (401): " + authException.getMessage());
+                    response.sendError(401, authException.getMessage());
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    System.out.println("⚠️ SECURITY BLOCK (403): " + accessDeniedException.getMessage());
+                    response.sendError(403, "Access Denied: " + accessDeniedException.getMessage());
+                })
+            )
+            
+            .authorizeHttpRequests(authz -> authz
+                // --- Public Endpoints ---
+                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/schools/**").permitAll()
+                .requestMatchers("/api/v1/categories/**").permitAll()
+                .requestMatchers("/ws/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/uploads/listing-images/**").permitAll()
+                
+                // This forces a simple path match, bypassing strict MVC matcher issues
+                .requestMatchers("/api/v1/conversations/{id}/messages/upload-image").permitAll()
+
+                // --- Private Endpoints ---
                 .requestMatchers("/api/v1/conversations/**").authenticated()
                 .anyRequest().authenticated()
             )
-            
-            // We are using JWTs, so we don't need to manage sessions
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            
-            // Add our custom JWT filter *before* the default username/password filter
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // Expose the PasswordEncoder bean for our UserService to use
+    // --- 3. Dedicated CORS Bean  ---
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // Explicitly allow your Frontend URL (Better than "*" for credentials)
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000")); 
+        
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // Expose the AuthenticationManager bean for our login endpoint
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
@@ -85,9 +107,7 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> userRepository.findByEmail(username) // Use email as username
+        return username -> userRepository.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
-        // Note: We are returning the UserEntity directly because it implements UserDetails
     }
 }
-

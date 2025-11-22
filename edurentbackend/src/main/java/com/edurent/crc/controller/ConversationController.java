@@ -2,6 +2,8 @@ package com.edurent.crc.controller;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody; // Import DTO
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.edurent.crc.dto.ConversationDTO;
 import com.edurent.crc.dto.ListingDTO;
@@ -25,11 +28,12 @@ import com.edurent.crc.entity.ConversationEntity;
 import com.edurent.crc.entity.MessageEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.service.ConversationService;
+import com.edurent.crc.service.MessageImageService;
 import com.edurent.crc.service.MessageService;
 
 @RestController
 @RequestMapping("/api/v1/conversations")
-@CrossOrigin(origins = "*")
+// @CrossOrigin(origins = "*")
 public class ConversationController {
 
     @Autowired
@@ -37,6 +41,9 @@ public class ConversationController {
 
     @Autowired
     private MessageService messageService;
+
+    @Autowired
+    private MessageImageService messageImageService;
 
     // --- 1. Get User's Conversations (DTO) ---
     @GetMapping("/user/{userId}")
@@ -48,6 +55,7 @@ public class ConversationController {
             dto.setConversationId(entity.getConversationId());
             dto.setLastMessageContent(entity.getLastMessageContent());
             dto.setLastMessageTimestamp(entity.getLastMessageTimestamp());
+            dto.setIsUnread(entity.getIsUnread());
             
             if (entity.getListing() != null) {
                 ListingDTO listingDto = new ListingDTO();
@@ -95,10 +103,14 @@ public class ConversationController {
         }
     }
 
-    // --- 3. NEW: Get Messages ---
+    // --- 3. NEW: Get Messages (With Pagination) ---
     @GetMapping("/{conversationId}/messages")
-    public ResponseEntity<List<MessageEntity>> getMessages(@PathVariable Long conversationId) {
-        List<MessageEntity> messages = messageService.getMessagesForConversation(conversationId);
+    public ResponseEntity<List<MessageEntity>> getMessages(
+            @PathVariable Long conversationId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        List<MessageEntity> messages = messageService.getMessagesForConversation(conversationId, page, size);
         return ResponseEntity.ok(messages);
     }
 
@@ -106,10 +118,12 @@ public class ConversationController {
     @PostMapping("/{conversationId}/messages")
     public ResponseEntity<MessageEntity> sendMessage(
             @PathVariable Long conversationId,
-            @RequestParam Long senderId,
-            @RequestBody MessageEntity message) {
+            @RequestBody MessageEntity message,
+            Authentication authentication) {
+        
+        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
-            MessageEntity sentMessage = messageService.sendMessage(message, conversationId, senderId);
+            MessageEntity sentMessage = messageService.sendMessage(message, conversationId, currentUser.getUserId());
             return new ResponseEntity<>(sentMessage, HttpStatus.CREATED);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -168,6 +182,22 @@ public class ConversationController {
             messageService.markConversationAsUnread(conversationId, currentUser.getUserId());
             return ResponseEntity.ok().build();
         } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // --- 9. NEW: Endpoint to upload an image for a conversation
+    @PostMapping("/{conversationId}/messages/upload-image")
+    public ResponseEntity<Map<String, String>> uploadMessageImage(
+            @PathVariable Long conversationId,
+            @RequestParam("image") MultipartFile image
+    ) {
+        try {
+            System.out.println("✅ CONTROLLER REACHED: Uploading image for conversation " + conversationId);
+            String imageUrl = messageImageService.uploadImage(image);
+            return ResponseEntity.ok(Collections.singletonMap("url", imageUrl));
+        } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
