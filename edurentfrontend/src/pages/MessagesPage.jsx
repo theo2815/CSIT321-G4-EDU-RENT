@@ -1,31 +1,37 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-// --- Components ---
+// WebSocket libraries for real-time communication
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
+
+// UI Components
 import Header from '../components/Header';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 import ListingCard from '../components/ListingCard'; 
 
-// --- API Services ---
+// Backend API interaction services
 import { 
   getCurrentUser, 
   getListingById,
-  likeListing,       
+  likeListing,        
   unlikeListing,
   getConversationsForUser, 
-  getMessages,               
-  sendMessage,               
+  getMessages,                
+  sendMessage,                
   getLikedListings,
   deleteConversation, 
-  archiveConversation 
+  archiveConversation,
+  markConversationAsRead,
+  markConversationAsUnread 
 } from '../services/apiService';
 
-// --- Styles & Assets ---
+// Styling and static assets
 import '../static/MessagesPage.css';
 import defaultAvatar from '../assets/default-avatar.png';
 
-// --- Icons Configuration ---
+// Icon definitions for the UI
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -53,13 +59,28 @@ const Icons = {
      </svg>
   ),
   MenuDots: () => ( 
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
       <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
     </svg>
   )
 };
 
-// --- Skeleton Component ---
+// Skeleton loader displayed when switching between chats
+function ChatWindowSkeleton() {
+  return (
+    <div className="chat-skeleton-loader">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
+         <div className="skeleton" style={{ width: '40px', height: '40px', borderRadius: '50%' }}></div>
+         <div className="skeleton" style={{ width: '150px', height: '20px', borderRadius: '4px' }}></div>
+      </div>
+      <div className="skeleton" style={{ width: '60%', height: '40px', borderRadius: '20px 20px 20px 0', alignSelf: 'flex-start' }}></div>
+      <div className="skeleton" style={{ width: '50%', height: '40px', borderRadius: '20px 20px 0 20px', alignSelf: 'flex-end' }}></div>
+      <div className="skeleton" style={{ width: '70%', height: '60px', borderRadius: '20px 20px 20px 0', alignSelf: 'flex-start' }}></div>
+    </div>
+  );
+}
+
+// Skeleton loader displayed for the sidebar on initial page load
 function MessagesSkeleton() {
   return (
     <div className="messages-skeleton-container">
@@ -75,15 +96,15 @@ function MessagesSkeleton() {
             </div>
           </div>
         ))}
-      </aside>
-      <main className="skeleton-chat-area">
-        <p>Loading Conversations...</p>
-      </main>
+       </aside>
+       <main className="skeleton-chat-area">
+         <p>Loading Conversations...</p>
+       </main>
     </div>
   );
 }
 
-// --- Helper Function ---
+// Helper to format raw date strings into user-friendly time format (HH:MM AM/PM)
 const formatMessageTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -91,45 +112,68 @@ const formatMessageTime = (dateString) => {
 };
 
 export default function MessagesPage() {
-  // --- State Management ---
+  // State: User and Session Data
   const [userData, setUserData] = useState(null);
   const [userName, setUserName] = useState('');
+  
+  // State: Conversation and Message Data
   const [conversations, setConversations] = useState([]);
   const [filteredConversations, setFilteredConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]); 
   
+  // State: Inputs and UI Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
-  
   const [activeFilter, setActiveFilter] = useState('All Messages');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
-  // --- Chat Action Menu State ---
-  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
+  // State: Menu Visibility
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false); // Menu inside the chat window
+  const [activeListMenuId, setActiveListMenuId] = useState(null); // Menu on individual list items
 
+  // State: Loading and Error handling
   const [isLoading, setIsLoading] = useState(true);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false); 
   const [error, setError] = useState(null);
 
+  // State: Modals and Interactivity
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   const [likingInProgress, setLikingInProgress] = useState(new Set());
   const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
   
+  // State: Mobile View Toggle
   const [isChatVisible, setIsChatVisible] = useState(false);
 
+  // Hooks and Refs
   const navigate = useNavigate();
   const location = useLocation(); 
   const chatContentRef = useRef(null); 
   const textareaRef = useRef(null); 
-  const intervalRef = useRef(null); 
+  
+  // Refs for WebSocket management
+  const stompClientRef = useRef(null);
+  const conversationSubscriptionRef = useRef(null);
 
-  // --- Primary Data Fetching Strategy ---
+  // Global click listener to close dropdown menus when clicking outside
+  useEffect(() => {
+    const closeMenus = () => {
+      setIsFilterDropdownOpen(false);
+      setIsChatMenuOpen(false);
+      setActiveListMenuId(null);
+    };
+    document.addEventListener('click', closeMenus);
+    return () => document.removeEventListener('click', closeMenus);
+  }, []);
+
+  // Fetch initial data: User details, conversation list, and liked items
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
+      // 1. Get Current User
       const userResponse = await getCurrentUser();
       const currentUser = userResponse.data;
       if (!currentUser) throw new Error("No user data.");
@@ -138,21 +182,19 @@ export default function MessagesPage() {
       setUserName(currentUser.fullName.split(' ')[0]);
       const userId = currentUser.userId;
 
+      // 2. Get Conversations
       const convResponse = await getConversationsForUser(userId);
       const convs = convResponse.data || [];
 
-      // --- MERGED LOGIC: Robust Processing for Conversations ---
+      // Transform raw conversation data into UI-friendly format
       const processedConvs = convs.map(conv => {
-          // Fix: Robust check for participants
           if (!conv.participants) return null;
 
-          // Fix: Robust find logic for 'other user' (handles DTO vs Entity structure)
           const otherParticipant = conv.participants.find(p => {
               const pUserId = p.userId || p.user?.userId || p.user?.id; 
               return pUserId !== userId;
           });
           
-          // Get user object (might be direct userDTO or nested user object)
           const otherUserObj = otherParticipant || otherParticipant?.user || {};
 
           const otherUser = { 
@@ -161,7 +203,6 @@ export default function MessagesPage() {
               profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null 
           };
           
-          // Image Extraction
           let productImageUrl = null;
           if (conv.listing) {
                productImageUrl = conv.listing.imageUrl 
@@ -181,24 +222,22 @@ export default function MessagesPage() {
                   id: conv.listing.listingId,
                   title: conv.listing.title,
                   price: conv.listing.price,
-                  // Merged Fix: Check both 'owner' and 'user' fields for ownerId
                   ownerId: conv.listing.owner?.userId || conv.listing.user?.userId, 
                   image: productImageUrl, 
-                  // Fix: Store URL string, do not render JSX here
                   iconUrl: productImageUrl 
               } : null,
               
               lastMessagePreview: conv.lastMessageContent || 'Start a conversation', 
               lastMessageDate: conv.lastMessageTimestamp || conv.listing?.createdAt,
               
-              isUnread: false, 
+              isUnread: false, // Default false, WebSocket/Polling will update this
               isArchived: conv.isArchivedForCurrentUser || false 
           };
-      }).filter(Boolean); // Remove nulls
+      }).filter(Boolean);
 
       setConversations(processedConvs);
       
-      // Handle Deep Linking
+      // 3. Handle Deep Linking (e.g., User clicked "Contact Seller" on a product page)
       const passedConvId = location.state?.openConversationId;
       if (passedConvId) {
           const targetConv = processedConvs.find(c => c.id === passedConvId);
@@ -209,6 +248,7 @@ export default function MessagesPage() {
           }
       }
 
+      // 4. Get Liked Listings
       const likesResponse = await getLikedListings();
       const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
       setLikedListingIds(likedIds);
@@ -224,14 +264,66 @@ export default function MessagesPage() {
     }
   }, [navigate, location.state]);
 
+  // Trigger data fetch on component mount
   useEffect(() => {
     fetchData();
-    return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-    };
   }, [fetchData]);
 
-  // --- Filter Logic ---
+  // Manage WebSocket Connection
+  // Establishes the connection for real-time updates on conversation lists
+  useEffect(() => {
+    if (userData) {
+      const socket = new SockJS('http://localhost:8080/ws');
+      const stompClient = Stomp.over(socket);
+      // stompClient.debug = null; // Optional: Uncomment to disable browser console logs for sockets
+
+      stompClient.connect({}, () => {
+        stompClientRef.current = stompClient;
+        
+        // Subscribe to the user's personal channel
+        // This listens for new messages globally to update the sidebar list (e.g., "Unread" indicators)
+        stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
+          const payload = JSON.parse(message.body);
+          
+          setConversations(prevConvs => {
+            const convIndex = prevConvs.findIndex(c => c.id === payload.conversationId);
+            if (convIndex > -1) {
+              // Update existing conversation and move to top
+              const updatedConvs = [...prevConvs];
+              const conv = updatedConvs[convIndex];
+              
+              updatedConvs.splice(convIndex, 1);
+              
+              updatedConvs.unshift({
+                ...conv,
+                lastMessagePreview: payload.text,
+                lastMessageDate: payload.timestamp,
+                isUnread: true // Mark as unread when notification received
+              });
+              return updatedConvs;
+            } else {
+              // If it's a completely new conversation, re-fetch the full list
+              fetchData(); 
+              return prevConvs;
+            }
+          });
+        });
+
+      }, (error) => {
+        console.error("WebSocket error:", error);
+      });
+
+      // Cleanup: Disconnect socket when component unmounts
+      return () => {
+        if (stompClientRef.current) {
+          stompClientRef.current.disconnect();
+        }
+      };
+    }
+  }, [userData, fetchData]);
+
+  // Filter Logic
+  // Filters the conversation list based on the active tab (Selling, Buying, Unread, etc.)
   useEffect(() => {
     if (!userData) return;
 
@@ -260,55 +352,144 @@ export default function MessagesPage() {
     setFilteredConversations(result);
   }, [activeFilter, searchQuery, conversations, userData]);
 
-  // --- Message Polling Logic ---
-  useEffect(() => {
-      if (selectedConversation && userData) {
-          const fetchMsgs = async () => {
-              try {
-                  const response = await getMessages(selectedConversation.id);
-                  const mappedMessages = response.data.map(msg => ({
-                      id: msg.messageId,
-                      senderId: msg.sender?.userId,
-                      text: msg.content,
-                      timestamp: formatMessageTime(msg.sentAt)
-                  }));
-                  setMessages(mappedMessages);
-              } catch (err) {
-                  console.error("Error polling messages:", err);
-              }
-          };
-          fetchMsgs();
-          intervalRef.current = setInterval(fetchMsgs, 5000);
-          return () => clearInterval(intervalRef.current);
-      }
-  }, [selectedConversation, userData]);
-
-  // --- Auto-Scroll Logic ---
+  // Auto-scroll Logic
+  // Automatically scrolls the chat window to the bottom when new messages arrive
   useEffect(() => {
     if (chatContentRef.current) {
       chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight;
     }
   }, [messages]);
 
+  // --- Handlers ---
 
-  // --- UI Handlers ---
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
   };
 
-  const handleSelectConversation = (conversation) => {
+  // Handle clicking a conversation from the sidebar
+  // 1. Sets UI state
+  // 2. Subscribes to WebSocket for THIS specific chat
+  // 3. Fetches existing history
+  const handleSelectConversation = async (conversation) => {
+    if (activeListMenuId) return; 
+
+    setIsMessagesLoading(true);
     setSelectedConversation(conversation);
     setIsChatVisible(true); 
     setMessages([]); 
     setIsChatMenuOpen(false);
+
+    // Mark as read locally
+    setConversations(prev => prev.map(c => 
+      c.id === conversation.id ? { ...c, isUnread: false } : c
+    ));
+
+    // --- Socket Subscription ---
+    if (stompClientRef.current && stompClientRef.current.connected) {
+        if (conversationSubscriptionRef.current) {
+            conversationSubscriptionRef.current.unsubscribe();
+        }
+        
+        conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${conversation.id}`, (message) => {
+            const payload = JSON.parse(message.body);
+            
+            // FIX 1: Ignore my own messages from socket (we handle them optimistically in handleSendMessage)
+            if (payload.senderId === userData.userId) return;
+
+            const newMsg = {
+                id: payload.id,
+                senderId: payload.senderId,
+                text: payload.text,
+                timestamp: formatMessageTime(payload.timestamp)
+            };
+            setMessages(prev => [...prev, newMsg]);
+            
+            // Mark read immediately if chat is open
+            markConversationAsRead(conversation.id);
+        });
+    }
+
+    try {
+      const [messagesRes, _] = await Promise.all([
+          getMessages(conversation.id),
+          markConversationAsRead(conversation.id)
+      ]);
+
+      const mappedMessages = messagesRes.data.map(msg => ({
+          id: msg.messageId,
+          senderId: msg.sender?.userId,
+          text: msg.content,
+          timestamp: formatMessageTime(msg.sentAt)
+      }));
+      setMessages(mappedMessages);
+
+    } catch (err) {
+      console.error("Error loading conversation:", err);
+    } finally {
+      setIsMessagesLoading(false);
+    }
   };
 
+  // --- 3-Dot Menu Action Handlers (Sidebar) ---
+  
+  const handleListMenuToggle = (e, convId) => {
+    e.stopPropagation();
+    setActiveListMenuId(prev => prev === convId ? null : convId);
+  };
+
+  const handleArchiveListAction = async (e, conv) => {
+    e.stopPropagation();
+    setActiveListMenuId(null);
+    // Optimistic UI Update
+    setConversations(prev => prev.map(c => 
+      c.id === conv.id ? { ...c, isArchived: !c.isArchived } : c
+    ));
+    try { await archiveConversation(conv.id); } catch (err) { console.error("Archive failed", err); fetchData(); }
+  };
+
+  const handleDeleteListAction = async (e, convId) => {
+    e.stopPropagation();
+    setActiveListMenuId(null);
+    if (!window.confirm("Are you sure you want to delete this conversation?")) return;
+    
+    // Optimistic UI Update
+    setConversations(prev => prev.filter(c => c.id !== convId));
+    if (selectedConversation?.id === convId) {
+      setSelectedConversation(null);
+      setIsChatVisible(false);
+    }
+    try { await deleteConversation(convId); } catch (err) { console.error("Delete failed", err); fetchData(); }
+  };
+
+  const handleReadUnreadAction = async (e, conv) => {
+    e.stopPropagation();
+    setActiveListMenuId(null);
+    const newStatus = !conv.isUnread; 
+    // Optimistic UI Update
+    setConversations(prev => prev.map(c => 
+      c.id === conv.id ? { ...c, isUnread: newStatus } : c
+    ));
+    try {
+      if (newStatus) await markConversationAsUnread(conv.id);
+      else await markConversationAsRead(conv.id);
+    } catch (err) { console.error("Toggle failed", err); fetchData(); }
+  };
+
+  // --- Chat Input Handlers ---
+  
   const handleBackToList = () => {
     setIsChatVisible(false);
+    // Clean up subscription when leaving the chat view
+    if (conversationSubscriptionRef.current) {
+        conversationSubscriptionRef.current.unsubscribe();
+        conversationSubscriptionRef.current = null;
+    }
+    setSelectedConversation(null);
   };
 
   const handleTextareaChange = (e) => {
     setNewMessage(e.target.value);
+    // Auto-resize textarea
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
@@ -322,21 +503,41 @@ export default function MessagesPage() {
       setNewMessage(''); 
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-      try {
-          const tempId = Date.now();
-          const optimisticMsg = {
-              id: tempId,
-              senderId: userData.userId,
-              text: textToSend,
-              timestamp: formatMessageTime(new Date())
-          };
-          setMessages(prev => [...prev, optimisticMsg]);
+      const tempTimestamp = new Date();
+      const formattedTime = formatMessageTime(tempTimestamp);
 
+      // FIX 2: Optimistic Update - Add message to Chat Window immediately
+      const optimisticMsg = {
+          id: Date.now(), // Temp ID
+          senderId: userData.userId,
+          text: textToSend,
+          timestamp: formattedTime
+      };
+      setMessages(prev => [...prev, optimisticMsg]);
+
+      // FIX 3: Optimistic Update - Update Sidebar List immediately
+      setConversations(prevConvs => {
+          const updatedConvs = [...prevConvs];
+          const index = updatedConvs.findIndex(c => c.id === selectedConversation.id);
+          if (index > -1) {
+              const conv = updatedConvs[index];
+              updatedConvs.splice(index, 1); // Remove
+              updatedConvs.unshift({         // Add to top
+                  ...conv,
+                  lastMessagePreview: textToSend,
+                  lastMessageDate: tempTimestamp.toISOString(),
+                  isUnread: false
+              });
+          }
+          return updatedConvs;
+      });
+
+      try {
           await sendMessage(textToSend, selectedConversation.id, userData.userId);
-          
       } catch (error) { 
           console.error("Failed to send message", error); 
           alert("Failed to send message. Please try again.");
+          // Optional: Remove optimistic message on failure here
       }
   };
 
@@ -345,15 +546,15 @@ export default function MessagesPage() {
     navigate('/login');
   };
 
+  // --- Modal & Notification Handlers ---
+
   const handleNotificationClick = async (notification) => {
     const urlParts = notification.linkUrl?.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
-
     if (!listingId) return;
-
+    
     closeModal(); 
     setIsNotificationLoading(true);
-
     try {
       const response = await getListingById(listingId); 
       if (response.data) {
@@ -368,66 +569,39 @@ export default function MessagesPage() {
     }
   };
 
-  // --- Archive Handler ---
   const handleArchiveChat = async () => {
       if (!selectedConversation) return;
       const convId = selectedConversation.id;
-      
       setConversations(prev => prev.map(c => c.id === convId ? { ...c, isArchived: !c.isArchived } : c));
       setSelectedConversation(null); 
       setIsChatMenuOpen(false);
       setIsChatVisible(false); 
-
-      try {
-          await archiveConversation(convId);
-      } catch (err) {
-          console.error("Failed to archive:", err);
-          alert("Failed to archive conversation.");
-          fetchData(); 
-      }
+      try { await archiveConversation(convId); } catch (err) { console.error("Failed to archive:", err); fetchData(); }
   };
 
-  // --- Delete Handler ---
   const handleDeleteChat = async () => {
       if (!selectedConversation) return;
-      if (!window.confirm("Are you sure you want to delete this conversation? This cannot be undone.")) return;
-      
+      if (!window.confirm("Are you sure?")) return;
       const convId = selectedConversation.id;
-      
       setConversations(prev => prev.filter(c => c.id !== convId));
       setSelectedConversation(null);
       setIsChatMenuOpen(false);
       setIsChatVisible(false);
-
-      try {
-          await deleteConversation(convId);
-      } catch (err) {
-          console.error("Failed to delete:", err);
-          alert("Failed to delete conversation.");
-          fetchData(); 
-      }
+      try { await deleteConversation(convId); } catch (err) { console.error("Failed to delete:", err); fetchData(); }
   };
 
-  // --- Modal Logic ---
   const openModal = async (listingSummary) => {
-    // The listing object in the chat is a summary. 
-    // We must fetch the full details (description, condition, school, etc.) 
-    // from the API to display the modal correctly.
-    
     const listingId = listingSummary.id || listingSummary.listingId;
     if (!listingId) return;
-
-    setIsNotificationLoading(true); // Show the skeleton loader
-    
+    setIsNotificationLoading(true);
     try {
       const response = await getListingById(listingId);
       if (response.data) {
-        setSelectedListing(response.data); // Set the FULL listing data
+        setSelectedListing(response.data);
         setIsModalOpen(true);
       }
     } catch (err) {
-      console.error("Failed to load listing details:", err);
-      alert("Could not load item details. It may have been deleted.");
+      console.error("Failed to load details:", err);
     } finally {
       setIsNotificationLoading(false);
     }
@@ -441,14 +615,11 @@ export default function MessagesPage() {
   const handleLikeToggle = async (listingId) => {
     if (likingInProgress.has(listingId)) return;
     setLikingInProgress(prev => new Set(prev).add(listingId));
-    
     const newLikedIds = new Set(likedListingIds);
     const isCurrentlyLiked = likedListingIds.has(listingId);
-    
     if (isCurrentlyLiked) newLikedIds.delete(listingId);
     else newLikedIds.add(listingId);
     setLikedListingIds(newLikedIds);
-    
     try {
       if (isCurrentlyLiked) await unlikeListing(listingId);
       else await likeListing(listingId);
@@ -471,40 +642,32 @@ export default function MessagesPage() {
 
   // --- Render ---
   if (isLoading) {
-      return (
-        <div className="profile-page">
-            <Header userName="" onLogout={handleLogout} />
-            <MessagesSkeleton />
-        </div>
-      );
+      return <div className="profile-page"><Header userName="" onLogout={handleLogout} /><MessagesSkeleton /></div>;
   }
   if (error) {
-      return (
-        <div className="profile-page">
-            <Header userName={userName} onLogout={handleLogout} />
-            <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
-        </div>
-      );
+      return <div className="profile-page"><Header userName={userName} onLogout={handleLogout} /><div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div></div>;
   }
 
   const filterOptions = ['All Messages', 'Selling', 'Buying', 'Unread', 'Archived'];
 
   return (
     <div className="profile-page">
-      <Header userName={userName} 
-      profilePictureUrl={userData?.profilePictureUrl}
-      onLogout={handleLogout} 
-      onNotificationClick={handleNotificationClick}
-      />
+      <div style={{ position: 'relative', zIndex: (isModalOpen || isNotificationLoading) ? 1 : 2000 }}>
+        <Header userName={userName} 
+          profilePictureUrl={userData?.profilePictureUrl}
+          onLogout={handleLogout} 
+          onNotificationClick={handleNotificationClick}
+        />
+      </div>
 
       <div className="messages-page-container">
-        {/* Left Sidebar: Conversation List */}
+        {/* Left Sidebar */}
         <aside className={`conversations-sidebar ${isChatVisible ? 'mobile-hidden' : ''}`}>
           <div className="conversations-header">
             <div className="message-filter-container">
                 <button 
                     className="message-filter-btn" 
-                    onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                    onClick={(e) => { e.stopPropagation(); setIsFilterDropdownOpen(!isFilterDropdownOpen); }}
                 >
                     {activeFilter} <Icons.ChevronDown />
                 </button>
@@ -536,47 +699,92 @@ export default function MessagesPage() {
           </div>
 
           <ul className="conversations-list">
-            {filteredConversations.map(conv => (
-              <li
-                key={conv.id}
-                className={`conversation-list-item ${selectedConversation?.id === conv.id ? 'active' : ''}`}
-                onClick={() => handleSelectConversation(conv)}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="conversation-avatar">
-                   <img 
-                      src={conv.otherUser.avatar ? `http://localhost:8080${conv.otherUser.avatar}` : defaultAvatar} 
-                      alt={conv.otherUser.name}
-                      className="user-avatar"
-                      style={{width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover'}}
-                      onError={(e) => { 
-                          e.target.onerror = null; 
-                          e.target.src = defaultAvatar; 
-                        }}
-                   />
-                </div>
-                <div className="conversation-details">
-                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.9rem'}}>
-                      <span className="conversation-user-name" style={{fontWeight:600}}>{conv.otherUser.name}</span>
-                      <span style={{fontSize:'0.75rem', color:'var(--text-muted)'}}>
-                          {formatMessageTime(conv.lastMessageDate)}
-                      </span>
+          {filteredConversations.map((conv) => (
+          <li
+            key={conv.id}
+            className={`conversation-list-item ${selectedConversation?.id === conv.id ? 'active' : ''} ${conv.isUnread ? 'unread' : ''} ${activeListMenuId === conv.id ? 'menu-active' : ''}`}
+            onClick={() => handleSelectConversation(conv)}
+
+            // Z-Index logic to prevent menu from being covered by the item below
+            style={{ 
+                zIndex: activeListMenuId === conv.id ? 1000 : 1, 
+                position: 'relative' 
+            }}
+            role="button"
+            tabIndex={0}
+          >
+              <div className="conversation-avatar">
+                  <img 
+                    src={conv.otherUser.avatar ? `http://localhost:8080${conv.otherUser.avatar}` : defaultAvatar} 
+                    alt={conv.otherUser.name}
+                    className="user-avatar"
+                    style={{width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover'}}
+                    onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}
+                  />
+              </div>
+
+              {/* Content Area */}
+              <div style={{ flex: 1, minWidth: 0, marginRight: '0.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div className="conversation-user-name" style={{ marginBottom: '0.25rem' }}>
+                    {conv.otherUser.name}
                   </div>
                   
-                  {conv.product && (
-                      <div style={{fontSize:'0.8rem', color:'var(--primary-color)', fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
-                          {conv.product.title}
-                      </div>
-                  )}
-
-                  <div className="conversation-preview" style={{fontSize:'0.8rem', color:'var(--text-muted)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
-                      {conv.lastMessagePreview}
+                  <div style={{ display: 'flex', alignItems: 'center', fontSize: '0.8rem' }}>
+                      {conv.product && (
+                          <span style={{ color: 'var(--primary-color)', fontWeight: 500, marginRight: '0.5rem', whiteSpace: 'nowrap' }}>
+                              {conv.product.title}:
+                          </span>
+                      )}
+                      <span className="conversation-preview" style={{ color: conv.isUnread ? 'var(--text-color)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {conv.lastMessagePreview}
+                      </span>
                   </div>
-                </div>
-              </li>
-            ))}
-              {filteredConversations.length === 0 && (
+              </div>
+
+              {/* Actions Area (Right Side) */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {formatMessageTime(conv.lastMessageDate)}
+                      </span>
+                      
+                      {/* Relative container for the menu to anchor to */}
+                      <div style={{ position: 'relative' }}>
+                          <button 
+                            className="icon-button" 
+                            onClick={(e) => handleListMenuToggle(e, conv.id)}
+                            style={{ padding: '2px', fontSize: '1rem', height: '24px', width: '24px' }}
+                          >
+                            <Icons.MenuDots />
+                          </button>
+
+                          {/* Dropdown Menu */}
+                          {activeListMenuId === conv.id && (
+                            <div 
+                                className="filter-dropdown-menu" 
+                                // Dropdown positioning fix: left: 'auto'
+                                style={{ right: '0', left: 'auto', top: '100%', width: '150px', zIndex: 50 }}
+                            >
+                                <button className="filter-option" onClick={(e) => handleReadUnreadAction(e, conv)}>
+                                  {conv.isUnread ? 'Mark as Read' : 'Mark as Unread'}
+                                </button>
+                                <button className="filter-option" onClick={(e) => handleArchiveListAction(e, conv)}>
+                                  {conv.isArchived ? 'Unarchive' : 'Archive'}
+                                </button>
+                                <button className="filter-option" onClick={(e) => handleDeleteListAction(e, conv.id)} style={{ color: 'red' }}>
+                                  Delete
+                                </button>
+                            </div>
+                          )}
+                      </div>
+                  </div>
+                  
+                  {/* Unread Dot */}
+                  {conv.isUnread && <span className="unread-dot" title="Unread messages"></span>}
+              </div>
+            </li>
+          ))}
+            {filteredConversations.length === 0 && (
                 <li style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                     {activeFilter === 'All Messages' ? 'No conversations found.' : `No '${activeFilter}' conversations found.`}
                 </li>
@@ -586,7 +794,10 @@ export default function MessagesPage() {
 
         {/* Right Chat Area */}
         <main className={`chat-area ${!selectedConversation ? 'no-chat-selected' : ''} ${isChatVisible ? 'mobile-visible' : ''}`}>
-          {selectedConversation ? (
+          
+          {isMessagesLoading ? (
+             <ChatWindowSkeleton />
+          ) : selectedConversation ? (
             <>
               <div className="chat-header">
                 <button className="chat-back-button" onClick={handleBackToList}>
@@ -596,7 +807,6 @@ export default function MessagesPage() {
                   <span className="user-name">{selectedConversation.otherUser.name}</span>
                 </div>
                 
-                {/* --- ListingCard Integration --- */}
                 {selectedConversation.product && (
                   <div className="chat-listing-card-wrapper" style={{ marginLeft: 'auto', marginRight: '10px' }}>
                       <ListingCard
@@ -611,16 +821,17 @@ export default function MessagesPage() {
                   </div>
                 )}
 
-                {/* Chat Action Menu */}
                 <div style={{ marginLeft: 'auto', position: 'relative' }}>
                       <button 
                           className="icon-button" 
-                          onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
+                          onClick={(e) => {
+                              e.stopPropagation(); // Prevents menu from closing immediately
+                              setIsChatMenuOpen(!isChatMenuOpen);
+                          }}
                           style={{ fontSize: '1.5rem', cursor: 'pointer', padding: '0 5px' }}
                       >
                           ⋮
                       </button>
-                      
                       {isChatMenuOpen && (
                           <div className="filter-dropdown-menu" style={{ right: 0, left: 'auto', top: '100%', width: '150px', zIndex: 100 }}>
                               <button className="filter-option" onClick={handleArchiveChat}>
@@ -676,6 +887,9 @@ export default function MessagesPage() {
             </>
           ) : (
             <div className="no-conversation-selected">
+              <button onClick={handleBackToList} className="empty-state-back-btn">
+                  ← Back to Messages
+              </button>
               <span className="no-conversation-icon">💬</span>
               <h2>Select a conversation</h2>
               <p>Choose a chat from the left to start messaging.</p>
@@ -685,14 +899,16 @@ export default function MessagesPage() {
       </div>
       
       {isModalOpen && selectedListing && (
-        <ProductDetailModal
-          listing={selectedListing}
-          onClose={closeModal}
-          currentUserId={userData?.userId}
-          isLiked={likedListingIds.has(selectedListing.listingId)}
-          onLikeClick={handleLikeToggle}
-          isLiking={likingInProgress.has(selectedListing.listingId)}
-        />
+        <div style={{ position: 'relative', zIndex: 3000 }}>
+            <ProductDetailModal
+              listing={selectedListing}
+              onClose={closeModal}
+              currentUserId={userData?.userId}
+              isLiked={likedListingIds.has(selectedListing.listingId)}
+              onLikeClick={handleLikeToggle}
+              isLiking={likingInProgress.has(selectedListing.listingId)}
+            />
+        </div>
       )}
       {isNotificationLoading && (
         <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestBody; // Import DTO
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,7 +23,7 @@ import com.edurent.crc.dto.ListingDTO;
 import com.edurent.crc.dto.UserDTO;
 import com.edurent.crc.entity.ConversationEntity;
 import com.edurent.crc.entity.MessageEntity;
-import com.edurent.crc.entity.UserEntity; // Import DTO
+import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.service.ConversationService;
 import com.edurent.crc.service.MessageService;
 
@@ -141,6 +141,34 @@ public class ConversationController {
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    // --- NEW 7. Mark as Read Endpoint ---
+    @PutMapping("/{conversationId}/read")
+    public ResponseEntity<Void> markConversationAsRead(
+            @PathVariable Long conversationId,
+            Authentication authentication) {
+        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        try {
+            messageService.markConversationAsRead(conversationId, currentUser.getUserId());
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // --- 8. NEW: Mark as Unread Endpoint ---
+    @PutMapping("/{conversationId}/unread")
+    public ResponseEntity<Void> markConversationAsUnread(
+            @PathVariable Long conversationId,
+            Authentication authentication) {
+        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        try {
+            messageService.markConversationAsUnread(conversationId, currentUser.getUserId());
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }

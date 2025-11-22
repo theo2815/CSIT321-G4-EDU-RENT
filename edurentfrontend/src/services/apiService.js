@@ -393,3 +393,28 @@ export const archiveConversation = async (conversationId) => {
   }
 };
 // -------------------------------------------
+
+// --- NEW: Mark Conversation as Read ---
+export const markConversationAsRead = async (conversationId) => {
+  try {
+    // PUT /api/v1/conversations/{conversationId}/read
+    const response = await apiClient.put(`/conversations/${conversationId}/read`);
+    return response;
+  } catch (error) {
+    console.error(`Error marking conversation ${conversationId} as read:`, error.response || error.message);
+    throw error;
+  }
+};
+// -------------------------------------------
+
+// --- NEW: Mark Conversation as Unread ---
+export const markConversationAsUnread = async (conversationId) => {
+  try {
+    // PUT /api/v1/conversations/{conversationId}/unread
+    const response = await apiClient.put(`/conversations/${conversationId}/unread`);
+    return response;
+  } catch (error) {
+    console.error(`Error marking conversation ${conversationId} as unread:`, error.response || error.message);
+    throw error;
+  }
+};
