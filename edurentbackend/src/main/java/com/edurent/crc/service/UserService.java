@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.edurent.crc.dto.AuthResponse;
+import com.edurent.crc.dto.UpdateUserRequest;
 import com.edurent.crc.dto.LoginRequest;
 import com.edurent.crc.dto.RegisterRequest;
 import com.edurent.crc.entity.SchoolEntity;
@@ -115,6 +116,19 @@ public class UserService {
 
     public void deleteUser(Long id) {
         userRepository.deleteById(id);
+    }
+
+    /**
+     * Updates the currently authenticated user's editable profile fields.
+     * Only non-null fields in the request are applied.
+     */
+    public UserEntity updateCurrentUser(UserEntity currentUser, UpdateUserRequest req) {
+        if (req.getFullName() != null) currentUser.setFullName(req.getFullName());
+        if (req.getAddress() != null) currentUser.setAddress(req.getAddress());
+        if (req.getBio() != null) currentUser.setBio(req.getBio());
+        if (req.getPhoneNumber() != null) currentUser.setPhoneNumber(req.getPhoneNumber());
+        if (req.getProfilePictureUrl() != null) currentUser.setProfilePictureUrl(req.getProfilePictureUrl());
+        return userRepository.save(currentUser);
     }
 }
 

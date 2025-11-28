@@ -9,10 +9,13 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.edurent.crc.entity.UserEntity;
+import com.edurent.crc.dto.UpdateUserRequest;
 import com.edurent.crc.service.UserService;
 
 @RestController
@@ -72,6 +75,18 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Update the currently authenticated user's profile details.
+     * Accepts only editable fields (fullName, address, bio, phoneNumber, profilePictureUrl).
+     */
+    @PutMapping("/me")
+    public ResponseEntity<UserEntity> updateMyProfile(Authentication authentication,
+                                                      @RequestBody UpdateUserRequest request) {
+        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity updated = userService.updateCurrentUser(currentUser, request);
+        return ResponseEntity.ok(updated);
     }
 }
 
