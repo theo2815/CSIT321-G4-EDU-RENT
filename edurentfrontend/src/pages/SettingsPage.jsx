@@ -7,8 +7,10 @@ import {
   getCurrentUser, 
   getListingById,
   likeListing,     
-  unlikeListing   
+  unlikeListing,
+  updateUserProfile
 } from '../services/apiService';
+import { supabase } from '../supabaseClient';
 
 // Import CSS
 import '../static/SettingsPage.css'; // Main settings styles
@@ -35,7 +37,7 @@ function SettingsSkeleton() {
 
 
 // --- Edit Profile Form Component ---
-function EditProfileForm({ userData, profileData, onChange, onSave }) {
+function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto }) {
     return (
         <section className="settings-card">
             <h2 className="settings-card-title">Edit Profile</h2>
@@ -46,9 +48,9 @@ function EditProfileForm({ userData, profileData, onChange, onSave }) {
                     alt="Profile"
                     className="profile-photo-placeholder"
                   />
-                  <div className="edit-icon-overlay" title="Change photo">
+                  <button type="button" className="edit-icon-overlay" title="Change photo" onClick={onPickPhoto}>
                     ✏️
-                  </div>
+                  </button>
                 </div>
                 {/* Optional: Add text/button for uploading */}
                 {/* <button className='btn btn-small btn-outline'>Upload Photo</button> */}
@@ -361,6 +363,7 @@ export default function SettingsPage() {
     bio: '',
     email: '',
     phoneNumber: '',
+    profilePictureUrl: '',
   });
 
   // Determine active setting based on URL
@@ -389,6 +392,7 @@ export default function SettingsPage() {
           bio: fetchedUser.bio || '', // Assuming bio field exists
           email: fetchedUser.email || '',
           phoneNumber: fetchedUser.phoneNumber || '',
+          profilePictureUrl: fetchedUser.profilePictureUrl || '',
         });
       } catch (err) {
         console.error("Failed to fetch user data:", err);
@@ -411,11 +415,50 @@ export default function SettingsPage() {
   };
 
   // Handler for saving Edit Profile form
-  const handleProfileSave = (e) => {
+  // Local hidden file input for picking a new avatar
+  const fileInputRef = React.useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handlePickPhoto = () => fileInputRef.current?.click();
+
+  const handleUploadPhoto = async (file) => {
+    if (!file || !userData?.userId) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `profile-pictures/${userData.userId}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('listing-images').upload(path, file, {
+        cacheControl: '3600', upsert: true
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from('listing-images').getPublicUrl(path);
+      const publicUrl = data.publicUrl;
+      setProfileData(prev => ({ ...prev, profilePictureUrl: publicUrl }));
+    } catch (err) {
+      console.error('Avatar upload failed:', err);
+      alert('Failed to upload profile picture.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleProfileSave = async (e) => {
     e.preventDefault();
-    console.log("Saving profile changes:", profileData);
-    // TODO: Implement API call to update user profile
-    alert("Profile changes saved! (Placeholder)");
+    try {
+      const payload = {
+        fullName: profileData.fullName,
+        address: profileData.address,
+        bio: profileData.bio,
+        phoneNumber: profileData.phoneNumber,
+        profilePictureUrl: profileData.profilePictureUrl
+      };
+      const res = await updateUserProfile(payload);
+      setUserData(res.data);
+      alert('Profile updated successfully!');
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      alert(err.response?.data?.message || 'Failed to update profile');
+    }
   };
 
   // Handler for logout button in Header
@@ -579,7 +622,8 @@ export default function SettingsPage() {
                 userData={userData}
                 profileData={profileData}
                 onChange={handleProfileChange}
-                onSave={handleProfileSave}
+              onSave={handleProfileSave}
+              onPickPhoto={() => fileInputRef.current?.click()}
             />
           )}
           {activeSetting === 'change-password' && (
@@ -606,6 +650,14 @@ export default function SettingsPage() {
       {isNotificationLoading && (
         <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
       )}
+      {/* Hidden file input for avatar uploads */}
+      <input
+        type="file"
+        accept="image/*"
+        ref={fileInputRef}
+        onChange={(e) => handleUploadPhoto(e.target.files && e.target.files[0])}
+        style={{ display: 'none' }}
+      />
     </div>
   );
 }

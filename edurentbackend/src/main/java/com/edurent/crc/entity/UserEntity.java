@@ -59,6 +59,9 @@ public class UserEntity implements UserDetails {
     @Column(name = "profile_picture_url")
     private String profilePictureUrl;
 
+    @Column(name = "bio", length = 1000)
+    private String bio;
+
     @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -180,6 +183,14 @@ public class UserEntity implements UserDetails {
 
     public void setProfilePictureUrl(String profilePictureUrl) {
         this.profilePictureUrl = profilePictureUrl;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
     }
 
     public LocalDateTime getCreatedAt() {

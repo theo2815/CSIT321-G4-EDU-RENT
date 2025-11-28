@@ -438,3 +438,15 @@ export const uploadMessageImage = async (conversationId, file) => {
     throw error;
   }
 };
+
+// --- Update current user profile ---
+export const updateUserProfile = async (payload) => {
+  try {
+    // payload: { fullName?, address?, bio?, phoneNumber?, profilePictureUrl? }
+    const response = await apiClient.put(`/users/me`, payload);
+    return response;
+  } catch (error) {
+    console.error("Error during updateUserProfile API call:", error.response || error.message);
+    throw error;
+  }
+};
