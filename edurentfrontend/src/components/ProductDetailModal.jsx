@@ -1,18 +1,17 @@
-// src/components/ProductDetailModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-
-// --- NEW IMPORT (From Modified Code) ---
 import { startConversation } from '../services/apiService'; 
+import MarkAsSoldModal from './MarkAsSoldModal';
 
-// Import CSS
+// Styles and Assets
 import '../static/ProductDetailModal.css';
 import '../static/ProfilePage.css';
 import '../static/DashboardPage.css';
 import defaultAvatar from '../assets/default-avatar.png'; 
 
 /**
- * Helper function to extract and format seller data from the listing's user object.
+ * Normalizes seller data from potentially different API response structures.
+ * Returns a consistent user object for display to prevent crashes.
  */
 const getSellerInfo = (listingUser) => {
   const defaultUser = { userId: null, fullName: 'Seller Unknown', profilePictureUrl: null, school: { name: 'N/A' } };
@@ -28,31 +27,72 @@ const getSellerInfo = (listingUser) => {
 
 export default function ProductDetailModal({ listing, onClose, currentUserId, isLiked, onLikeClick, isLiking }) {
   const navigate = useNavigate();
-  const [isStartingChat, setIsStartingChat] = useState(false); // Loading state for chat
+  
+  // --- UI State Management ---
+  const [isStartingChat, setIsStartingChat] = useState(false);
+  const [showMarkSoldModal, setShowMarkSoldModal] = useState(false);
 
+  // Safety check: Immediately exit if no data is provided
   if (!listing) return null;
 
-  // --- MERGED IMAGE LOGIC ---
-  // Checks for 'listingImages' (Modified) OR 'images' (Current) to prevent crashes
+  // --- Data Parsing & Formatting ---
+
+  // Check status and ownership
+  const isSold = listing.status === 'Sold';
+  const isOwner = currentUserId === listing?.user?.userId;
+  const seller = getSellerInfo(listing.user);
+
+  // Calculate stats
+  const priceDisplay = `₱${(listing.price || 0).toFixed(2)}`;
+  const isRent = listing.listingType?.toUpperCase().includes('RENT');
+  const typeText = isRent ? 'Want to rent the item?' : 'Want to buy the item?';
+  // --- DYNAMIC LIKE COUNT ---
+  const serverLikeCount = listing.likes ? listing.likes.length : 0;
+
+  const wasLikedInitial = useMemo(() => {
+    if (!listing.likes || !currentUserId) return false;
+    return listing.likes.some(like => like.id?.userId === currentUserId);
+  }, [listing.likes, currentUserId]);
+
+  let displayLikeCount = serverLikeCount;
+  if (isLiked && !wasLikedInitial) {
+    displayLikeCount++;
+  } else if (!isLiked && wasLikedInitial) {
+    displayLikeCount--;
+  }
+  displayLikeCount = Math.max(0, displayLikeCount);
+
+  // --- Image Handling Logic ---
+  // Consolidate image sources and determine the starting image (Cover > First > Default)
   const rawImages = listing.listingImages || listing.images || [];
   const images = Array.isArray(rawImages) ? rawImages.map(img => img.imageUrl) : [];
 
-  // Find the index of the cover photo, or default to 0
   const initialImageIndex = Math.max(0, images.findIndex(img => 
       rawImages.find(li => li.imageUrl === img)?.isCoverPhoto 
   ));
 
   const [currentImageIndex, setCurrentImageIndex] = useState(initialImageIndex);
-  
   const showArrows = images.length > 1;
   const currentImageUrl = images[currentImageIndex] || 'https://via.placeholder.com/400x400?text=No+Image';
 
-  // --- Handlers ---
+  // Helper to ensure image URLs are absolute
+  const getFullImageUrl = (path) => {
+      if (!path) return 'https://via.placeholder.com/400x400?text=No+Image';
+      return path.startsWith('http') ? path : `http://localhost:8080${path}`;
+  };
+
+  // --- Event Handlers ---
+
   const handlePrevImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1); };
   const handleNextImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1); };
   const handleOverlayClick = (e) => { if (e.target === e.currentTarget) onClose(); };
 
-  // --- UPDATED: Chat Click Handler ---
+  const handleLikeClick = (e) => {
+    e.stopPropagation(); 
+    if (onLikeClick) onLikeClick(listing.listingId);
+  };
+
+  // Chat initiation logic
   const handleChatClick = async () => {
     if (!currentUserId) {
         alert("Please log in to chat with the seller.");
@@ -61,24 +101,18 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
     }
 
     const sellerId = listing?.user?.userId;
-    if (!sellerId) {
-        console.error("Cannot start chat: Seller ID missing");
-        return;
-    }
+    if (!sellerId) return;
 
     setIsStartingChat(true);
 
     try {
-        // Call the API to get or create the conversation
         const response = await startConversation(listing.listingId, currentUserId, sellerId);
-        
-        // [FIX] Get the FULL object
         const fullConversation = response.data;
         
-        // Navigate and pass the FULL object in state
+        // Navigate to Messages and pass the conversation object
         navigate('/messages', { 
             state: { 
-                openConversation: fullConversation, // Pass the whole object
+                openConversation: fullConversation,
                 openConversationId: fullConversation.conversationId 
             } 
         });
@@ -92,32 +126,11 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
     }
   };
 
-  // Passes the like event up to the parent component
-  const handleLikeClick = (e) => {
-    e.stopPropagation(); 
-    if (onLikeClick) {
-      onLikeClick(listing.listingId);
-    }
-  };
-
-  // --- Format Data ---
-  const priceDisplay = `₱${(listing.price || 0).toFixed(2)}`;
-  const isRent = listing.listingType?.toUpperCase().includes('RENT');
-  const typeText = isRent ? 'Want to rent the item?' : 'Want to buy the item?';
-  const seller = getSellerInfo(listing.user);
-  const isOwner = currentUserId === listing?.user?.userId;
-
-  // Helper to construct image URL (handles local backend path vs placeholder)
-  const getFullImageUrl = (path) => {
-      if (!path) return 'https://via.placeholder.com/400x400?text=No+Image';
-      return path.startsWith('http') ? path : `http://localhost:8080${path}`;
-  };
-
   return (
-    <div className="modal-overlay visible" onClick={handleOverlayClick} role="dialog" aria-modal="true" aria-labelledby="product-name">
+    <div className="modal-overlay visible" onClick={handleOverlayClick} role="dialog" aria-modal="true">
       <div className="product-modal-content">
 
-        {/* Image Section */}
+        {/* --- Left Column: Image Carousel --- */}
         <section className="product-image-section">
           <img
             src={getFullImageUrl(currentImageUrl)}
@@ -133,96 +146,134 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
           )}
         </section>
 
-        {/* Details Section */}
+        {/* --- Right Column: Product Details --- */}
         <section className="product-details-section">
           <button onClick={onClose} className="product-modal-close-btn" aria-label="Close modal">&times;</button>
 
-          {/* Product Info */}
+          {/* Header Area */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <h2 id="product-name" className="product-info-name">{listing.title || 'No Title'}</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <h2 className="product-info-name" style={{ margin: 0 }}>
+                {listing.title || 'No Title'}
+                {/* Sold Badge */}
+                {isSold && (
+                  <span style={{
+                    color: '#e53935', 
+                    fontSize: '0.6em', 
+                    marginLeft: '10px', 
+                    verticalAlign: 'middle', 
+                    border: '1px solid #e53935', 
+                    padding: '2px 6px', 
+                    borderRadius: '4px'
+                  }}>
+                    SOLD
+                  </span>
+                )}
+              </h2>
               
-              {!isOwner && (
-                <button
-                  className={`like-button ${isLiked ? 'liked' : ''}`}
-                  onClick={handleLikeClick}
-                  disabled={isLiking}
-                  aria-label={isLiked ? 'Unlike item' : 'Like item'}
-                  title={isLiked ? 'Unlike' : 'Like'}
-                  style={{ position: 'relative', top: '5px', right: '5px', flexShrink: 0 }}
-                >
-                  {isLiking ? '...' : (isLiked ? '❤️' : '🤍')}
-                </button>
-              )}
+              {/* Like Badge with Count */}
+              <div 
+                  onClick={(!isOwner && !isSold) ? handleLikeClick : undefined}
+                  style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px',
+                      backgroundColor: '#f1f3f5',
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      cursor: (!isOwner && !isSold) ? 'pointer' : 'default',
+                      flexShrink: 0,
+                      opacity: isSold ? 0.7 : 1
+                  }}
+                  title={isOwner ? `${displayLikeCount} people liked this` : (isSold ? 'Item is sold' : (isLiked ? 'Unlike' : 'Like'))}
+              >
+                  <span style={{ fontSize: '1.2rem', lineHeight: 1, color: isOwner ? '#6c757d' : (isLiked ? '#e53935' : '#ccc') }}>
+                      {isLiking ? '...' : (isOwner ? '🖤' : (isLiked ? '❤️' : '🤍'))}
+                  </span>
+                  <span style={{ fontWeight: 'bold', color: '#495057' }}>
+                      {displayLikeCount}
+                  </span>
+              </div>
             </div>
 
             <p className="product-info-price">{priceDisplay}</p>
+            
+            {/* Metadata Grid */}
             <div className="product-info-block">
               <span className="product-info-label">Location:</span>
-              <span className="product-info-value">{listing.allowMeetup && listing.meetupLocation ? listing.meetupLocation : 'N/A'}</span>
-            </div>
-            <div className="product-info-block">
-                <span className="product-info-label">School:</span>
-                <span className="product-info-value">{listing.user?.school?.name || 'N/A'}</span>
+              <span className="product-info-value">{listing.meetupLocation || 'N/A'}</span>
             </div>
             <div className="product-info-block">
               <span className="product-info-label">Condition:</span>
               <span className="product-info-value">{listing.condition || 'Not specified'}</span>
             </div>
-              <div className="product-info-block">
-                <span className="product-info-label">Deal Method:</span>
-                <span className="product-info-value">
-                    {listing.allowMeetup ? 'Meet-up' : ''}
-                    {listing.allowMeetup && listing.allowDelivery ? ', ' : ''}
-                    {listing.allowDelivery ? `Delivery (${listing.deliveryOptions || 'Not specified'})` : ''}
-                    {!listing.allowMeetup && !listing.allowDelivery ? 'Not specified' : ''}
-                </span>
-              </div>
             <div className="product-info-block">
               <span className="product-info-label">Description:</span>
               <p className="product-info-value product-info-description">
                 {listing.description || 'No description available.'}
-            </p>
+              </p>
             </div>
           </div>
 
-            {/* Seller Info Section */}
+          {/* --- Bottom Section: Seller Info & Actions --- */}
           <div className="seller-info-section">
+            
+            {/* 1. OWNER VIEW */}
             {isOwner ? (
               <>
-                {/* --- OWNER'S VIEW --- */}
                 <div className="seller-info-header">
                   <img
                     src={seller.avatarUrl ? `http://localhost:8080${seller.avatarUrl}` : defaultAvatar}
-                    alt={`${seller.username}'s avatar`}
+                    alt="My Avatar"
                     className="seller-avatar"
                     onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}
                   />
                   <div className="seller-details">
                     <div className="seller-username">{seller.username} (You)</div>
-                    <div className="seller-reviews">Reviews: N/A</div>
                   </div>
                 </div>
-                <div
-                  className="action-note"
-                  style={{ fontStyle: "italic", color: "var(--text-color)" }}
-                >
-                  This is your listing.
-                </div>
-                <button
-                   className="btn-chat"
-                  style={{ backgroundColor: "var(--text-muted)" }}
-                  onClick={() => {
-                    navigate(`/edit-listing/${listing.listingId}`);
-                    onClose();
-                  }}
-                 >
-                  Edit Your Listing
-                </button>
+
+                {isSold ? (
+                  /* Case A: Owner + Item Sold -> View Chat History */
+                  <button
+                    className="btn-chat"
+                    style={{ backgroundColor: "#34495e", marginTop: '1rem' }} 
+                    onClick={() => {
+                        navigate('/messages', { state: { filterByListingId: listing.listingId } });
+                        onClose();
+                    }}
+                  >
+                    SOLD – View All Chat
+                  </button>
+                ) : (
+                   /* Case B: Owner + Item Available -> Edit or Sell */
+                   <>
+                    <div className="action-note" style={{ fontStyle: "italic", color: "var(--text-color)" }}>
+                      This is your listing.
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <button
+                          className="btn-chat"
+                          style={{ backgroundColor: "var(--text-muted)", flex: 1 }}
+                          onClick={() => { navigate(`/edit-listing/${listing.listingId}`); onClose(); }}
+                        >
+                        Edit
+                      </button>
+                      <button
+                          className="btn-chat"
+                          style={{ backgroundColor: "#2ecc71", flex: 1 }} 
+                          onClick={() => setShowMarkSoldModal(true)}
+                        >
+                        Mark as Sold
+                      </button>
+                    </div>
+                   </>
+                )}
               </>
+
             ) : (
+              /* 2. VISITOR VIEW */
               <>
-                {/* --- OTHER USER'S VIEW --- */}
                 <div className="seller-info-header">
                   <img
                     src={seller.avatarUrl ? `http://localhost:8080${seller.avatarUrl}` : defaultAvatar}
@@ -236,26 +287,43 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
                             {seller.username}
                         </Link>
                     </div>
-                    <div className="seller-reviews">Reviews: N/A</div>
                   </div>
                 </div>
 
-                <div className="action-note">{typeText}</div>
+                <div className="action-note">
+                    {isSold ? 'This item has been sold.' : typeText}
+                </div>
 
-                {/* --- MERGED CHAT BUTTON --- */}
-                <button 
-                  className="btn-chat" 
-                  onClick={handleChatClick}
-                  disabled={isStartingChat} // Disable while loading
-                >
-                  {isStartingChat ? 'Starting Chat...' : 'Chat with the Seller'}
-                </button>
+                {/* Only show chat button if item is NOT sold */}
+                {!isSold && (
+                    <button 
+                      className="btn-chat" 
+                      onClick={handleChatClick}
+                      disabled={isStartingChat} 
+                    >
+                      {isStartingChat ? 'Starting Chat...' : 'Chat with the Seller'}
+                    </button>
+                )}
               </>
             )}
           </div>
 
         </section>
       </div>
+
+      {/* --- Nested Modal: Mark as Sold Confirmation --- */}
+      {showMarkSoldModal && (
+        <MarkAsSoldModal 
+          listing={listing}
+          currentUser={{ userId: currentUserId }}
+          onClose={() => setShowMarkSoldModal(false)}
+          onSuccess={() => {
+            setShowMarkSoldModal(false);
+            onClose(); // Close parent modal
+            window.location.reload(); // Refresh to update status
+          }}
+        />
+      )}
     </div>
   );
 }

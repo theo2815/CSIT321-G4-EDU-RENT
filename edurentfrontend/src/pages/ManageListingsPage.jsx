@@ -1,40 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+// Components
 import Header from '../components/Header';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
+import MarkAsSoldModal from '../components/MarkAsSoldModal'; 
+
+// Services
 import { 
   getCurrentUser, 
   getUserListings, 
   getCategories, 
   getListingById, 
   deleteListing,
+  updateListingStatus,
   likeListing,     
   unlikeListing    
 } from '../services/apiService';
 
-// Import CSS
+// Styles
 import '../static/ManageListingsPage.css';
-// Import shared styles
-import '../static/ProfilePage.css'; // For .btn-small, .btn-outline etc.
-import '../static/DashboardPage.css'; // For .empty-state, .cta-button
+import '../static/ProfilePage.css'; 
+import '../static/DashboardPage.css';
 
-// --- Manage Listings Skeleton Component ---
+// --- Skeleton Component for Loading State ---
 function ManageListingsSkeleton() {
   return (
     <div className="manage-listings-page">
-      {/* Skeleton Header */}
+      {/* Header Skeleton */}
       <div className="manage-listings-header">
-        <div className="skeleton skeleton-filter-label" style={{ height: '2rem', width: '250px', marginBottom: '1rem' }}></div> {/* Title */}
-        {/* Skeleton Filters */}
+        <div className="skeleton skeleton-filter-label" style={{ height: '2rem', width: '250px', marginBottom: '1rem' }}></div>
         <div className="skeleton-filters-container">
-          {Array.from({ length: 4 }).map((_, i) => ( // Skeleton for 4 filter groups
+          {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="filter-group skeleton-filter-group">
               <div className="skeleton skeleton-filter-label"></div>
               <div className="skeleton skeleton-filter-input"></div>
             </div>
           ))}
-          {/* Add a wider one for search */}
           <div className="filter-group skeleton-filter-group" style={{flexGrow: 1}}>
              <div className="skeleton skeleton-filter-label"></div>
              <div className="skeleton skeleton-filter-input"></div>
@@ -42,11 +45,10 @@ function ManageListingsSkeleton() {
         </div>
       </div>
 
-      {/* Skeleton Listings Card */}
+      {/* Table Skeleton */}
       <div className="skeleton-listings-card-container">
-        <div className="skeleton skeleton-listings-card-header"></div> {/* Header area */}
-        {/* Skeleton Table Rows */}
-        {Array.from({ length: 5 }).map((_, index) => ( // Show 5 skeleton rows
+        <div className="skeleton skeleton-listings-card-header"></div>
+        {Array.from({ length: 5 }).map((_, index) => (
           <div key={index} className="skeleton-table-row">
             <div className="skeleton skeleton-table-checkbox"></div>
             <div className="skeleton-table-product">
@@ -56,9 +58,9 @@ function ManageListingsSkeleton() {
                 <div className="skeleton skeleton-table-line" style={{ width: '90%' }}></div>
               </div>
             </div>
-            <div className="skeleton skeleton-table-cell"></div> {/* Listed On */}
-            <div className="skeleton skeleton-table-cell" style={{ width: '50px' }}></div> {/* Price */}
-            <div className="skeleton skeleton-table-cell" style={{ width: '40px' }}></div> {/* Likes */}
+            <div className="skeleton skeleton-table-cell"></div>
+            <div className="skeleton skeleton-table-cell" style={{ width: '50px' }}></div>
+            <div className="skeleton skeleton-table-cell" style={{ width: '40px' }}></div>
             <div className="skeleton-table-actions">
               <div className="skeleton skeleton-table-button"></div>
               <div className="skeleton skeleton-table-button"></div>
@@ -70,308 +72,331 @@ function ManageListingsSkeleton() {
   );
 }
 
-
-// --- Main Manage Listings Page Component ---
+// --- Main Component ---
 export default function ManageListingsPage() {
+  const navigate = useNavigate();
+
+  // User & Data State
   const [userName, setUserName] = useState('');
   const [userData, setUserData] = useState(null);
-  const [allListings, setAllListings] = useState([]); // Original fetched list
-  const [filteredListings, setFilteredListings] = useState([]); // List to display
-  const [categories, setCategories] = useState([]); // Start empty
-  const [selectedItems, setSelectedItems] = useState(new Set()); // IDs of selected items
+  const [allListings, setAllListings] = useState([]); 
+  const [filteredListings, setFilteredListings] = useState([]); 
+  const [categories, setCategories] = useState([]); 
+  
+  // UI State
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showBulkBar, setShowBulkBar] = useState(false);
   const [bulkActionMessage, setBulkActionMessage] = useState('');
-  const navigate = useNavigate();
+  const [selectedItems, setSelectedItems] = useState(new Set()); 
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Modal States
+  const [isModalOpen, setIsModalOpen] = useState(false); // Product Detail Modal
   const [selectedListing, setSelectedListing] = useState(null);
   
-  // Like State (needed for the modal)
+  const [isMarkSoldModalOpen, setIsMarkSoldModalOpen] = useState(false); // Mark Sold Modal
+  const [listingToMarkSold, setListingToMarkSold] = useState(null);
+
+  // Interaction State (Likes & Notifications)
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   const [likingInProgress, setLikingInProgress] = useState(new Set());
   const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
 
-  // --- Filter/Sort State ---
+  // Filter & Sort State
   const [filterCategory, setFilterCategory] = useState('All Categories');
-  const [sortOrder, setSortOrder] = useState('recent'); // 'recent' or 'oldest'
-  const [filterDate, setFilterDate] = useState('all'); // 'all', 'last7', 'last30'
+  const [sortOrder, setSortOrder] = useState('recent');
+  const [filterDate, setFilterDate] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('available'); // Default to 'available' so active products show first
+  const [filterStatus, setFilterStatus] = useState('available');
 
-  // --- Fetch Data ---
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const userRes = await getCurrentUser();
-        const userId = userRes.data?.userId;
-        setUserData(userRes.data);
-        setUserName(userRes.data?.fullName?.split(' ')[0] || 'User');
-
-        if (!userId) {
-            throw new Error("Could not find user ID.");
-        }
-
-        // Fetch listings and categories in parallel
-        const listingsPromise = getUserListings(userId);
-        const categoriesPromise = getCategories();
-
-        const [listingsRes, catRes] = await Promise.all([listingsPromise, categoriesPromise]);
-
-        setAllListings(listingsRes.data || []);
-        
-        // Add "All Categories" to the fetched list
-        setCategories([{ categoryId: 'all', name: 'All Categories' }, ...(catRes.data || [])]);
-
-      } catch (err) {
-        console.error("Failed to load data:", err);
-        setError("Could not load listings.");
-        if (err.message === "No authentication token found.") navigate('/login');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [navigate]);
-
-  // --- Filtering and Sorting Logic ---
+  // --- 1. Data Fetching ---
   useEffect(() => {
-    let result = [...allListings]; // Start with all listings
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const userRes = await getCurrentUser();
+        const userId = userRes.data?.userId;
+        setUserData(userRes.data);
+        setUserName(userRes.data?.fullName?.split(' ')[0] || 'User');
 
-    // Filter by Status
+        if (!userId) throw new Error("Could not find user ID.");
+
+        // Fetch listings and categories simultaneously
+        const [listingsRes, catRes] = await Promise.all([
+            getUserListings(userId),
+            getCategories()
+        ]);
+
+        setAllListings(listingsRes.data || []);
+        
+        // Add "All" option to categories
+        setCategories([{ categoryId: 'all', name: 'All Categories' }, ...(catRes.data || [])]);
+
+      } catch (err) {
+        console.error("Failed to load data:", err);
+        setError("Could not load listings.");
+        if (err.message === "No authentication token found.") navigate('/login');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [navigate]);
+
+  // --- 2. Filtering & Sorting Logic ---
+  useEffect(() => {
+    let result = [...allListings];
+
+    // Status Filter
     if (filterStatus !== 'all') {
       if (filterStatus === 'others') {
         result = result.filter(item => 
-            item.status.toLowerCase() !== 'available' && 
-            item.status.toLowerCase() !== 'inactive'
-        );
+            item.status.toLowerCase() !== 'available' && 
+            item.status.toLowerCase() !== 'inactive'
+        );
       } else {
         result = result.filter(item => item.status.toLowerCase() === filterStatus);      
       }
     }
 
-    // Filter by Category
+    // Category Filter
     if (filterCategory !== 'All Categories') {
-      // Adjust based on your actual listing data structure for category
       result = result.filter(item => item.category?.name === filterCategory); 
     }
 
-    // Filter by Date
-    const now = new Date(); 
-    if (filterDate === 'last7') {
-      const sevenDaysAgo = new Date(new Date().setDate(now.getDate() - 7));
-      result = result.filter(item => new Date(item.createdAt) >= sevenDaysAgo);
-    } else if (filterDate === 'last30') {
-      const thirtyDaysAgo = new Date(new Date().setDate(now.getDate() - 30));
-       result = result.filter(item => new Date(item.createdAt) >= thirtyDaysAgo); 
-    }
+    // Date Filter
+    const now = new Date(); 
+    if (filterDate === 'last7') {
+      const sevenDaysAgo = new Date(new Date().setDate(now.getDate() - 7));
+      result = result.filter(item => new Date(item.createdAt) >= sevenDaysAgo);
+    } else if (filterDate === 'last30') {
+      const thirtyDaysAgo = new Date(new Date().setDate(now.getDate() - 30));
+       result = result.filter(item => new Date(item.createdAt) >= thirtyDaysAgo); 
+    }
 
-    // Filter by Search Query
-    if (searchQuery.trim() !== '') {
-      const lowerQuery = searchQuery.toLowerCase();
-      result = result.filter(item =>
-        item.title.toLowerCase().includes(lowerQuery) ||
-        (item.description && item.description.toLowerCase().includes(lowerQuery))
-      );
-    }
+    // Search Query
+    if (searchQuery.trim() !== '') {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(item =>
+        item.title.toLowerCase().includes(lowerQuery) ||
+        (item.description && item.description.toLowerCase().includes(lowerQuery))
+      );
+    }
 
-    // Sort
+    // Sorting
     result.sort((a, b) => {
-      const dateA = new Date(a.createdAt);
-      const dateB = new Date(b.createdAt);
-      return sortOrder === 'recent' ? dateB - dateA : dateA - dateB;
-    });
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return sortOrder === 'recent' ? dateB - dateA : dateA - dateB;
+    });
 
     setFilteredListings(result);
 
-    // Recalculate selected items
-    setSelectedItems(prevSelected => {
-        const currentFilteredIds = new Set(result.map(item => item.listingId));
-        const newSelected = new Set();
-        prevSelected.forEach(id => {
-            if (currentFilteredIds.has(id)) {
-                newSelected.add(id);
-            }
-        });
-        return newSelected;
-    });
+    // Sync selected items with current filter results
+    setSelectedItems(prevSelected => {
+        const currentFilteredIds = new Set(result.map(item => item.listingId));
+        const newSelected = new Set();
+        prevSelected.forEach(id => {
+            if (currentFilteredIds.has(id)) newSelected.add(id);
+        });
+        return newSelected;
+    });
 
-  }, [allListings, filterCategory, sortOrder, filterDate, searchQuery, filterStatus]); // Added filterStatus
+  }, [allListings, filterCategory, sortOrder, filterDate, searchQuery, filterStatus]);
 
 
-  // --- Selection Handlers ---
+  // --- 3. Selection Handlers ---
   const handleSelectAll = (event) => {
-    if (event.target.checked) {
-      const allFilteredIds = new Set(filteredListings.map(item => item.listingId)); // Use listingId
-      setSelectedItems(allFilteredIds);
-    } else {
-      setSelectedItems(new Set());
-    }
-  };
+    if (event.target.checked) {
+      const allFilteredIds = new Set(filteredListings.map(item => item.listingId));
+      setSelectedItems(allFilteredIds);
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
 
   const handleSelectItem = (itemId, isChecked) => {
     setSelectedItems(prevSelected => {
       const newSelected = new Set(prevSelected);
-      if (isChecked) {
-        newSelected.add(itemId);
-      } else {
-        newSelected.delete(itemId);
-      }
+      if (isChecked) newSelected.add(itemId);
+      else newSelected.delete(itemId);
       return newSelected;
     });
   };
 
-  // Determine if all filtered items are selected
   const isAllSelected = filteredListings.length > 0 && selectedItems.size === filteredListings.length;
 
-  // Show/hide bulk bar
+  // Toggle Bulk Actions Bar
   useEffect(() => {
     setShowBulkBar(selectedItems.size > 0);
   }, [selectedItems]);
 
 
-  // --- Action Handlers (Now Functional) ---
-  const handleEdit = (itemId) => {
-    setBulkActionMessage("");
-    // Navigate to the new Edit page (we will create this next)
-    navigate(`/edit-listing/${itemId}`);
-  };
+  // --- 4. Action Handlers ---
 
-  const handleDelete = async (itemId) => {
-    setBulkActionMessage("");
-    if (window.confirm(`Are you sure you want to delete listing ID ${itemId}?`)) {
-      try {
-        await deleteListing(itemId); // Call API
-        // Update state *after* successful API call
-        setAllListings(prev => prev.filter(item => item.listingId !== itemId));
-        setSelectedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
-        setBulkActionMessage(`Deleted item ${itemId}`);
-      } catch (err) {
-        console.error("Failed to delete item:", err);
-        setBulkActionMessage(`Error: Could not delete item ${itemId}.`);
-      } finally {
-         setTimeout(() => setBulkActionMessage(''), 2000);
-      }
-    }
-  };
+  // Edit Navigation
+  const handleEdit = (itemId) => {
+    setBulkActionMessage("");
+    navigate(`/edit-listing/${itemId}`);
+  };
 
-  // Bulk delete
+  // Open Mark Sold Modal (Single Item)
+  const handleOpenMarkSold = (e, listing) => {
+    e.stopPropagation(); // Prevent row click
+    setListingToMarkSold(listing);
+    setIsMarkSoldModalOpen(true);
+  };
+
+  // Callback: Update state after successful Mark Sold
+  const handleMarkSoldSuccess = () => {
+    if (listingToMarkSold) {
+        setAllListings(prev => prev.map(item => 
+            item.listingId === listingToMarkSold.listingId 
+            ? { ...item, status: 'Sold' } 
+            : item
+        ));
+    }
+    setListingToMarkSold(null);
+    setIsMarkSoldModalOpen(false);
+  };
+
+  // Single Delete
+  const handleDelete = async (itemId) => {
+    setBulkActionMessage("");
+    if (window.confirm(`Are you sure you want to delete listing ID ${itemId}?`)) {
+      try {
+        await deleteListing(itemId);
+        setAllListings(prev => prev.filter(item => item.listingId !== itemId));
+        setSelectedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
+        setBulkActionMessage(`Deleted item ${itemId}`);
+      } catch (err) {
+        console.error("Failed to delete item:", err);
+        setBulkActionMessage(`Error: Could not delete item ${itemId}.`);
+      } finally {
+         setTimeout(() => setBulkActionMessage(''), 2000);
+      }
+    }
+  };
+
+  // Bulk Mark as Sold
+  const handleBulkMarkSold = async () => {
+    setBulkActionMessage("");
+    const numToUpdate = selectedItems.size;
+    if (numToUpdate === 0) return;
+
+    if (window.confirm(`Mark ${numToUpdate} selected listing(s) as Sold?`)) {
+      try {
+        const updatePromises = Array.from(selectedItems).map(id => 
+            updateListingStatus(id, 'Sold')
+        );
+        
+        await Promise.all(updatePromises);
+        
+        // Optimistic UI update
+        setAllListings(prev => prev.map(item => 
+            selectedItems.has(item.listingId) ? { ...item, status: 'Sold' } : item
+        ));
+        
+        setSelectedItems(new Set()); 
+        setBulkActionMessage(`Marked ${numToUpdate} items as Sold`);
+      } catch (err) {
+         console.error("Failed to update items:", err);
+         setBulkActionMessage(`Error: Could not update some items.`);
+      } finally {
+         setTimeout(() => setBulkActionMessage(''), 3000);
+      }
+    }
+  };
+
+  // Bulk Delete
   const handleBulkDelete = async () => {
-    setBulkActionMessage("");
-    const numToDelete = selectedItems.size;
-    if (numToDelete === 0) return;
+    setBulkActionMessage("");
+    const numToDelete = selectedItems.size;
+    if (numToDelete === 0) return;
 
-    if (window.confirm(`Delete ${numToDelete} selected listing(s)?`)) {
-      try {
-        // Create an array of delete promises
-        const deletePromises = Array.from(selectedItems).map(id => deleteListing(id));
-        // Wait for all to complete
-        await Promise.all(deletePromises);
-        
-        // Update state *after* successful API calls
-        setAllListings(prev => prev.filter(item => !selectedItems.has(item.listingId)));
-        setSelectedItems(new Set()); // Clear selection
-        setBulkActionMessage(`Deleted ${numToDelete} listing(s)`);
-      } catch (err) {
-         console.error("Failed to delete items:", err);
-         setBulkActionMessage(`Error: Could not delete all selected items.`);
-      } finally {
-         setTimeout(() => setBulkActionMessage(''), 2000);
-      }
-    }
-  };
+    if (window.confirm(`Delete ${numToDelete} selected listing(s)?`)) {
+      try {
+        const deletePromises = Array.from(selectedItems).map(id => deleteListing(id));
+        await Promise.all(deletePromises);
+        
+        setAllListings(prev => prev.filter(item => !selectedItems.has(item.listingId)));
+        setSelectedItems(new Set());
+        setBulkActionMessage(`Deleted ${numToDelete} listing(s)`);
+      } catch (err) {
+         console.error("Failed to delete items:", err);
+         setBulkActionMessage(`Error: Could not delete all selected items.`);
+      } finally {
+         setTimeout(() => setBulkActionMessage(''), 2000);
+      }
+    }
+  };
 
-   // --- Calculate Counts ---
-   const counts = allListings.reduce((acc, item) => {
-        const status = item.status?.toLowerCase() || 'other';
-       if (status === 'active' || status === 'available') {
-           acc.active++;
-       }
-       else if (status === 'inactive') {
-           acc.inactive++;
-       }
-       else {
-           acc.others++;
-       }
+  // Helper: Calculate Status Counts
+  const counts = allListings.reduce((acc, item) => {
+       const status = item.status?.toLowerCase() || 'other';
+       if (status === 'active' || status === 'available') acc.active++;
+       else if (status === 'inactive') acc.inactive++;
+       else acc.others++;
        return acc;
-   }, { active: 0, inactive: 0, others: 0 });
+  }, { active: 0, inactive: 0, others: 0 });
 
-  // --- Logout Handler ---
   const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/login'); };
 
- // --- NEW Universal Notification Click Handler ---
-    const handleNotificationClick = async (notification) => {
-    console.log("Notification clicked:", notification);
-
-    // 1. Extract the listing ID from the notification's URL
+  // Notification Handler
+  const handleNotificationClick = async (notification) => {
     const urlParts = notification.linkUrl?.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
 
     if (!listingId) {
-      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
       alert("Could not open this notification: Invalid link.");
       return;
     }
 
-    closeModal(); // Close any modal that's already open
-    setIsNotificationLoading(true); // <-- SHOW THE SKELETON
-
-    console.log(`Fetching details for listingId: ${listingId}`);
+    closeModal();
+    setIsNotificationLoading(true);
 
     try {
-      // 2. Fetch that specific listing's data from the API
-      // We must have `getListingById` imported from apiService.js
       const response = await getListingById(listingId); 
-
-      if (response.data) {
-        // 3. We found the listing! Call openModal with the data.
-        openModal(response.data);
-      } else {
-        throw new Error(`Listing ${listingId} not found.`);
-      }
-
+      if (response.data) openModal(response.data);
+      else throw new Error(`Listing ${listingId} not found.`);
     } catch (err) {
       console.error("Failed to fetch listing for notification:", err);
-      alert(`Could not load item: ${err.message}. It may have been deleted.`);
-      // As a fallback, navigate to the main browse page
+      alert(`Could not load item: ${err.message}.`);
       navigate('/browse');
     } finally {
-      setIsNotificationLoading(false); // <-- HIDE THE SKELETON
+      setIsNotificationLoading(false);
     }
   };
-  // --- End new function ---
 
-  // Modal Handlers
+  // Modal Helpers
   const openModal = (listing) => {
     setSelectedListing(listing);
     setIsModalOpen(true);
-    // Optionally refresh like status for this item
-    // (requires fetching /my-likes or checking listing.likes)
   };
   const closeModal = () => {
     setSelectedListing(null);
     setIsModalOpen(false);
   };
 
-  // Like Handler (copied from Dashboard)
+  // Like Toggle
   const handleLikeToggle = async (listingId) => {
     if (likingInProgress.has(listingId)) return;
     setLikingInProgress(prev => new Set(prev).add(listingId));
     const newLikedIds = new Set(likedListingIds);
     const isCurrentlyLiked = likedListingIds.has(listingId);
+    
     if (isCurrentlyLiked) newLikedIds.delete(listingId);
     else newLikedIds.add(listingId);
+    
     setLikedListingIds(newLikedIds);
+    
     try {
       if (isCurrentlyLiked) await unlikeListing(listingId);
       else await likeListing(listingId);
     } catch (err) {
       console.error("Failed to toggle like:", err);
-      // Revert state
+      // Revert optimism
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
           if (isCurrentlyLiked) revertedIds.add(listingId);
@@ -396,32 +421,46 @@ export default function ManageListingsPage() {
           </div>
       );
   }
-   if (error) {
+  
+  if (error) {
        return (
            <div className="profile-page">
                <Header userName={userName} onLogout={handleLogout} />
                <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
            </div>
        );
-   }
+  }
 
   return (
-    <div className="profile-page"> {/* Container for Header */}
+    <div className="profile-page">
       <Header userName={userName} 
-      profilePictureUrl={userData?.profilePictureUrl}
-      onLogout={handleLogout} 
-      onNotificationClick={handleNotificationClick}
+        profilePictureUrl={userData?.profilePictureUrl}
+        onLogout={handleLogout} 
+        onNotificationClick={handleNotificationClick}
       />
 
       {/* Bulk Actions Bar */}
       {showBulkBar && (
         <div className="bulk-actions-bar" role="region" aria-label="Bulk actions">
           <span>{selectedItems.size} selected</span>
-          <button className="btn btn-small btn-delete" onClick={handleBulkDelete} aria-label="Delete selected listings">Delete Selected</button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                className="btn btn-small btn-primary-accent" 
+                onClick={handleBulkMarkSold}
+              >
+                Mark as Sold
+              </button>
+              
+              <button 
+                className="btn btn-small btn-delete" 
+                onClick={handleBulkDelete}
+              >
+                Delete Selected
+              </button>
+          </div>
         </div>
       )}
 
-      {/* Toast/Snackbar for feedback */}
       {bulkActionMessage && (
         <div className="snackbar" role="status">{bulkActionMessage}</div>
       )}
@@ -429,7 +468,8 @@ export default function ManageListingsPage() {
       <main className="manage-listings-page">
         <div className="manage-listings-header">
           <h1 className="manage-listings-title">Manage Listings</h1>
-          {/* Filters */}
+          
+          {/* Filters Area */}
           <div className="filters-container">
             <div className="filter-group">
               <label htmlFor="category-filter" className="filter-label">Category</label>
@@ -466,7 +506,7 @@ export default function ManageListingsPage() {
           </div>
         </div>
 
-        {/* Listings Card */}
+        {/* Listings Data Grid */}
         <div className="listings-card-container">
           <div className="listings-card-header">
             <div className="select-all-container">
@@ -479,28 +519,29 @@ export default function ManageListingsPage() {
               />
               <label htmlFor="select-all" style={{fontWeight: 500}}>Select All</label>
             </div>
-            {/* Clickable Counts */}
+            
+            {/* Filter Tabs/Counts */}
             <div className="listing-counts">
               <button
-                 className={`listing-count-item ${filterStatus === 'available' ? 'active' : ''}`}
-                 onClick={() => setFilterStatus('available')}
-                 style={{background:'none', border:'none', cursor:'pointer'}}
+                  className={`listing-count-item ${filterStatus === 'available' ? 'active' : ''}`}
+                  onClick={() => setFilterStatus('available')}
+                  style={{background:'none', border:'none', cursor:'pointer'}}
               >
-                 Active: <strong>{counts.active}</strong>
+                  Active: <strong>{counts.active}</strong>
               </button>
               <button
-                 className={`listing-count-item ${filterStatus === 'inactive' ? 'active' : ''}`}
-                 onClick={() => setFilterStatus('inactive')}
-                 style={{background:'none', border:'none', cursor:'pointer'}}
+                  className={`listing-count-item ${filterStatus === 'inactive' ? 'active' : ''}`}
+                  onClick={() => setFilterStatus('inactive')}
+                  style={{background:'none', border:'none', cursor:'pointer'}}
               >
-                 Inactive: <strong>{counts.inactive}</strong>
+                  Inactive: <strong>{counts.inactive}</strong>
               </button>
               <button
-                 className={`listing-count-item ${filterStatus === 'others' ? 'active' : ''}`}
-                 onClick={() => setFilterStatus('others')}
-                 style={{background:'none', border:'none', cursor:'pointer'}}
+                  className={`listing-count-item ${filterStatus === 'others' ? 'active' : ''}`}
+                  onClick={() => setFilterStatus('others')}
+                  style={{background:'none', border:'none', cursor:'pointer'}}
               >
-                 Sold/Other: <strong>{counts.others}</strong>
+                  Sold/Other: <strong>{counts.others}</strong>
               </button>
                <button
                   className={`listing-count-item ${filterStatus === 'all' ? 'active' : ''}`}
@@ -512,7 +553,6 @@ export default function ManageListingsPage() {
             </div>
           </div>
 
-          {/* Listings Body (Table) */}
           {filteredListings.length > 0 ? (
             <div style={{ overflowX: 'auto' }}>
               <table className="listings-table">
@@ -526,24 +566,25 @@ export default function ManageListingsPage() {
                     <th style={{textAlign: 'right'}}>Action</th>
                   </tr>
                 </thead>
-<tbody>
+                <tbody>
                   {filteredListings.map(item => {
                     const coverImage = item.images?.find(img => img.coverPhoto)?.imageUrl || item.images?.[0]?.imageUrl || null;
-                    // Logic for displaying status text
-                    const statusText = item.status?.toLowerCase() === 'available' ? 'Active' : 
-                                     item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
-                                     item.status?.toLowerCase() === 'sold' ? 'Sold' : 
-                                     item.status; // Fallback to the actual status
+                    const isSold = item.status?.toLowerCase() === 'sold';
                     const statusClass = item.status?.toLowerCase() || 'other';
                     
+                    // Helper to display friendly status text
+                    const statusText = item.status?.toLowerCase() === 'available' ? 'Active' : 
+                                       item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
+                                       item.status?.toLowerCase() === 'sold' ? 'Sold' : 
+                                       item.status; 
+
                     return (
-                      <tr key={item.listingId}>
-                        <td>
+                      <tr key={item.listingId} onClick={() => openModal(item)} style={{ cursor: 'pointer' }}>
+                        <td onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={selectedItems.has(item.listingId)}
                             onChange={e => handleSelectItem(item.listingId, e.target.checked)}
-                            aria-label={`Select listing ${item.title}`}
                           />
                         </td>
                         <td>
@@ -566,20 +607,37 @@ export default function ManageListingsPage() {
                         </td>
                         <td>{new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}</td>
                         <td>₱{item.price?.toFixed(2)}</td>
-                        <td>{item.likes?.length || 'N/A'}</td> 
-                        <td>
+                        <td>{item.likes?.length || '0'}</td> 
+                        <td onClick={(e) => e.stopPropagation()}>
                           <div className="listing-actions">
-                             <button
-                                className="btn btn-small btn-outline"
-                                onClick={() => handleEdit(item.listingId)}
-                                aria-label={`Edit listing ${item.title}`}
-                             >
-                               Edit
-                             </button>
+                             
+                             {/* Mark Sold Button: Only visible if item is not currently sold */}
+                             {!isSold && (
+                                 <button
+                                   className="btn btn-small"
+                                   style={{ 
+                                       backgroundColor: 'transparent', 
+                                       color: '#2ecc71', 
+                                       border: '1px solid #2ecc71',
+                                       whiteSpace: 'nowrap'
+                                   }}
+                                   onClick={(e) => handleOpenMarkSold(e, item)}
+                                 >
+                                   Mark Sold
+                                 </button>
+                             )}
+
+                             {!isSold && (
+                               <button
+                                  className="btn btn-small btn-outline"
+                                  onClick={(e) => handleEdit(e, item.listingId)}
+                               >
+                                 Edit
+                               </button>
+                             )}
                              <button
                                className="btn btn-small btn-delete"
                                onClick={() => handleDelete(item.listingId)}
-                               aria-label={`Delete listing ${item.title}`}
                              >
                                Delete
                              </button>
@@ -594,7 +652,6 @@ export default function ManageListingsPage() {
           ) : (
              <div className="listings-empty-state">
                <div className="empty-state-illustration" aria-hidden="true">
-                 {/* SVG illustration for empty state */}
                  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
                    <rect x="10" y="30" width="60" height="30" rx="6" fill="#e9ecef" />
                    <rect x="20" y="40" width="40" height="10" rx="3" fill="#f8f9fa" />
@@ -615,33 +672,34 @@ export default function ManageListingsPage() {
         </div>
       </main>
 
-        {isModalOpen && selectedListing && (
-          <ProductDetailModal
-            listing={selectedListing}
-            onClose={closeModal}
-            currentUserId={userData?.userId} // Make sure 'userData' is in this page's state
-            isLiked={likedListingIds.has(selectedListing.listingId)}
-            onLikeClick={handleLikeToggle}
-            isLiking={likingInProgress.has(selectedListing.listingId)}
-          />
-        )}
-        {isNotificationLoading && (
-          <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
-        )}
+       {/* --- Modals Section --- */}
+       
+       {/* 1. Product Detail Modal */}
+       {isModalOpen && selectedListing && (
+         <ProductDetailModal
+           listing={selectedListing}
+           onClose={closeModal}
+           currentUserId={userData?.userId} 
+           isLiked={likedListingIds.has(selectedListing.listingId)}
+           onLikeClick={handleLikeToggle}
+           isLiking={likingInProgress.has(selectedListing.listingId)}
+         />
+       )}
+
+       {/* 2. Mark As Sold Modal */}
+       {isMarkSoldModalOpen && listingToMarkSold && (
+        <MarkAsSoldModal
+            listing={listingToMarkSold}
+            currentUser={userData}
+            onClose={() => setIsMarkSoldModalOpen(false)}
+            onSuccess={handleMarkSoldSuccess}
+        />
+       )}
+
+       {/* 3. Skeleton Loader (for Notifications) */}
+       {isNotificationLoading && (
+         <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
+       )}
     </div>
   );
 }
-
-// Add visually hidden class definition if not global
-/*
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
-}
-*/

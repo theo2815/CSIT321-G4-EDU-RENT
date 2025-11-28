@@ -174,6 +174,24 @@ public class ListingController {
         }
     }
     // --- End UPDATED Endpoint ---
+
+    // --- NEW: Update Status Endpoint ---
+    @PutMapping("/{listingId}/status")
+    public ResponseEntity<Void> updateListingStatus(
+            @PathVariable Long listingId,
+            @RequestParam String status,
+            Authentication authentication
+    ) {
+        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        try {
+            listingService.updateListingStatus(listingId, status, currentUser.getUserId());
+            return ResponseEntity.ok().build();
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
     
 
     // <--- MODIFIED: Updated error handling --->

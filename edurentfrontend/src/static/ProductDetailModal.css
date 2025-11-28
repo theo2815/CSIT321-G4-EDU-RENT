@@ -262,3 +262,92 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Specific wrapper for the smaller sub-modal */
+.mark-sold-modal-content {
+  background-color: var(--bg-light);
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.mark-sold-question {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-color);
+}
+
+.buyer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+}
+
+.buyer-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.buyer-item:hover {
+  background-color: #f8f9fa;
+}
+
+.buyer-item.selected {
+  border-color: var(--primary-color);
+  background-color: #e7f5ff;
+}
+
+.buyer-item input[type="radio"] {
+  accent-color: var(--primary-color);
+  width: 18px;
+  height: 18px;
+}
+
+.buyer-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+}
+
+.buyer-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.buyer-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-color);
+}
+
+.buyer-last-msg {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.no-chats-msg {
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 2rem 0;
+}

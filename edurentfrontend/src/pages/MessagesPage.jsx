@@ -32,7 +32,7 @@ import {
 import '../static/MessagesPage.css';
 import defaultAvatar from '../assets/default-avatar.png';
 
-// Icon definitions for the UI
+// --- Icon Components ---
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -66,7 +66,9 @@ const Icons = {
   )
 };
 
-// Skeleton loader displayed when switching between chats
+// --- Skeleton Loaders ---
+
+// Loader for the Chat Window area
 function ChatWindowSkeleton() {
   return (
     <div className="chat-skeleton-loader">
@@ -81,7 +83,7 @@ function ChatWindowSkeleton() {
   );
 }
 
-// Skeleton loader displayed for the sidebar on initial page load
+// Loader for the Sidebar area
 function MessagesSkeleton() {
   return (
     <div className="messages-skeleton-container">
@@ -105,7 +107,7 @@ function MessagesSkeleton() {
   );
 }
 
-// Helper to format raw date strings into user-friendly time format (HH:MM AM/PM)
+// Helper: Format raw date strings into readable time (HH:MM AM/PM)
 const formatMessageTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -113,71 +115,70 @@ const formatMessageTime = (dateString) => {
 };
 
 export default function MessagesPage() {
-  // State: User and Session Data
+  // --- Global User State ---
   const [userData, setUserData] = useState(null);
   const [userName, setUserName] = useState('');
   
-  // State: Conversation and Message Data
+  // --- Conversation Data State ---
   const [conversations, setConversations] = useState([]);
   const [filteredConversations, setFilteredConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]); 
   
-  // State: Inputs and UI Filters
+  // --- Filter & Search State ---
   const [searchQuery, setSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Messages');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
-  // State: Menu Visibility
-  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false); // Menu inside the chat window
-  const [activeListMenuId, setActiveListMenuId] = useState(null); // Menu on individual list items
+  // --- NEW STATE: Specific Listing Filter (Highest Priority) ---
+  const [listingFilterId, setListingFilterId] = useState(null); 
+  const location = useLocation(); 
 
-  // State: Loading and Error handling
+  // --- UI Visibility State ---
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false); // Top-right menu inside chat
+  const [activeListMenuId, setActiveListMenuId] = useState(null); // Three-dot menu on sidebar items
+  const [isChatVisible, setIsChatVisible] = useState(false); // Mobile toggle
+
+  // --- Loading & Error State ---
   const [isLoading, setIsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false); 
   const [error, setError] = useState(null);
 
-  // State: Modals and Interactivity
+  // --- Modal & Listings State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   const [likingInProgress, setLikingInProgress] = useState(new Set());
   const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
-  
-  // State: Mobile View Toggle
-  const [isChatVisible, setIsChatVisible] = useState(false);
 
-  // Hooks and Refs
+  // --- Hooks & Refs ---
   const navigate = useNavigate();
-  const location = useLocation(); 
   const chatContentRef = useRef(null); 
   const textareaRef = useRef(null); 
   
-  // Refs for WebSocket management
+  // WebSocket Refs
   const stompClientRef = useRef(null);
   const conversationSubscriptionRef = useRef(null);
 
-  // For pagination
+  // Pagination State
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
 
-  // State for "Scroll to Bottom" button
+  // Scroll Behavior State
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const isNearBottomRef = useRef(true); 
   const lastMessageIdRef = useRef(null); 
+  const fileInputRef = useRef(null); // For image uploads
 
-  // Ref for hidden file input
-  const fileInputRef = useRef(null);
-
-  // [NEW] Helper to format date headers
+  // Helper: Get friendly date labels (Today, Yesterday, etc.)
   const getDateLabel = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
     const now = new Date();
     
-    // Reset time parts for accurate date comparison
+    // Normalize to midnight for accurate day comparison
     const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const n = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const y = new Date(n);
@@ -189,24 +190,87 @@ export default function MessagesPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // [NEW] Handle File Selection
+  // --- EFFECT: Handle Deep Linking / Listing Filter ---
+  // Detects if the user navigated here with a request to filter by a specific item (e.g., "Sold" modal)
+  useEffect(() => {
+      if (location.state?.filterByListingId) {
+          const targetId = location.state.filterByListingId;
+          console.log("Applying filter for listing ID:", targetId);
+          setListingFilterId(targetId);
+          
+          // Reset other filters to ensure the target item is visible
+          setSearchQuery('');
+          setActiveFilter('All Messages'); 
+      }
+  }, [location.state]);
+
+  // Helper to clear the specific listing filter
+  const clearListingFilter = () => {
+      setListingFilterId(null);
+      // Clean up history state so the filter doesn't reappear on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+  };
+
+  // --- EFFECT: Main Filter Logic ---
+  // Re-runs whenever filters, search, or data changes
+  useEffect(() => {
+    if (!userData) return;
+
+    let result = conversations;
+
+    // 1. Specific Listing Filter (Highest Priority)
+    if (listingFilterId) {
+        // Show ONLY conversations related to this specific product ID
+        result = result.filter(c => c.product && c.product.id === listingFilterId);
+        
+        // Note: We deliberately DO NOT filter by isArchived here. 
+        // When viewing history for a Sold item, users expect to see all past chats, including archived ones.
+    } else {
+        // 2. Standard Filters (Only apply if NOT filtering by specific listing)
+        if (activeFilter === 'Selling') {
+            result = result.filter(c => c.product && c.product.ownerId === userData.userId);
+        } else if (activeFilter === 'Buying') {
+            result = result.filter(c => c.product && c.product.ownerId !== userData.userId);
+        } else if (activeFilter === 'Unread') {
+            result = result.filter(c => c.isUnread);
+        } else if (activeFilter === 'Archived') {
+            result = result.filter(c => c.isArchived);
+        } else {
+            // Default view: Hide archived
+            result = result.filter(c => !c.isArchived); 
+        }
+    }
+
+    // 3. Search Filter (Always applied on top of the above)
+    if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        result = result.filter(conv =>
+          conv.otherUser.name.toLowerCase().includes(query) ||
+          (conv.product && conv.product.title.toLowerCase().includes(query))
+        );
+    }
+
+    setFilteredConversations(result);
+  }, [activeFilter, searchQuery, conversations, userData, listingFilterId]);
+
+  // --- Handler: Image File Selection ---
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file || !selectedConversation) return;
 
     try {
-      // 1. Upload Image
+      // 1. Upload the image first
       const response = await uploadMessageImage(selectedConversation.id, file);
       const imageUrl = response.data.url;
 
-      // 2. Send Message with Image URL (and optional text)
+      // 2. Send the message containing the image URL
       const tempTimestamp = new Date();
       
-      // Optimistic Update
+      // Optimistic UI update
       const optimisticMsg = {
           id: Date.now(),
           senderId: userData.userId,
-          text: '', // No text for image-only message
+          text: '', // Image-only messages have empty text
           attachmentUrl: imageUrl,
           timestamp: formatMessageTime(tempTimestamp),
           rawDate: tempTimestamp.toISOString()
@@ -215,44 +279,42 @@ export default function MessagesPage() {
 
       // API Call
       await sendMessage(
-          '', // Content is empty
+          '', // content
           selectedConversation.id, 
           userData.userId, 
-          imageUrl 
+          imageUrl // attachment
       );
       
     } catch (error) {
       console.error("Failed to send image", error);
       alert("Failed to send image.");
     } finally {
-      // Reset input
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // [UPDATED] Smart Auto-scroll Logic
+  // --- EFFECT: Smart Auto-scroll ---
   useEffect(() => {
     if (messages.length === 0) return;
 
     const lastMsg = messages[messages.length - 1];
     
-    // Check if the bottom-most message has actually changed
+    // Only trigger if the last message ID has changed (new message arrived/sent)
     if (lastMsg.id !== lastMessageIdRef.current) {
         lastMessageIdRef.current = lastMsg.id;
 
         if (isNearBottomRef.current) {
-            // User is already at the bottom -> Auto-scroll
+            // User is at the bottom, auto-scroll to show new message
             if (chatContentRef.current) {
                 chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight;
             }
         } else {
-            // User is reading history -> Show "New Message" button
+            // User is reading history, show "New Message" button instead of interrupting
             setShowScrollBtn(true);
         }
     }
   }, [messages]);
 
-  // helper function to trigger when the button is clicked
   const scrollToBottom = () => {
     if (chatContentRef.current) {
       chatContentRef.current.scrollTo({
@@ -263,7 +325,7 @@ export default function MessagesPage() {
     }
   };
 
-  // Fetch initial data: User details, conversation list, and liked items
+  // --- Data Fetching: Initial Load ---
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -281,7 +343,7 @@ export default function MessagesPage() {
       const convResponse = await getConversationsForUser(userId);
       const convs = convResponse.data || [];
 
-      // Transform raw conversation data into UI-friendly format
+      // Normalize backend data into UI structure
       const processedConvs = convs.map(conv => {
           if (!conv.participants) return null;
 
@@ -298,6 +360,7 @@ export default function MessagesPage() {
               profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null 
           };
           
+          // Image fallback logic
           let productImageUrl = null;
           if (conv.listing) {
                productImageUrl = conv.listing.imageUrl 
@@ -325,32 +388,26 @@ export default function MessagesPage() {
               lastMessagePreview: conv.lastMessageContent || 'Start a conversation', 
               lastMessageDate: conv.lastMessageTimestamp || conv.listing?.createdAt,
               isUnread: conv.isUnread || false,
-              
               isArchived: conv.isArchivedForCurrentUser || false 
           };
       }).filter(Boolean);
 
       setConversations(processedConvs);
       
-      // 3. Handle Deep Linking (e.g., User clicked "Contact Seller" on a product page)
+      // 3. Handle Deep Linking (Create New Chat from Profile/Listing page)
       const passedConv = location.state?.openConversation;
       const passedConvId = location.state?.openConversationId;
       if (passedConvId) {
-          // A. Try to find it in the list we just fetched
           let targetConv = processedConvs.find(c => c.id === passedConvId);
 
-          // B. If NOT found (because it's brand new), we manually create it from the passed state
+          // If conversation doesn't exist yet, manually construct it from passed state
           if (!targetConv && passedConv) {
-              // We need to map the raw backend format (passedConv) to our UI format
-              
-              // Find the "other" user (not me)
               const participants = passedConv.participants || [];
               const otherParticipantObj = participants.find(p => {
                   const pId = p.user?.userId || p.userId; 
                   return pId !== userId;
               })?.user || {};
 
-              // Manually construct the UI object
               targetConv = {
                   id: passedConv.conversationId,
                   otherUser: {
@@ -363,7 +420,7 @@ export default function MessagesPage() {
                       title: passedConv.listing.title,
                       price: passedConv.listing.price,
                       ownerId: passedConv.listing.user?.userId,
-                      image: passedConv.listing.images?.[0]?.imageUrl, // Simplified image check
+                      image: passedConv.listing.images?.[0]?.imageUrl,
                       iconUrl: passedConv.listing.images?.[0]?.imageUrl
                   } : null,
                   lastMessagePreview: 'Start a conversation',
@@ -371,20 +428,19 @@ export default function MessagesPage() {
                   isUnread: false
               };
 
-              // [CRITICAL] Add this new conversation to the front of the list
+              // Prepend new conversation to list
               setConversations(prev => [targetConv, ...prev]);
           }
 
-          // C. Select it
+          // Select the conversation immediately
           if (targetConv) {
-              handleSelectConversation(targetConv); // This triggers message fetching
+              handleSelectConversation(targetConv);
               setIsChatVisible(true);
-              // Clear state so it doesn't re-trigger on refresh
-              window.history.replaceState({}, document.title);
+              window.history.replaceState({}, document.title); // Clear state
           }
       }
 
-      // 4. Get Liked Listings
+      // 4. Get Liked Listings (for Heart icons)
       const likesResponse = await getLikedListings();
       const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
       setLikedListingIds(likedIds);
@@ -400,29 +456,28 @@ export default function MessagesPage() {
     }
   }, [navigate, location.state]);
 
-  // Trigger data fetch on component mount
+  // Initial Fetch
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Manage WebSocket Connection
+  // --- WebSocket Connection ---
   useEffect(() => {
     if (userData) {
       const socket = new SockJS('http://localhost:8080/ws');
       const stompClient = Stomp.over(socket);
-      // stompClient.debug = null; 
 
       stompClient.connect({}, () => {
         stompClientRef.current = stompClient;
         
-        // Subscribe to the user's personal channel
+        // Subscribe to user-specific updates (sidebar list updates)
         stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
           const payload = JSON.parse(message.body);
           
           setConversations(prevConvs => {
             const convIndex = prevConvs.findIndex(c => c.id === payload.conversationId);
             if (convIndex > -1) {
-              // Update existing conversation and move to top
+              // Move updated conversation to top
               const updatedConvs = [...prevConvs];
               const conv = updatedConvs[convIndex];
               
@@ -436,7 +491,7 @@ export default function MessagesPage() {
               });
               return updatedConvs;
             } else {
-              // If it's a completely new conversation, re-fetch the full list
+              // New conversation detected, reload list
               fetchData(); 
               return prevConvs;
             }
@@ -455,42 +510,13 @@ export default function MessagesPage() {
     }
   }, [userData, fetchData]);
 
-  // Filter Logic
-  useEffect(() => {
-    if (!userData) return;
-
-    let result = conversations;
-
-    if (activeFilter === 'Selling') {
-        result = result.filter(c => c.product && c.product.ownerId === userData.userId);
-    } else if (activeFilter === 'Buying') {
-        result = result.filter(c => c.product && c.product.ownerId !== userData.userId);
-    } else if (activeFilter === 'Unread') {
-        result = result.filter(c => c.isUnread);
-    } else if (activeFilter === 'Archived') {
-        result = result.filter(c => c.isArchived);
-    } else {
-        result = result.filter(c => !c.isArchived); 
-    }
-
-    if (searchQuery.trim() !== '') {
-        const query = searchQuery.toLowerCase();
-        result = result.filter(conv =>
-          conv.otherUser.name.toLowerCase().includes(query) ||
-          (conv.product && conv.product.title.toLowerCase().includes(query))
-        );
-    }
-
-    setFilteredConversations(result);
-  }, [activeFilter, searchQuery, conversations, userData]);
-
-  // --- Handlers ---
+  // --- Interaction Handlers ---
 
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
   };
 
-  // Handle clicking a conversation from the sidebar
+  // Select a conversation from sidebar
   const handleSelectConversation = async (conversation) => {
     if (activeListMenuId) return; 
 
@@ -502,12 +528,12 @@ export default function MessagesPage() {
     setHasMore(true);
     setIsChatMenuOpen(false);
 
-    // Mark as read locally
+    // Optimistically mark as read locally
     setConversations(prev => prev.map(c => 
       c.id === conversation.id ? { ...c, isUnread: false } : c
     ));
 
-    // --- Socket Subscription ---
+    // Subscribe to specific conversation socket
     if (stompClientRef.current && stompClientRef.current.connected) {
         if (conversationSubscriptionRef.current) {
             conversationSubscriptionRef.current.unsubscribe();
@@ -516,13 +542,13 @@ export default function MessagesPage() {
         conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${conversation.id}`, (message) => {
             const payload = JSON.parse(message.body);
             
-            if (payload.senderId === userData.userId) return;
+            if (payload.senderId === userData.userId) return; // Ignore own messages
 
             const newMsg = {
                 id: payload.id,
                 senderId: payload.senderId,
                 text: payload.text,
-                attachmentUrl: payload.attachmentUrl, // [FIX] Ensure incoming socket messages have image
+                attachmentUrl: payload.attachmentUrl, 
                 timestamp: formatMessageTime(payload.timestamp),
                 rawDate: payload.timestamp
             };
@@ -532,6 +558,7 @@ export default function MessagesPage() {
         });
     }
 
+    // Fetch message history
     try {
       const [messagesRes, _] = await Promise.all([
           getMessages(conversation.id, 0),
@@ -542,7 +569,7 @@ export default function MessagesPage() {
           id: msg.messageId,
           senderId: msg.sender?.userId,
           text: msg.content,
-          attachmentUrl: msg.attachmentUrl, // [FIX] Added image loading for history
+          attachmentUrl: msg.attachmentUrl,
           timestamp: formatMessageTime(msg.sentAt),
           rawDate: msg.sentAt
       }));
@@ -559,8 +586,7 @@ export default function MessagesPage() {
     }
   };
 
-  // --- 3-Dot Menu Action Handlers (Sidebar) ---
-  
+  // Sidebar Menu Actions (Archive/Delete/Read)
   const handleListMenuToggle = (e, convId) => {
     e.stopPropagation();
     setActiveListMenuId(prev => prev === convId ? null : convId);
@@ -601,8 +627,7 @@ export default function MessagesPage() {
     } catch (err) { console.error("Toggle failed", err); fetchData(); }
   };
 
-  // --- Chat Input Handlers ---
-  
+  // Chat Actions
   const handleBackToList = () => {
     setIsChatVisible(false);
     if (conversationSubscriptionRef.current) {
@@ -632,7 +657,7 @@ export default function MessagesPage() {
 
       // Optimistic Update
       const optimisticMsg = {
-          id: Date.now(), // Temp ID
+          id: Date.now(),
           senderId: userData.userId,
           text: textToSend,
           timestamp: formattedTime,
@@ -640,7 +665,7 @@ export default function MessagesPage() {
       };
       setMessages(prev => [...prev, optimisticMsg]);
 
-      // Update Sidebar List
+      // Move conversation to top
       setConversations(prevConvs => {
           const updatedConvs = [...prevConvs];
           const index = updatedConvs.findIndex(c => c.id === selectedConversation.id);
@@ -665,7 +690,7 @@ export default function MessagesPage() {
       }
   };
 
-  // [UPDATED] Scroll Handler for Lazy Loading (With Image Support)
+  // Scroll Handler for Pagination (Lazy Loading)
   const handleScroll = async (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
 
@@ -691,7 +716,7 @@ export default function MessagesPage() {
             id: msg.messageId,
             senderId: msg.sender?.userId,
             text: msg.content,
-            attachmentUrl: msg.attachmentUrl, // [FIX] Added image loading for pagination
+            attachmentUrl: msg.attachmentUrl, 
             timestamp: formatMessageTime(msg.sentAt),
             rawDate: msg.sentAt
           }));
@@ -699,6 +724,7 @@ export default function MessagesPage() {
           setMessages(prev => [...mappedNewMessages, ...prev]);
           setPage(nextPage);
 
+          // Restore scroll position
           requestAnimationFrame(() => {
              if (chatContentRef.current) {
                 chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight - prevHeight;
@@ -722,7 +748,7 @@ export default function MessagesPage() {
     navigate('/login');
   };
 
-  // --- Modal & Notification Handlers ---
+  // --- Modal Logic ---
 
   const handleNotificationClick = async (notification) => {
     const urlParts = notification.linkUrl?.split('/');
@@ -801,6 +827,7 @@ export default function MessagesPage() {
       else await likeListing(listingId);
     } catch (err) {
       console.error("Failed to toggle like:", err);
+      // Revert optimism if failed
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
           if (isCurrentlyLiked) revertedIds.add(listingId);
@@ -816,7 +843,7 @@ export default function MessagesPage() {
     }
   };
 
-  // --- Render ---
+  // --- Main Render ---
   if (isLoading) {
       return <div className="profile-page"><Header userName="" onLogout={handleLogout} /><MessagesSkeleton /></div>;
   }
@@ -837,30 +864,42 @@ export default function MessagesPage() {
       </div>
 
       <div className="messages-page-container">
-        {/* Left Sidebar */}
+        
+        {/* --- Left Sidebar: Conversation List --- */}
         <aside className={`conversations-sidebar ${isChatVisible ? 'mobile-hidden' : ''}`}>
           <div className="conversations-header">
-            <div className="message-filter-container">
-                <button 
-                    className="message-filter-btn" 
-                    onClick={(e) => { e.stopPropagation(); setIsFilterDropdownOpen(!isFilterDropdownOpen); }}
-                >
-                    {activeFilter} <Icons.ChevronDown />
-                </button>
-                {isFilterDropdownOpen && (
-                    <div className="filter-dropdown-menu">
-                        {filterOptions.map(option => (
-                            <button 
-                                key={option} 
-                                className={`filter-option ${activeFilter === option ? 'active' : ''}`}
-                                onClick={() => { setActiveFilter(option); setIsFilterDropdownOpen(false); }}
-                            >
-                                {option}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
+            
+            {/* Conditional Header: Show Banner if filtering by Listing ID, else show Dropdown */}
+            {listingFilterId ? (
+                <div className="active-filter-banner">
+                    <span>Filtering by Item</span>
+                    <button onClick={clearListingFilter} className="clear-filter-btn">
+                        ✕ Clear
+                    </button>
+                </div>
+            ) : (
+                <div className="message-filter-container">
+                    <button 
+                        className="message-filter-btn" 
+                        onClick={(e) => { e.stopPropagation(); setIsFilterDropdownOpen(!isFilterDropdownOpen); }}
+                    >
+                        {activeFilter} <Icons.ChevronDown />
+                    </button>
+                    {isFilterDropdownOpen && (
+                        <div className="filter-dropdown-menu">
+                            {filterOptions.map(option => (
+                                <button 
+                                    key={option} 
+                                    className={`filter-option ${activeFilter === option ? 'active' : ''}`}
+                                    onClick={() => { setActiveFilter(option); setIsFilterDropdownOpen(false); }}
+                                >
+                                    {option}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="conversation-search-bar">
               <span className="conversation-search-icon"><Icons.Search /></span>
@@ -880,8 +919,6 @@ export default function MessagesPage() {
             key={conv.id}
             className={`conversation-list-item ${selectedConversation?.id === conv.id ? 'active' : ''} ${conv.isUnread ? 'unread' : ''} ${activeListMenuId === conv.id ? 'menu-active' : ''}`}
             onClick={() => handleSelectConversation(conv)}
-
-            // Z-Index logic to prevent menu from being covered by the item below
             style={{ 
                 zIndex: activeListMenuId === conv.id ? 1000 : 1, 
                 position: 'relative' 
@@ -924,7 +961,7 @@ export default function MessagesPage() {
                           {formatMessageTime(conv.lastMessageDate)}
                       </span>
                       
-                      {/* Relative container for the menu to anchor to */}
+                      {/* Sidebar Item Menu */}
                       <div style={{ position: 'relative' }}>
                           <button 
                             className="icon-button" 
@@ -934,7 +971,6 @@ export default function MessagesPage() {
                             <Icons.MenuDots />
                           </button>
 
-                          {/* Dropdown Menu */}
                           {activeListMenuId === conv.id && (
                             <div 
                                 className="filter-dropdown-menu" 
@@ -961,19 +997,23 @@ export default function MessagesPage() {
           ))}
             {filteredConversations.length === 0 && (
                 <li style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    {activeFilter === 'All Messages' ? 'No conversations found.' : `No '${activeFilter}' conversations found.`}
+                    {listingFilterId 
+                        ? 'No conversation history found for this item.' 
+                        : (activeFilter === 'All Messages' ? 'No conversations found.' : `No '${activeFilter}' conversations found.`)
+                    }
                 </li>
             )}
           </ul>
         </aside>
 
-        {/* Right Chat Area */}
+        {/* --- Right Chat Area --- */}
         <main className={`chat-area ${!selectedConversation ? 'no-chat-selected' : ''} ${isChatVisible ? 'mobile-visible' : ''}`}>
           
           {isMessagesLoading ? (
              <ChatWindowSkeleton />
           ) : selectedConversation ? (
             <>
+              {/* Chat Header */}
               <div className="chat-header">
                 <button className="chat-back-button" onClick={handleBackToList}>
                   <Icons.BackArrow />
@@ -982,6 +1022,7 @@ export default function MessagesPage() {
                   <span className="user-name">{selectedConversation.otherUser.name}</span>
                 </div>
                 
+                {/* Embedded Product Card in Header */}
                 {selectedConversation.product && (
                   <div className="chat-listing-card-wrapper" style={{ marginLeft: 'auto', marginRight: '10px' }}>
                       <ListingCard
@@ -996,11 +1037,12 @@ export default function MessagesPage() {
                   </div>
                 )}
 
+                {/* Top Right Chat Actions Menu */}
                 <div style={{ marginLeft: 'auto', position: 'relative' }}>
                       <button 
                           className="icon-button" 
                           onClick={(e) => {
-                              e.stopPropagation(); // Prevents menu from closing immediately
+                              e.stopPropagation(); 
                               setIsChatMenuOpen(!isChatMenuOpen);
                           }}
                           style={{ fontSize: '1.5rem', cursor: 'pointer', padding: '0 5px' }}
@@ -1020,6 +1062,7 @@ export default function MessagesPage() {
                 </div>
               </div>
 
+              {/* Chat History Container */}
               <div className="chat-content" 
               ref={chatContentRef}
               onScroll={handleScroll}
@@ -1030,7 +1073,6 @@ export default function MessagesPage() {
                     </div>
                 )}
                 {messages.map((msg, index) => {
-                  // Logic to determine if we need a header
                   const prevMsg = messages[index - 1];
                   const currentDateLabel = getDateLabel(msg.rawDate);
                   const prevDateLabel = prevMsg ? getDateLabel(prevMsg.rawDate) : null;
@@ -1038,7 +1080,6 @@ export default function MessagesPage() {
 
                   return (
                     <React.Fragment key={msg.id}>
-                      {/* Render Date Header if needed */}
                       {showDateHeader && (
                         <div className="date-header-badge">
                           {currentDateLabel}
@@ -1047,7 +1088,7 @@ export default function MessagesPage() {
 
                       <div className={`message-bubble-wrapper ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
                         <div className={`message-bubble ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
-                           {/* [FIX] Image Rendering Logic */}
+                          {/* Attachment Rendering */}
                           {msg.attachmentUrl && (
                               <img 
                                   src={msg.attachmentUrl} 
@@ -1074,8 +1115,8 @@ export default function MessagesPage() {
                   </button>
               )}
 
+              {/* Input Area */}
               <div className="chat-input-area">
-                {/* [FIX] Hidden File Input */}
                 <input 
                     type="file" 
                     ref={fileInputRef} 
@@ -1106,7 +1147,7 @@ export default function MessagesPage() {
                   <button 
                       className="icon-button" 
                       aria-label="Attach file"
-                      onClick={() => fileInputRef.current?.click()} // [FIX] Trigger file input
+                      onClick={() => fileInputRef.current?.click()} 
                   >
                     <Icons.Attachment />
                   </button>
@@ -1126,6 +1167,7 @@ export default function MessagesPage() {
         </main>
       </div>
       
+      {/* --- Modals --- */}
       {isModalOpen && selectedListing && (
         <div style={{ position: 'relative', zIndex: 3000 }}>
             <ProductDetailModal

@@ -450,3 +450,35 @@ export const updateUserProfile = async (payload) => {
     throw error;
   }
 };
+
+// --- Transactions ---
+export const createTransaction = async (transactionData) => {
+  try {
+    const { listingId, buyerId, ...body } = transactionData;
+    
+    const response = await apiClient.post(`/transactions`, body, {
+      params: {
+        listingId,
+        buyerId
+      }
+    });
+    return response;
+  } catch (error) {
+    console.error("Error during createTransaction API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+// --- NEW: Update Listing Status ---
+export const updateListingStatus = async (listingId, status) => {
+  try {
+    // Calls PUT /api/v1/listings/{listingId}/status?status={status}
+    const response = await apiClient.put(`/listings/${listingId}/status`, null, {
+      params: { status }
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error updating status for listing ${listingId}:`, error);
+    throw error;
+  }
+};

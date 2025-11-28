@@ -217,10 +217,21 @@ public class ListingService {
         return listingRepository.save(existingListing);
     }
     
-    public List<ListingEntity> getAllListings() { return listingRepository.findAll(); }
-    public Optional<ListingEntity> getListingById(Long listingId) { return listingRepository.findById(listingId); }
-    public List<ListingEntity> getListingsByUserId(Long userId) { return listingRepository.findByUser_UserId(userId); }
-    public List<ListingEntity> getListingsByCategoryId(Long categoryId) { return listingRepository.findByCategoryId(categoryId); }
+    public List<ListingEntity> getAllListings() { 
+        return listingRepository.findByStatus("Available");
+    }
+
+    public Optional<ListingEntity> getListingById(Long listingId) { 
+        return listingRepository.findById(listingId); 
+    }
+
+    public List<ListingEntity> getListingsByUserId(Long userId) { 
+        return listingRepository.findByUser_UserId(userId); 
+    }
+
+    public List<ListingEntity> getListingsByCategoryId(Long categoryId) { 
+        return listingRepository.findByCategory_CategoryIdAndStatus(categoryId, "Available");
+    }
 
     // --- UPDATED: deleteListing with Supabase deletion ---
     @Transactional
@@ -240,6 +251,19 @@ public class ListingService {
         listingRepository.delete(existingListing);
     }
     // ----------------------------------------------------
+
+    @Transactional
+    public void updateListingStatus(Long listingId, String newStatus, Long currentUserId) {
+        ListingEntity listing = listingRepository.findById(listingId)
+                .orElseThrow(() -> new RuntimeException("Listing not found with id: " + listingId));
+
+        if (!listing.getUser().getUserId().equals(currentUserId)) {
+            throw new AccessDeniedException("User does not have permission to edit this listing.");
+        }
+
+        listing.setStatus(newStatus);
+        listingRepository.save(listing);
+    }
 
     public ListingEntity createListing(ListingEntity listing, Long userId, Long categoryId) {
         // Basic create method (kept for compatibility if used elsewhere, but createListingWithImages is preferred)

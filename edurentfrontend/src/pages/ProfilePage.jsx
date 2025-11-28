@@ -236,6 +236,20 @@ export default function ProfilePage() {
       ]);
 
       setProfileUser(userResponse.data);
+      // --- SORTING: Available First, Sold Last (Both Newest First) ---
+      const rawListings = listingsResponse.data || [];
+      const sortedListings = rawListings.sort((a, b) => {
+          // 1. Status Check: "Sold" goes to bottom
+          const isSoldA = a.status?.toLowerCase() === 'sold';
+          const isSoldB = b.status?.toLowerCase() === 'sold';
+
+          if (isSoldA && !isSoldB) return 1;  // A is sold, B is not -> A goes after B
+          if (!isSoldA && isSoldB) return -1; // A is not sold, B is sold -> A goes before B
+          
+          // 2. Date Check: Newest first (Secondary sort)
+          return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+      
       setOriginalListings(listingsResponse.data || []);
       setUserReviews(reviewsResponse.data || []);
 

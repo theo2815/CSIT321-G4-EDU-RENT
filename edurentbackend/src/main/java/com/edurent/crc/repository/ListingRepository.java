@@ -23,8 +23,10 @@ public interface ListingRepository extends JpaRepository<ListingEntity, Long> {
     Optional<ListingEntity> findByIdWithUser(@Param("listingId") Long listingId);
 
     List<ListingEntity> findByUser_UserId(Long userId);
-
-    // These methods are correct and do not need to change.
     List<ListingEntity> findByListingType(String listingType);
     List<ListingEntity> findByStatus(String status);
+    List<ListingEntity> findByCategory_CategoryIdAndStatus(Long categoryId, String status);
+
+
+
 }

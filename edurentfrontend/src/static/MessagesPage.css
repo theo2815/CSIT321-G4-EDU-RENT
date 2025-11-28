@@ -718,3 +718,32 @@
 .message-bubble:has(img.message-attachment):not(:has(div)) {
     padding: 0.3rem;
 }
+
+.active-filter-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #34495e; /* Dark background */
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem; /* Add spacing below */
+}
+
+.clear-filter-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.4);
+  color: white;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.clear-filter-btn:hover {
+  background-color: rgba(255,255,255,0.2);
+  border-color: white;
+}
