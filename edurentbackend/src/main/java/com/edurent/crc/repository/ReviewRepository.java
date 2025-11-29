@@ -27,11 +27,9 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     @Query("SELECT DISTINCT r FROM ReviewEntity r " + 
            "LEFT JOIN FETCH r.transaction t " +
            "LEFT JOIN FETCH t.listing l " +
-           "LEFT JOIN FETCH l.images " +
            "LEFT JOIN FETCH r.reviewer " +
            "LEFT JOIN FETCH t.buyer " +
            "LEFT JOIN FETCH t.seller " +
-           "LEFT JOIN FETCH r.images " + 
            "WHERE r.reviewedUser.userId = :userId " +
            "ORDER BY r.createdAt DESC")
     List<ReviewEntity> findWithDetailsByReviewedUserId(@Param("userId") Long userId);

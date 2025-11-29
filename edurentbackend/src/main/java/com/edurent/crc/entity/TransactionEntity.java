@@ -47,9 +47,9 @@ public class TransactionEntity {
     @JsonBackReference(value = "seller-transactions")
     private UserEntity seller;
 
-    @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference(value = "transaction-review")
-    private ReviewEntity review;
+    private java.util.List<ReviewEntity> reviews = new java.util.ArrayList<>();
 
     // Constructors
     public TransactionEntity() {
@@ -128,12 +128,12 @@ public class TransactionEntity {
         this.seller = seller;
     }
 
-    public ReviewEntity getReview() {
-        return review;
+    public java.util.List<ReviewEntity> getReviews() {
+        return reviews;
     }
 
-    public void setReview(ReviewEntity review) {
-        this.review = review;
+    public void setReviews(java.util.List<ReviewEntity> reviews) {
+        this.reviews = reviews;
     }
 
     // equals, hashCode, toString (excluding relationships)

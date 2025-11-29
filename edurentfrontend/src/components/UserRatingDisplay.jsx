@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { getUserReviews } from '../services/apiService';
 
-export default function UserRatingDisplay({ userId, align = 'left' }) {
-  const [stats, setStats] = useState({ avg: 0, count: 0, loading: true });
+// Added initialData prop
+export default function UserRatingDisplay({ userId, align = 'left', initialData = null }) {
+  // If initialData is provided, use it and set loading to false immediately
+  const [stats, setStats] = useState({ 
+    avg: initialData ? initialData.avg : 0, 
+    count: initialData ? initialData.count : 0, 
+    loading: !initialData 
+  });
 
   useEffect(() => {
-    if (!userId) return;
+    // If we already have data, or no userId, don't fetch
+    if (!userId || initialData) return;
 
     let isMounted = true;
     const fetchStats = async () => {
@@ -28,8 +35,13 @@ export default function UserRatingDisplay({ userId, align = 'left' }) {
 
     fetchStats();
     return () => { isMounted = false; };
-  }, [userId]);
+  }, [userId, initialData]);
 
+
+  if (stats.loading) {
+    // Optional: Render a tiny spinner or nothing while loading
+    return null; 
+  }
 
   if (stats.count === 0) {
     return <div style={{ fontSize: '0.8rem', color: '#999', fontStyle: 'italic' }}>No reviews yet</div>;

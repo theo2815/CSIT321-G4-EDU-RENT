@@ -1,33 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import Header from '../components/Header'; // Assuming Header component is used
-import ProductDetailModal from '../components/ProductDetailModal';
-import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
+
+// --- Custom Hooks ---
+import useAuth from '../hooks/useAuth'; // Provides authentication state and retryAuth
+import useLikes from '../hooks/useLikes'; // Manages liking logic
+import usePageLogic from '../hooks/usePageLogic'; // Manages shared page logic (Modals, Notifications)
+
+// --- Components ---
+import Header from '../components/Header';
+import defaultAvatar from '../assets/default-avatar.png';
+
+// --- API & Services ---
 import { 
   getCurrentUser, 
-  getListingById,
-  likeListing,     
-  unlikeListing,
-  updateUserProfile
+  updateUserProfile 
 } from '../services/apiService';
 import { supabase } from '../supabaseClient';
 
-// Import CSS
-import '../static/SettingsPage.css'; // Main settings styles
+// --- Styles ---
+import '../static/SettingsPage.css';
 
-// --- NEW Settings Skeleton Component ---
+// --- SKELETON LOADER ---
 function SettingsSkeleton() {
   return (
     <div className="settings-skeleton-container">
-      {/* Skeleton Sidebar */}
-      <aside className="settings-sidebar" style={{ borderRight: '1px solid #eee' }}> {/* Added border for visual separation */}
+      {/* Sidebar Skeleton */}
+      <aside className="settings-sidebar" style={{ borderRight: '1px solid #eee' }}>
         <div className="skeleton skeleton-sidebar-item" style={{ width: '70%' }}></div>
         <div className="skeleton skeleton-sidebar-item" style={{ width: '80%' }}></div>
         <div className="skeleton skeleton-sidebar-item" style={{ width: '60%' }}></div>
         <div className="skeleton skeleton-sidebar-item" style={{ width: '75%' }}></div>
       </aside>
-
-      {/* Skeleton Content Area */}
+      {/* Content Skeleton */}
       <main className="settings-content">
         <div className="skeleton skeleton-settings-card"></div>
       </main>
@@ -35,26 +39,71 @@ function SettingsSkeleton() {
   );
 }
 
+// --- SUB-COMPONENTS (FORMS) ---
 
-// --- Edit Profile Form Component ---
-function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto }) {
+/**
+ * Form for editing public and private profile details.
+ * Includes image upload preview and loading states.
+ */
+function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto, uploading }) {
+  // Helper to determine the correct image source
+const getProfileSrc = () => {
+    // 1. If user just uploaded a new photo, show that immediately
+    if (profileData.profilePictureUrl) return profileData.profilePictureUrl;
+    
+    // 2. If user has an existing photo
+    if (userData?.profilePictureUrl) {
+        // If it's an absolute URL (from Supabase), use it as is
+        if (userData.profilePictureUrl.startsWith('http')) {
+            return userData.profilePictureUrl;
+        }
+        // If it's a relative path (from local uploads), prepend backend URL
+        return `http://localhost:8080${userData.profilePictureUrl}`;
+    }
+    
+    // 3. Fallback
+    return defaultAvatar;
+};
     return (
         <section className="settings-card">
             <h2 className="settings-card-title">Edit Profile</h2>
             <div className="profile-photo-section">
                 <div className="profile-photo-container">
+                  {/* Display the new image immediately if profileData has it, otherwise fallback to userData */}
                   <img
-                    src={userData?.profilePictureUrl || 'https://via.placeholder.com/80'}
+                    src={
+                      profileData.profilePictureUrl 
+                      || (userData?.profilePictureUrl ? `http://localhost:8080${userData.profilePictureUrl}` : null) 
+                      || (userData?.profilePictureUrl && userData.profilePictureUrl.startsWith('http') ? userData.profilePictureUrl : defaultAvatar)
+                    }
                     alt="Profile"
                     className="profile-photo-placeholder"
+                    style={{ objectFit: 'cover' }}
                   />
-                  <button type="button" className="edit-icon-overlay" title="Change photo" onClick={onPickPhoto}>
+                  
+                  {/* Loading Overlay */}
+                  {uploading && (
+                    <div style={{ 
+                        position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' 
+                    }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>...</span>
+                    </div>
+                  )}
+
+                  <button type="button" className="edit-icon-overlay" title="Change photo" onClick={onPickPhoto} disabled={uploading}>
                     ✏️
                   </button>
                 </div>
-                {/* Optional: Add text/button for uploading */}
-                {/* <button className='btn btn-small btn-outline'>Upload Photo</button> */}
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                    <span style={{ fontWeight: '600', fontSize: '0.95rem' }}>Profile Picture</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {uploading ? 'Uploading...' : 'PNG, JPG up to 5MB'}
+                    </span>
+                </div>
             </div>
+
             <form onSubmit={onSave}>
                 {/* Account Details */}
                 <div className="form-section">
@@ -78,6 +127,7 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto 
                         </div>
                     </div>
                 </div>
+
                 {/* Private Details */}
                 <div className="form-section">
                     <span className="form-section-label">Private details</span>
@@ -92,15 +142,21 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto 
                         </div>
                     </div>
                 </div>
+
                 <div className="save-button-container">
-                    <button type="submit" className="btn-save">Save Changes</button>
+                    <button type="submit" className="btn-save" disabled={uploading}>
+                        {uploading ? 'Uploading Image...' : 'Save Changes'}
+                    </button>
                 </div>
             </form>
         </section>
     );
 }
 
-// --- Change Password Form Component ---
+/**
+ * Form for changing user password.
+ * Currently simulates an API call.
+ */
 function ChangePasswordForm() {
     const [passwords, setPasswords] = useState({
         currentPassword: '',
@@ -119,6 +175,7 @@ function ChangePasswordForm() {
         e.preventDefault();
         setMessage({ type: '', content: '' });
 
+        // Basic Validation
         if (passwords.newPassword !== passwords.confirmPassword) {
             setMessage({ type: 'error', content: 'New passwords do not match.' });
             return;
@@ -129,24 +186,18 @@ function ChangePasswordForm() {
         }
 
         setLoading(true);
-        console.log("Changing password:", passwords);
-        // TODO: Implement API call to backend to change password
-        // try {
-        //    await changePasswordApi({ currentPassword: passwords.currentPassword, newPassword: passwords.newPassword });
-        //    setMessage({ type: 'success', content: 'Password changed successfully!' });
-        //    setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' }); // Clear fields
-        // } catch (error) {
-        //    setMessage({ type: 'error', content: error.response?.data?.message || 'Failed to change password.' });
-        // } finally {
-        //    setLoading(false);
-        // }
-
-        // --- Placeholder ---
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-        setMessage({ type: 'success', content: 'Password changed successfully! (Placeholder)' });
-        setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setLoading(false);
-        // --- End Placeholder ---
+        
+        // TODO: Implement actual API call to backend endpoint (e.g., /api/user/change-password)
+        try {
+           // Simulate network delay
+           await new Promise(resolve => setTimeout(resolve, 1000)); 
+           setMessage({ type: 'success', content: 'Password changed successfully! (Placeholder)' });
+           setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (error) {
+           setMessage({ type: 'error', content: 'Failed to change password.' });
+        } finally {
+           setLoading(false);
+        }
     };
 
     return (
@@ -154,27 +205,21 @@ function ChangePasswordForm() {
              <h2 className="settings-card-title">Change password</h2>
              <form onSubmit={handleSubmit} className="password-form-section">
                 <div className="password-input-group">
-                     <div>
-                       <label htmlFor="currentPassword" className="form-label">Current password</label>
-                       <input type="password" id="currentPassword" name="currentPassword" value={passwords.currentPassword} onChange={handleChange} required className="form-input"/>
-                     </div>
-                     <div>
-                       <label htmlFor="newPassword" className="form-label">New password</label>
-                       <input type="password" id="newPassword" name="newPassword" value={passwords.newPassword} onChange={handleChange} required className="form-input"/>
-                     </div>
-                     <div>
-                       <label htmlFor="confirmPassword" className="form-label">Confirm password</label>
-                       <input type="password" id="confirmPassword" name="confirmPassword" value={passwords.confirmPassword} onChange={handleChange} required className="form-input"/>
-                     </div>
+                      <div>
+                        <label htmlFor="currentPassword" className="form-label">Current password</label>
+                        <input type="password" id="currentPassword" name="currentPassword" value={passwords.currentPassword} onChange={handleChange} required className="form-input"/>
+                      </div>
+                      <div>
+                        <label htmlFor="newPassword" className="form-label">New password</label>
+                        <input type="password" id="newPassword" name="newPassword" value={passwords.newPassword} onChange={handleChange} required className="form-input"/>
+                      </div>
+                      <div>
+                        <label htmlFor="confirmPassword" className="form-label">Confirm password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" value={passwords.confirmPassword} onChange={handleChange} required className="form-input"/>
+                      </div>
                 </div>
                 {message.content && (
-                  <div style={{ marginTop: '1.5rem' }}
-                    className={`form-message ${
-                      message.type === 'success'
-                        ? 'form-message-success'
-                        : 'form-message-error'
-                    }`}
-                  >
+                  <div style={{ marginTop: '1.5rem' }} className={`form-message ${message.type === 'success' ? 'form-message-success' : 'form-message-error'}`}>
                     {message.content}
                   </div>
                 )}
@@ -188,9 +233,10 @@ function ChangePasswordForm() {
     );
 }
 
-// --- Notification Settings Form Component ---
+/**
+ * Form for toggling notification preferences.
+ */
 function NotificationSettingsForm() {
-    // State for each toggle - get initial values from user settings later
     const [notifications, setNotifications] = useState({
         all: true,
         likes: true,
@@ -201,18 +247,17 @@ function NotificationSettingsForm() {
     const handleToggle = (key) => {
         setNotifications(prev => {
             const newState = { ...prev, [key]: !prev[key] };
-            // If 'all' is toggled, update others accordingly
+            
+            // Logic: If 'all' is toggled, update sub-items. If sub-items toggle, check if 'all' should change.
             if (key === 'all') {
                 const allValue = newState.all;
                 return { all: allValue, likes: allValue, messages: allValue, email: allValue };
             } else {
-                // If any individual toggle is turned off, turn 'all' off
-                // If all individual toggles are turned on, turn 'all' on
                 const othersOn = newState.likes && newState.messages && newState.email;
                 return { ...newState, all: othersOn };
             }
         });
-        // TODO: Add API call here to save the updated notification settings
+        // TODO: Add API call here to persist notification settings (e.g., /api/user/settings/notifications)
         console.log(`Notification setting changed: ${key}`, !notifications[key]);
     };
 
@@ -220,142 +265,93 @@ function NotificationSettingsForm() {
         <section className="settings-card">
             <h2 className="settings-card-title">Notification</h2>
             <div className="notification-settings-list">
-                {/* All Notification Toggle */}
                 <div className="notification-item">
                     <span className="notification-label">All notification</span>
                     <label className="toggle-switch">
-                        <input
-                            type="checkbox"
-                            checked={notifications.all}
-                            onChange={() => handleToggle('all')}
-                        />
+                        <input type="checkbox" checked={notifications.all} onChange={() => handleToggle('all')} />
                         <span className="toggle-slider"></span>
                     </label>
                 </div>
-                {/* Like Toggle */}
                 <div className="notification-item">
                     <span className="notification-label">Like of my listing</span>
                     <label className="toggle-switch">
-                        <input
-                            type="checkbox"
-                            checked={notifications.likes}
-                            onChange={() => handleToggle('likes')}
-                            disabled={notifications.all} // Disable if 'all' is on
-                        />
+                        <input type="checkbox" checked={notifications.likes} onChange={() => handleToggle('likes')} disabled={notifications.all} />
                         <span className="toggle-slider"></span>
                     </label>
                 </div>
-                {/* Message Toggle */}
                 <div className="notification-item">
                     <span className="notification-label">Message</span>
                     <label className="toggle-switch">
-                        <input
-                            type="checkbox"
-                            checked={notifications.messages}
-                            onChange={() => handleToggle('messages')}
-                             disabled={notifications.all}
-                        />
+                        <input type="checkbox" checked={notifications.messages} onChange={() => handleToggle('messages')} disabled={notifications.all} />
                         <span className="toggle-slider"></span>
                     </label>
                 </div>
-                {/* Email Toggle */}
                 <div className="notification-item">
                     <span className="notification-label">Email</span>
                     <label className="toggle-switch">
-                        <input
-                            type="checkbox"
-                            checked={notifications.email}
-                            onChange={() => handleToggle('email')}
-                             disabled={notifications.all}
-                        />
+                        <input type="checkbox" checked={notifications.email} onChange={() => handleToggle('email')} disabled={notifications.all} />
                         <span className="toggle-slider"></span>
                     </label>
                 </div>
             </div>
-             {/* Optional: Add a Save button if needed, or save on toggle */}
-             {/* <div className="save-button-container">
-               <button className="btn-save">Save Notification Settings</button>
-             </div> */}
         </section>
     );
 }
 
-// --- Theme Settings Form Component ---
+/**
+ * Form for theme selection (Light/Dark).
+ */
 function ThemeSettingsForm() {
-    // State to track the selected theme. Default to 'light'.
-    // In a real app, you'd load the user's preference.
     const [selectedTheme, setSelectedTheme] = useState('light');
 
     const handleThemeSelect = (theme) => {
         setSelectedTheme(theme);
-        // TODO: Apply the theme globally (e.g., add/remove class on <body>)
-        // document.body.classList.remove('theme-light', 'theme-dark');
-        // document.body.classList.add(`theme-${theme}`);
-        // TODO: Add API call to save the user's theme preference
+        // TODO: Save theme preference to LocalStorage or Database
+        // TODO: Apply class to document.body to actually switch theme
         console.log("Theme selected:", theme);
-        alert(`Theme set to ${theme}! (Placeholder - visual change not implemented)`);
+        alert(`Theme set to ${theme}! (Visuals not implemented yet)`);
     };
 
     return (
         <section className="settings-card">
             <h2 className="settings-card-title">Theme</h2>
             <div className="theme-options-container">
-                {/* Light Theme Box */}
-                <div
+                <div 
                     className={`theme-option-box light-theme ${selectedTheme === 'light' ? 'selected' : ''}`}
                     onClick={() => handleThemeSelect('light')}
-                    role="button" // Accessibility
-                    tabIndex={0} // Make it focusable
-                    aria-pressed={selectedTheme === 'light'} // Accessibility
+                    role="button" tabIndex={0}
                 >
-                    {/* Simple visual preview */}
                     <div className="theme-preview-header"></div>
                     <div className="theme-preview-line"></div>
                     <div className="theme-preview-line short"></div>
                     <div className="theme-option-label">Light</div>
                 </div>
 
-                {/* Dark Theme Box */}
-                <div
+                <div 
                     className={`theme-option-box dark-theme ${selectedTheme === 'dark' ? 'selected' : ''}`}
                     onClick={() => handleThemeSelect('dark')}
-                    role="button"
-                    tabIndex={0}
-                     aria-pressed={selectedTheme === 'dark'}
+                    role="button" tabIndex={0}
                 >
-                    {/* Simple visual preview */}
                     <div className="theme-preview-header"></div>
                     <div className="theme-preview-line"></div>
                     <div className="theme-preview-line short"></div>
                     <div className="theme-option-label">Dark</div>
                 </div>
             </div>
-             {/* Optional: Add a Save button if selection doesn't save immediately */}
-             {/* <div className="save-button-container">
-               <button className="btn-save">Save Theme Preference</button>
-             </div> */}
         </section>
     );
 }
 
-
-// --- Main Settings Page Component ---
+// --- MAIN PAGE COMPONENT ---
 export default function SettingsPage() {
+  const { retryAuth } = useAuth(); // Hook to update global auth state after profile changes
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState(null);
-  
-  // Like State (needed for the modal)
-  const [likedListingIds, setLikedListingIds] = useState(new Set());
-  const [likingInProgress, setLikingInProgress] = useState(new Set());
-  const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
-
-  // State only for the Edit Profile form data
+  // --- Profile Form State ---
   const [profileData, setProfileData] = useState({
     fullName: '',
     address: '',
@@ -366,16 +362,28 @@ export default function SettingsPage() {
     profilePictureUrl: '',
   });
 
-  // Determine active setting based on URL
-  const getActiveSetting = () => {
+  // --- File Upload State ---
+  const fileInputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  // --- Modal & Notification Logic (via Custom Hooks) ---
+  const likesHook = useLikes();
+  const { 
+    openModal, 
+    handleNotificationClick, 
+    ModalComponent, // This component handles the rendering of modals
+    isModalOpen // Extracted in case specific logic needs it
+  } = usePageLogic(userData, likesHook);
+
+  // --- Routing: Determine Active Tab ---
+  const activeSetting = (() => {
       if (location.pathname.includes('/password')) return 'change-password';
       if (location.pathname.includes('/notifications')) return 'notification';
       if (location.pathname.includes('/theme')) return 'theme';
-      return 'edit-profile'; // Default
-  };
-  const activeSetting = getActiveSetting();
+      return 'edit-profile';
+  })();
 
-  // Fetch user data on mount
+  // --- Effect: Fetch User Data ---
   useEffect(() => {
     const fetchUserData = async () => {
       setIsLoading(true);
@@ -384,12 +392,13 @@ export default function SettingsPage() {
         const response = await getCurrentUser();
         const fetchedUser = response.data;
         setUserData(fetchedUser);
-        // Pre-fill profile form state
+        
+        // Populate form data
         setProfileData({
           fullName: fetchedUser.fullName || '',
           address: fetchedUser.address || '',
-          schoolName: fetchedUser.school?.name || 'N/A', // Assumes school is populated or available
-          bio: fetchedUser.bio || '', // Assuming bio field exists
+          schoolName: fetchedUser.school?.name || 'N/A',
+          bio: fetchedUser.bio || '',
           email: fetchedUser.email || '',
           phoneNumber: fetchedUser.phoneNumber || '',
           profilePictureUrl: fetchedUser.profilePictureUrl || '',
@@ -397,7 +406,6 @@ export default function SettingsPage() {
       } catch (err) {
         console.error("Failed to fetch user data:", err);
         setError("Could not load user data.");
-        // Redirect to login if token is invalid/missing
         if (err.message === "No authentication token found.") {
            navigate('/login');
         }
@@ -408,35 +416,44 @@ export default function SettingsPage() {
     fetchUserData();
   }, [navigate]);
 
-  // Handler for changes in the Edit Profile form
+  // --- Handlers ---
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileData(prevData => ({ ...prevData, [name]: value }));
   };
 
-  // Handler for saving Edit Profile form
-  // Local hidden file input for picking a new avatar
-  const fileInputRef = React.useRef(null);
-  const [uploading, setUploading] = useState(false);
-
-  const handlePickPhoto = () => fileInputRef.current?.click();
-
+  // Upload Logic: Uploads to Supabase 'profile-images' bucket
   const handleUploadPhoto = async (file) => {
     if (!file || !userData?.userId) return;
     setUploading(true);
     try {
       const ext = file.name.split('.').pop();
-      const path = `profile-pictures/${userData.userId}-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('listing-images').upload(path, file, {
-        cacheControl: '3600', upsert: true
-      });
-      if (error) throw error;
-      const { data } = supabase.storage.from('listing-images').getPublicUrl(path);
+      // Path format: userId/timestamp.ext
+      const path = `${userData.userId}/${Date.now()}.${ext}`;
+
+      // TODO: Ensure a bucket named 'profile-images' exists in your Supabase project
+      const { error: uploadError } = await supabase.storage
+        .from('profile-images') 
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('profile-images')
+        .getPublicUrl(path);
+      
       const publicUrl = data.publicUrl;
+      console.log("New Profile Pic URL:", publicUrl);
+
+      // Update local preview immediately
       setProfileData(prev => ({ ...prev, profilePictureUrl: publicUrl }));
+      
     } catch (err) {
       console.error('Avatar upload failed:', err);
-      alert('Failed to upload profile picture.');
+      alert('Failed to upload profile picture. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -450,10 +467,18 @@ export default function SettingsPage() {
         address: profileData.address,
         bio: profileData.bio,
         phoneNumber: profileData.phoneNumber,
-        profilePictureUrl: profileData.profilePictureUrl
+        profilePictureUrl: profileData.profilePictureUrl // New URL from Supabase
       };
+
+      // 1. Update Backend
       const res = await updateUserProfile(payload);
+      
+      // 2. Update Local State
       setUserData(res.data);
+
+      // 3. Refresh Global Auth Context (Header update)
+      await retryAuth();
+
       alert('Profile updated successfully!');
     } catch (err) {
       console.error('Failed to update profile:', err);
@@ -461,141 +486,41 @@ export default function SettingsPage() {
     }
   };
 
-  // Handler for logout button in Header
   const handleLogout = () => {
     localStorage.removeItem('eduRentUserData');
     navigate('/login');
   };
 
-  // --- NEW Universal Notification Click Handler ---
-  const handleNotificationClick = async (notification) => {
-    console.log("Notification clicked:", notification);
-
-    // 1. Extract the listing ID from the notification's URL
-    const urlParts = notification.linkUrl?.split('/');
-    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
-
-    if (!listingId) {
-      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
-      alert("Could not open this notification: Invalid link.");
-      return;
-    }
-
-    closeModal(); // Close any modal that's already open
-    setIsNotificationLoading(true); // <-- SHOW THE SKELETON
-
-    console.log(`Fetching details for listingId: ${listingId}`);
-
-    try {
-      // 2. Fetch that specific listing's data from the API
-      // We must have `getListingById` imported from apiService.js
-      const response = await getListingById(listingId); 
-
-      if (response.data) {
-        // 3. We found the listing! Call openModal with the data.
-        openModal(response.data);
-      } else {
-        throw new Error(`Listing ${listingId} not found.`);
-      }
-
-    } catch (err) {
-      console.error("Failed to fetch listing for notification:", err);
-      alert(`Could not load item: ${err.message}. It may have been deleted.`);
-      // As a fallback, navigate to the main browse page
-      navigate('/browse');
-    } finally {
-      setIsNotificationLoading(false); // <-- HIDE THE SKELETON
-    }
-  };
-  // --- End new function ---
-
-  // Modal Handlers
-  const openModal = (listing) => {
-    setSelectedListing(listing);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setSelectedListing(null);
-    setIsModalOpen(false);
-  };
-
-  // Like Handler (copied from Dashboard/Manage)
-  const handleLikeToggle = async (listingId) => {
-    if (likingInProgress.has(listingId)) return;
-    setLikingInProgress(prev => new Set(prev).add(listingId));
-    
-    const newLikedIds = new Set(likedListingIds);
-    const isCurrentlyLiked = likedListingIds.has(listingId);
-    
-    if (isCurrentlyLiked) {
-      newLikedIds.delete(listingId);
-    } else {
-      newLikedIds.add(listingId);
-    }
-    setLikedListingIds(newLikedIds);
-    
-    try {
-      if (isCurrentlyLiked) {
-        await unlikeListing(listingId);
-      } else {
-        await likeListing(listingId);
-      }
-    } catch (err) {
-      console.error("Failed to toggle like:", err);
-      // Revert state
-      setLikedListingIds(prevIds => {
-          const revertedIds = new Set(prevIds);
-          if (isCurrentlyLiked) {
-            revertedIds.add(listingId);
-          } else {
-            revertedIds.delete(listingId);
-          }
-          return revertedIds;
-      });
-    } finally {
-      setLikingInProgress(prev => {
-        const next = new Set(prev);
-        next.delete(listingId);
-        return next;
-      });
-    }
-  };
-
-  // Render loading state
+  // --- Render ---
   if (isLoading) {
      return (
-        // Use profile-page class for consistent header height/styles if needed
         <div className="profile-page">
-            <Header userName="" onLogout={handleLogout} />
-            {/* Render the skeleton component */}
-            <SettingsSkeleton />
+           <Header userName="" onLogout={handleLogout} />
+           <SettingsSkeleton />
         </div>
      );
   }
 
-  // Render error state
    if (error) {
      return (
-        <div className="settings-page">
-            <Header userName="" onLogout={handleLogout} />
-            <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
+        <div className="profile-page">
+           <Header userName="" onLogout={handleLogout} />
+           <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
         </div>
      );
   }
 
-  // Main render
   return (
-    // Reuse profile-page class for header/overall page structure if desired
     <div className="profile-page">
+      {/* Header with Notification Handler passed from hook */}
       <Header userName={userData?.fullName?.split(' ')[0]} 
-      profilePictureUrl={userData?.profilePictureUrl}
-      onLogout={handleLogout}
-      onNotificationClick={handleNotificationClick} 
+        profilePictureUrl={userData?.profilePictureUrl}
+        onLogout={handleLogout}
+        onNotificationClick={handleNotificationClick} 
       />
 
-      <div className="settings-page"> {/* Container for sidebar + content */}
-        {/* Left Sidebar */}
+      <div className="settings-page">
+        {/* Sidebar Navigation */}
         <aside className="settings-sidebar">
           <nav>
             <ul className="settings-nav-list">
@@ -615,47 +540,39 @@ export default function SettingsPage() {
           </nav>
         </aside>
 
-        {/* Main Content Area - Render based on activeSetting */}
+        {/* Dynamic Content Area */}
         <main className="settings-content">
           {activeSetting === 'edit-profile' && (
             <EditProfileForm
                 userData={userData}
                 profileData={profileData}
                 onChange={handleProfileChange}
-              onSave={handleProfileSave}
-              onPickPhoto={() => fileInputRef.current?.click()}
+                onSave={handleProfileSave}
+                onPickPhoto={() => fileInputRef.current?.click()}
+                uploading={uploading}
             />
           )}
-          {activeSetting === 'change-password' && (
-            <ChangePasswordForm />
-          )}
-          {activeSetting === 'notification' && (
-            <NotificationSettingsForm />
-          )}
-          {activeSetting === 'theme' && (
-            <ThemeSettingsForm />
-          )}
+          {activeSetting === 'change-password' && <ChangePasswordForm />}
+          {activeSetting === 'notification' && <NotificationSettingsForm />}
+          {activeSetting === 'theme' && <ThemeSettingsForm />}
         </main>
       </div>
-      {isModalOpen && selectedListing && (
-        <ProductDetailModal
-          listing={selectedListing}
-          onClose={closeModal}
-          currentUserId={userData?.userId} 
-          isLiked={likedListingIds.has(selectedListing.listingId)}
-          onLikeClick={handleLikeToggle}
-          isLiking={likingInProgress.has(selectedListing.listingId)}
-        />
-      )}
-      {isNotificationLoading && (
-        <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
-      )}
-      {/* Hidden file input for avatar uploads */}
+
+      {/* Shared Modals Logic (Rendered via Hook Component) */}
+      <ModalComponent />
+
+      {/* Hidden File Input for Avatar Upload */}
       <input
         type="file"
         accept="image/*"
         ref={fileInputRef}
-        onChange={(e) => handleUploadPhoto(e.target.files && e.target.files[0])}
+        onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+                handleUploadPhoto(e.target.files[0]);
+            }
+            // Reset value to allow re-selection of the same file
+            e.target.value = '';
+        }}
         style={{ display: 'none' }}
       />
     </div>

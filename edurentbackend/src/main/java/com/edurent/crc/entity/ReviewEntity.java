@@ -43,7 +43,7 @@ public class ReviewEntity {
     private UserEntity reviewedUser;
 
     // --- NEW RELATIONSHIP ---
-    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @JsonManagedReference(value = "review-images")
     private List<ReviewImageEntity> images = new ArrayList<>();
 

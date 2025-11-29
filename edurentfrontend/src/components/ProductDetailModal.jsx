@@ -26,7 +26,7 @@ const getSellerInfo = (listingUser) => {
   };
 };
 
-export default function ProductDetailModal({ listing, onClose, currentUserId, isLiked, onLikeClick, isLiking }) {
+export default function ProductDetailModal({ listing, onClose, currentUserId, isLiked, onLikeClick, isLiking, sellerRatingInitialData}) {
   const navigate = useNavigate();
   
   // --- UI State Management ---
@@ -224,14 +224,19 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
               <>
                 <div className="seller-info-header">
                   <img
-                    src={seller.avatarUrl ? `http://localhost:8080${seller.avatarUrl}` : defaultAvatar}
-                    alt="My Avatar"
+                    src={
+                      seller.avatarUrl 
+                        ? (seller.avatarUrl.startsWith('http') ? seller.avatarUrl : `http://localhost:8080${seller.avatarUrl}`)
+                        : defaultAvatar
+                    }
+                    alt="Seller Avatar"
                     className="seller-avatar"
                     onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}
                   />
                   <div className="seller-details">
                     <div className="seller-username">{seller.username} (You)</div>
-                    <UserRatingDisplay userId={currentUserId} />
+                    <UserRatingDisplay userId={currentUserId} initialData={sellerRatingInitialData} />
+                
                   </div>
                 </div>
 
@@ -278,18 +283,25 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
               <>
                 <div className="seller-info-header">
                   <img
-                    src={seller.avatarUrl ? `http://localhost:8080${seller.avatarUrl}` : defaultAvatar}
-                    alt={`${seller.username}'s avatar`}
+                    src={
+                      seller.avatarUrl 
+                        ? (seller.avatarUrl.startsWith('http') ? seller.avatarUrl : `http://localhost:8080${seller.avatarUrl}`)
+                        : defaultAvatar
+                    }
+                    alt="Seller Avatar"
                     className="seller-avatar"
                     onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}
-                />
+                  />
                   <div className="seller-details">
                     <div className="seller-username">
                         <Link to={`/profile/${seller.id}`} onClick={onClose} className="seller-link">
                             {seller.username}
                         </Link>
                     </div>
-                      <UserRatingDisplay userId={seller.id} />
+                      <UserRatingDisplay 
+                          userId={seller.id} 
+                          initialData={sellerRatingInitialData} 
+                      />
                   </div>
                 </div>
 

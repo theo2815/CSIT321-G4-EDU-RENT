@@ -94,6 +94,11 @@ public class ReviewService {
 
     @Transactional
     public ReviewEntity createReview(ReviewEntity review, Long transactionId, Long reviewerId, List<MultipartFile> images) throws IOException {
+        boolean exists = reviewRepository.existsByTransaction_TransactionIdAndReviewer_UserId(transactionId, reviewerId);
+        if (exists) {
+            throw new IllegalStateException("You have already reviewed this transaction.");
+        }
+        
         TransactionEntity transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction not found: " + transactionId));
         

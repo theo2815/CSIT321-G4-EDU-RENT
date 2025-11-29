@@ -1,41 +1,43 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
-// Libraries for handling real-time WebSocket connections (Live Chat)
+// Real-time communication libraries
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 
-// Custom UI Components
+// Custom Hooks
+import usePageLogic from '../hooks/usePageLogic';
+import useChatScroll from '../hooks/useChatScroll';
+
+// Components
 import Header from '../components/Header';
-import ProductDetailModal from '../components/ProductDetailModal';
-import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 import ListingCard from '../components/ListingCard'; 
-import ReviewModal from '../components/ReviewModal'; // Merged: Import for the review functionality
+import ReviewModal from '../components/ReviewModal'; 
 import UserRatingDisplay from '../components/UserRatingDisplay';
 
-// API Service functions for backend communication
+// API Services
 import { 
   getCurrentUser, 
-  getListingById,
-  likeListing,        
-  unlikeListing,
-  getConversationsForUser, 
   getMessages,                
   sendMessage,                
+  getConversationsForUser, 
   getLikedListings,
+  likeListing,        
+  unlikeListing,
   deleteConversation, 
   archiveConversation,
   markConversationAsRead,
   markConversationAsUnread,
-  uploadMessageImage
+  uploadMessageImage,
+  getUserReviews,
+  getListingById // Added missing import based on usage
 } from '../services/apiService';
 
 // Styles and Assets
 import '../static/MessagesPage.css';
 import defaultAvatar from '../assets/default-avatar.png';
 
-// --- Icon Definitions ---
-// Functional components returning SVG icons to keep the main JSX clean
+// --- Icon Components (Kept as is) ---
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -69,8 +71,7 @@ const Icons = {
   )
 };
 
-// --- Skeleton Components ---
-// These are used to display a loading state placeholder while data is being fetched
+// --- Skeleton Loaders (Kept as is) ---
 function ChatWindowSkeleton() {
   return (
     <div className="chat-skeleton-loader">
@@ -108,7 +109,7 @@ function MessagesSkeleton() {
   );
 }
 
-// Helper: Converts ISO date strings to simple 12-hour time format (e.g., 2:30 PM)
+// Helper: Time Formatting
 const formatMessageTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -116,46 +117,40 @@ const formatMessageTime = (dateString) => {
 };
 
 export default function MessagesPage() {
-  // --- User and Data State ---
+  // --- Core Data State ---
   const [userData, setUserData] = useState(null);
   const [userName, setUserName] = useState('');
   const [conversations, setConversations] = useState([]);
-  const [filteredConversations, setFilteredConversations] = useState([]);
+  
+  // filteredConversations is now calculated via useMemo instead of state+effect
+  
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]); 
   
-  // --- Filtering and Search State ---
+  // --- UI/Search State ---
   const [searchQuery, setSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Messages');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
-  // This state is used when a user clicks "Contact Seller" or "View Messages" for a specific item
   const [listingFilterId, setListingFilterId] = useState(null); 
+  
   const location = useLocation(); 
+  const navigate = useNavigate();
 
-  // --- UI Visibility State ---
-  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false); // Dropdown inside the chat window
-  const [activeListMenuId, setActiveListMenuId] = useState(null); // Dropdown on the sidebar list items
-  const [isChatVisible, setIsChatVisible] = useState(false); // Controls mobile view switching
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false); // Merged: Controls visibility of Review Modal
+  // --- Visibility Controls ---
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
+  const [activeListMenuId, setActiveListMenuId] = useState(null);
+  const [isChatVisible, setIsChatVisible] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
-  // --- Loading and Error State ---
+  // --- Async Loading State ---
   const [isLoading, setIsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false); 
   const [error, setError] = useState(null);
 
-  // --- Modal and Listing Interaction State ---
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState(null);
-  const [likedListingIds, setLikedListingIds] = useState(new Set());
-  const [likingInProgress, setLikingInProgress] = useState(new Set());
-  const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
-
-  // --- Refs for DOM Access ---
-  const navigate = useNavigate();
-  const chatContentRef = useRef(null); // Used for auto-scrolling the chat
-  const textareaRef = useRef(null); // Used to auto-resize the input box
-  const fileInputRef = useRef(null); // Used to trigger hidden file input
+  // --- DOM Refs ---
+  const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
   
   // --- WebSocket Refs ---
   const stompClientRef = useRef(null);
@@ -165,13 +160,68 @@ export default function MessagesPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  
+  // --- 1. IMPLEMENTED CUSTOM SCROLL HOOK ---
+  // This hook handles chatContentRef, showScrollBtn, scrollToBottom logic
+  const { 
+    chatContentRef, 
+    showScrollBtn, 
+    scrollToBottom, 
+    handleScroll: onScrollInternal 
+  } = useChatScroll(messages);
 
-  // --- Scroll State ---
-  const [showScrollBtn, setShowScrollBtn] = useState(false);
-  const isNearBottomRef = useRef(true); 
-  const lastMessageIdRef = useRef(null); 
+  // Wrapper to handle both infinite scroll AND the custom hook logic
+  const handleScroll = (e) => {
+      onScrollInternal(e); // Let the hook check if we are near bottom
+      handleInfiniteScroll(e); // Check if we need to load old messages
+  };
+  
+  const [chatUserRating, setChatUserRating] = useState(null);
 
-  // Helper: Returns readable date labels like "Today", "Yesterday"
+  // --- Likes State & Logic ---
+  const [likedListingIds, setLikedListingIds] = useState(new Set());
+  const [likingInProgress, setLikingInProgress] = useState(new Set());
+
+  const handleLikeToggle = async (listingId) => {
+    if (likingInProgress.has(listingId)) return;
+    setLikingInProgress(prev => new Set(prev).add(listingId));
+    const newLikedIds = new Set(likedListingIds);
+    const isCurrentlyLiked = likedListingIds.has(listingId);
+    
+    if (isCurrentlyLiked) newLikedIds.delete(listingId); 
+    else newLikedIds.add(listingId);
+    
+    setLikedListingIds(newLikedIds);
+
+    try { 
+      if (isCurrentlyLiked) await unlikeListing(listingId); 
+      else await likeListing(listingId); 
+    } catch (err) {
+      setLikedListingIds(prevIds => {
+          const revertedIds = new Set(prevIds);
+          if (isCurrentlyLiked) revertedIds.add(listingId); 
+          else revertedIds.delete(listingId);
+          return revertedIds;
+      });
+    } finally {
+      setLikingInProgress(prev => { const next = new Set(prev); next.delete(listingId); return next; });
+    }
+  };
+
+  const likesHook = {
+    likedListingIds,
+    likingInProgress,
+    handleLikeToggle
+  };
+
+  // --- Shared Page Logic Hook ---
+  const { 
+    openModal, 
+    handleNotificationClick, 
+    ModalComponent 
+  } = usePageLogic(userData, likesHook);
+
+  // Helper: Date Labels
   const getDateLabel = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
@@ -185,8 +235,7 @@ export default function MessagesPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // --- Effect: Handle Deep Linking / Specific Item Filtering ---
-  // Checks if the user navigated here with instructions to filter by a specific product
+  // --- Deep Linking Effect ---
   useEffect(() => {
       if (location.state?.filterByListingId) {
           const targetId = location.state.filterByListingId;
@@ -201,17 +250,15 @@ export default function MessagesPage() {
       navigate(location.pathname, { replace: true, state: {} });
   };
 
-  // --- Effect: Central Filtering Logic ---
-  // Filters conversations based on Listing ID (priority), Status (Buying/Selling), or Search Query
-  useEffect(() => {
-    if (!userData) return;
+  // --- 2. OPTIMIZATION: useMemo for Filtering ---
+  // Replaces the useState/useEffect combo for filteredConversations
+  const filteredConversations = useMemo(() => {
+    if (!userData) return [];
     let result = conversations;
 
     if (listingFilterId) {
-        // Priority: Only show chats for the specific item passed in navigation
         result = result.filter(c => c.product && c.product.id === listingFilterId);
     } else {
-        // Standard filters
         if (activeFilter === 'Selling') {
             result = result.filter(c => c.product && c.product.ownerId === userData.userId);
         } else if (activeFilter === 'Buying') {
@@ -224,7 +271,7 @@ export default function MessagesPage() {
             result = result.filter(c => !c.isArchived); 
         }
     }
-    // Search filter applies on top of previous filters
+
     if (searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase();
         result = result.filter(conv =>
@@ -232,19 +279,17 @@ export default function MessagesPage() {
           (conv.product && conv.product.title.toLowerCase().includes(query))
         );
     }
-    setFilteredConversations(result);
+    return result;
   }, [activeFilter, searchQuery, conversations, userData, listingFilterId]);
 
-  // --- Handler: Image Upload ---
+  // --- Image Upload Handler ---
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file || !selectedConversation) return;
     try {
-      // Upload image to server first
       const response = await uploadMessageImage(selectedConversation.id, file);
       const imageUrl = response.data.url;
 
-      // Optimistically update UI
       const tempTimestamp = new Date();
       const optimisticMsg = {
           id: Date.now(),
@@ -256,7 +301,6 @@ export default function MessagesPage() {
       };
       setMessages(prev => [...prev, optimisticMsg]);
 
-      // Send the message payload with the image URL
       await sendMessage('', selectedConversation.id, userData.userId, imageUrl);
     } catch (error) {
       console.error("Failed to send image", error);
@@ -266,39 +310,12 @@ export default function MessagesPage() {
     }
   };
 
-  // --- Effect: Auto-Scroll Logic ---
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg.id !== lastMessageIdRef.current) {
-        lastMessageIdRef.current = lastMsg.id;
-        // Scroll to bottom only if user is already near bottom, otherwise show "New Message" button
-        if (isNearBottomRef.current) {
-            if (chatContentRef.current) {
-                chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight;
-            }
-        } else {
-            setShowScrollBtn(true);
-        }
-    }
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    if (chatContentRef.current) {
-      chatContentRef.current.scrollTo({
-        top: chatContentRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
-      setShowScrollBtn(false);
-    }
-  };
-
   // --- Data Fetching ---
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Fetch User
+      // 1. Fetch User Data
       const userResponse = await getCurrentUser();
       const currentUser = userResponse.data;
       if (!currentUser) throw new Error("No user data.");
@@ -307,11 +324,11 @@ export default function MessagesPage() {
       setUserName(currentUser.fullName.split(' ')[0]);
       const userId = currentUser.userId;
 
-      // 2. Fetch Conversations
+      // 2. Fetch User Conversations
       const convResponse = await getConversationsForUser(userId);
       const convs = convResponse.data || [];
 
-      // Process raw data into UI-friendly structure
+      // Process conversation data for UI
       const processedConvs = convs.map(conv => {
           if (!conv.participants) return null;
           const otherParticipant = conv.participants.find(p => {
@@ -352,8 +369,6 @@ export default function MessagesPage() {
               lastMessageDate: conv.lastMessageTimestamp || conv.listing?.createdAt,
               isUnread: conv.isUnread || false,
               isArchived: conv.isArchivedForCurrentUser || false,
-              
-              // Merged: Add transaction and review status fields
               transactionId: conv.transactionId || null,
               hasReviewed: conv.hasReviewed || false 
           };
@@ -366,8 +381,8 @@ export default function MessagesPage() {
       const passedConvId = location.state?.openConversationId;
       if (passedConvId) {
           let targetConv = processedConvs.find(c => c.id === passedConvId);
-          // If the conversation doesn't exist yet, manually create a temporary one
           if (!targetConv && passedConv) {
+              // Create temporary conversation object
               const participants = passedConv.participants || [];
               const otherParticipantObj = participants.find(p => {
                   const pId = p.user?.userId || p.userId; 
@@ -402,7 +417,7 @@ export default function MessagesPage() {
           }
       }
 
-      // 4. Fetch Liked Listings (for UI hearts)
+      // 4. Fetch Liked Listings
       const likesResponse = await getLikedListings();
       const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
       setLikedListingIds(likedIds);
@@ -418,10 +433,10 @@ export default function MessagesPage() {
     }
   }, [navigate, location.state]);
 
-  // Initial Fetch Effect
+  // Initial Fetch
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // --- WebSocket Setup ---
+  // --- WebSocket Connection ---
   useEffect(() => {
     if (userData) {
       const socket = new SockJS('http://localhost:8080/ws');
@@ -429,7 +444,7 @@ export default function MessagesPage() {
 
       stompClient.connect({}, () => {
         stompClientRef.current = stompClient;
-        // Subscribe to general user updates (sidebar list)
+        // Subscribe to sidebar updates
         stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
           const payload = JSON.parse(message.body);
           setConversations(prevConvs => {
@@ -456,11 +471,7 @@ export default function MessagesPage() {
     }
   }, [userData, fetchData]);
 
-  // --- Interaction Handlers ---
-
-  const handleSearchChange = (e) => setSearchQuery(e.target.value);
-
-  // Called when a user clicks a conversation from the sidebar
+  // --- Conversation Selection ---
   const handleSelectConversation = async (conversation) => {
     if (activeListMenuId) return; 
     setIsMessagesLoading(true);
@@ -470,13 +481,14 @@ export default function MessagesPage() {
     setPage(0);       
     setHasMore(true);
     setIsChatMenuOpen(false);
+    setChatUserRating(null);
 
-    // Mark as read locally immediately
+    // Mark locally as read
     setConversations(prev => prev.map(c => 
       c.id === conversation.id ? { ...c, isUnread: false } : c
     ));
 
-    // Subscribe to the specific conversation channel
+    // WebSocket subscription for specific chat
     if (stompClientRef.current && stompClientRef.current.connected) {
         if (conversationSubscriptionRef.current) conversationSubscriptionRef.current.unsubscribe();
         conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${conversation.id}`, (message) => {
@@ -491,10 +503,10 @@ export default function MessagesPage() {
         });
     }
 
-    // Load message history from API
     try {
-      const [messagesRes] = await Promise.all([
+      const [messagesRes, ratingRes] = await Promise.all([
           getMessages(conversation.id, 0),
+          getUserReviews(conversation.otherUser.id),
           markConversationAsRead(conversation.id)
       ]);
 
@@ -504,6 +516,14 @@ export default function MessagesPage() {
       }));
       setMessages(mappedMessages);
       if (messagesRes.data.length < 20) setHasMore(false);
+
+      const reviews = ratingRes.data || [];
+      const count = reviews.length;
+      const avg = count > 0 
+        ? (reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / count).toFixed(1)
+        : 0;
+      setChatUserRating({ avg, count });
+
     } catch (err) {
       console.error("Error loading conversation:", err);
     } finally {
@@ -511,7 +531,9 @@ export default function MessagesPage() {
     }
   };
 
-  // Sidebar context menu handlers
+  const handleSearchChange = (e) => setSearchQuery(e.target.value);
+
+  // --- Sidebar Menu Actions ---
   const handleListMenuToggle = (e, convId) => { e.stopPropagation(); setActiveListMenuId(prev => prev === convId ? null : convId); };
   
   const handleArchiveListAction = async (e, conv) => {
@@ -535,7 +557,7 @@ export default function MessagesPage() {
     try { if (newStatus) await markConversationAsUnread(conv.id); else await markConversationAsRead(conv.id); } catch (err) { console.error("Toggle failed", err); fetchData(); }
   };
 
-  // Chat Interface Handlers
+  // --- Chat Actions ---
   const handleBackToList = () => {
     setIsChatVisible(false);
     if (conversationSubscriptionRef.current) { conversationSubscriptionRef.current.unsubscribe(); conversationSubscriptionRef.current = null; }
@@ -574,16 +596,13 @@ export default function MessagesPage() {
       try { await sendMessage(textToSend, selectedConversation.id, userData.userId); } catch (error) { console.error("Failed to send", error); alert("Failed."); }
   };
 
-  // Infinite Scroll Handler
-  const handleScroll = async (e) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    isNearBottomRef.current = distanceFromBottom < 100;
-    if (isNearBottomRef.current) setShowScrollBtn(false);
-
+  // --- Infinite Scroll Handler ---
+  const handleInfiniteScroll = async (e) => {
+    const { scrollTop } = e.currentTarget;
+    
     if (scrollTop === 0 && hasMore && !isFetchingMore) {
       setIsFetchingMore(true);
-      const prevHeight = scrollHeight; 
+      const prevHeight = e.currentTarget.scrollHeight; 
       const nextPage = page + 1;
       try {
         const response = await getMessages(selectedConversation.id, nextPage);
@@ -604,18 +623,6 @@ export default function MessagesPage() {
 
   const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/login'); };
   
-  // --- General Modal Handlers ---
-  const handleNotificationClick = async (notification) => {
-    const urlParts = notification.linkUrl?.split('/');
-    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
-    if (!listingId) return;
-    closeModal(); setIsNotificationLoading(true);
-    try {
-      const response = await getListingById(listingId); 
-      if (response.data) { setSelectedListing(response.data); setIsModalOpen(true); }
-    } catch (err) { navigate('/browse'); } finally { setIsNotificationLoading(false); }
-  };
-
   const handleArchiveChat = async () => {
       if (!selectedConversation) return;
       const convId = selectedConversation.id;
@@ -633,40 +640,7 @@ export default function MessagesPage() {
       try { await deleteConversation(convId); } catch (err) { fetchData(); }
   };
 
-  const openModal = async (listingSummary) => {
-    const listingId = listingSummary.id || listingSummary.listingId;
-    if (!listingId) return;
-    setIsNotificationLoading(true);
-    try {
-      const response = await getListingById(listingId);
-      if (response.data) { setSelectedListing(response.data); setIsModalOpen(true); }
-    } catch (err) { console.error("Error", err); } finally { setIsNotificationLoading(false); }
-  };
-
-  const closeModal = () => { setIsModalOpen(false); setSelectedListing(null); };
-
-  const handleLikeToggle = async (listingId) => {
-    if (likingInProgress.has(listingId)) return;
-    setLikingInProgress(prev => new Set(prev).add(listingId));
-    const newLikedIds = new Set(likedListingIds);
-    const isCurrentlyLiked = likedListingIds.has(listingId);
-    if (isCurrentlyLiked) newLikedIds.delete(listingId); else newLikedIds.add(listingId);
-    setLikedListingIds(newLikedIds);
-    try { if (isCurrentlyLiked) await unlikeListing(listingId); else await likeListing(listingId); } catch (err) {
-      setLikedListingIds(prevIds => {
-          const revertedIds = new Set(prevIds);
-          if (isCurrentlyLiked) revertedIds.add(listingId); else revertedIds.delete(listingId);
-          return revertedIds;
-      });
-    } finally {
-      setLikingInProgress(prev => { const next = new Set(prev); next.delete(listingId); return next; });
-    }
-  };
-
-  // --- Merged: Review Handler ---
-  // Callback when a review is successfully submitted via the Modal
   const handleReviewSuccess = () => {
-      // Update local state to show the "Reviewed" checkmark immediately
       setConversations(prev => prev.map(c => 
           c.id === selectedConversation.id ? { ...c, hasReviewed: true } : c
       ));
@@ -687,14 +661,12 @@ export default function MessagesPage() {
 
   return (
     <div className="profile-page">
-      {/* Header with z-index control to stay above skeletons but below modals */}
-      <div style={{ position: 'relative', zIndex: (isModalOpen || isNotificationLoading) ? 1 : 2000 }}>
+      {/* Header */}
         <Header userName={userName} 
           profilePictureUrl={userData?.profilePictureUrl}
           onLogout={handleLogout} 
-          onNotificationClick={handleNotificationClick}
+          onNotificationClick={handleNotificationClick} 
         />
-      </div>
 
       <div className="messages-page-container">
         
@@ -702,13 +674,10 @@ export default function MessagesPage() {
         <aside className={`conversations-sidebar ${isChatVisible ? 'mobile-hidden' : ''}`}>
           <div className="conversations-header">
             
-            {/* Show "Clear Filter" banner if looking at a specific item's messages */}
             {listingFilterId ? (
                 <div className="active-filter-banner">
                     <span>Filtering by Item</span>
-                    <button onClick={clearListingFilter} className="clear-filter-btn">
-                        ✕ Clear
-                    </button>
+                    <button onClick={clearListingFilter} className="clear-filter-btn">✕ Clear</button>
                 </div>
             ) : (
                 <div className="message-filter-container">
@@ -753,12 +722,14 @@ export default function MessagesPage() {
             className={`conversation-list-item ${selectedConversation?.id === conv.id ? 'active' : ''} ${conv.isUnread ? 'unread' : ''} ${activeListMenuId === conv.id ? 'menu-active' : ''}`}
             onClick={() => handleSelectConversation(conv)}
             style={{ zIndex: activeListMenuId === conv.id ? 1000 : 1, position: 'relative' }}
-            role="button"
-            tabIndex={0}
           >
               <div className="conversation-avatar">
                   <img 
-                    src={conv.otherUser.avatar ? `http://localhost:8080${conv.otherUser.avatar}` : defaultAvatar} 
+                    src={
+                      conv.otherUser.avatar 
+                        ? (conv.otherUser.avatar.startsWith('http') ? conv.otherUser.avatar : `http://localhost:8080${conv.otherUser.avatar}`)
+                        : defaultAvatar
+                    }
                     alt={conv.otherUser.name}
                     className="user-avatar"
                     style={{width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover'}}
@@ -841,25 +812,21 @@ export default function MessagesPage() {
                   <Icons.BackArrow />
                 </button>
                 <div className="chat-user-info" style={{ flexDirection: 'column', justifyContent: 'center' }}>
-                {/* 1. Clickable Name */}
                 <Link 
                   to={`/profile/${selectedConversation.otherUser.id}`} 
                   className="user-name" 
-                  style={{ 
-                    textDecoration: 'none', 
-                    color: 'var(--text-color)', 
-                    cursor: 'pointer',
-                    lineHeight: '1.2'
-                  }}
+                  style={{ textDecoration: 'none', color: 'var(--text-color)', cursor: 'pointer', lineHeight: '1.2' }}
                 >
                   {selectedConversation.otherUser.name}
                 </Link>
 
-                {/* 2. User Reviews */}
-                <UserRatingDisplay userId={selectedConversation.otherUser.id} />
+                <UserRatingDisplay 
+                    userId={selectedConversation.otherUser.id} 
+                    initialData={chatUserRating}
+                />
               </div>
                 
-                {/* Embedded Product Card (Clickable) */}
+                {/* Embedded Product Card */}
                 {selectedConversation.product && (
                   <div className="chat-listing-card-wrapper" style={{ marginLeft: 'auto', marginRight: '10px' }}>
                       <ListingCard
@@ -874,8 +841,7 @@ export default function MessagesPage() {
                   </div>
                 )}
 
-                {/* --- Merged: Review Button Logic --- */}
-                {/* Only show "Write Review" if a transaction exists and hasn't been reviewed yet */}
+                {/* Review Action Buttons */}
                 {selectedConversation.transactionId && !selectedConversation.hasReviewed && (
                     <button 
                         className="btn btn-primary-accent btn-small"
@@ -885,14 +851,13 @@ export default function MessagesPage() {
                         Write Review
                     </button>
                 )}
-                {/* Show badge if already reviewed */}
                 {selectedConversation.transactionId && selectedConversation.hasReviewed && (
                     <span style={{ marginRight: '10px', fontSize: '0.8rem', color: '#2ecc71', fontWeight: 'bold' }}>
                         ✓ Reviewed
                     </span>
                 )}
 
-                {/* Top Right Chat Actions (Archive/Delete) */}
+                {/* Top Right Chat Actions */}
                 <div style={{ marginLeft: '0', position: 'relative' }}>
                       <button 
                           className="icon-button" 
@@ -914,7 +879,7 @@ export default function MessagesPage() {
                 </div>
               </div>
 
-              {/* Chat History Messages */}
+              {/* Chat History */}
               <div className="chat-content" ref={chatContentRef} onScroll={handleScroll}>
                 {isFetchingMore && <div style={{ textAlign: 'center', padding: '10px', fontSize: '0.8rem', color: '#888' }}>Loading history...</div>}
                 
@@ -996,22 +961,11 @@ export default function MessagesPage() {
       </div>
       
       {/* --- Modals Section --- */}
-      
-      {/* Listing Detail Modal */}
-      {isModalOpen && selectedListing && (
-        <div style={{ position: 'relative', zIndex: 3000 }}>
-            <ProductDetailModal
-              listing={selectedListing}
-              onClose={closeModal}
-              currentUserId={userData?.userId}
-              isLiked={likedListingIds.has(selectedListing.listingId)}
-              onLikeClick={handleLikeToggle}
-              isLiking={likingInProgress.has(selectedListing.listingId)}
-            />
-        </div>
-      )}
 
-      {/* Merged: Review Modal */}
+      {/* Shared Modal Component */}
+      <ModalComponent />
+
+      {/* Review Modal */}
       {isReviewModalOpen && selectedConversation && (
         <div style={{ position: 'relative', zIndex: 3000 }}>
           <ReviewModal 
@@ -1024,10 +978,6 @@ export default function MessagesPage() {
         </div>
       )}
 
-      {/* Loading Skeleton for Notifications */}
-      {isNotificationLoading && (
-        <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
-      )}
     </div>
   );
 }

@@ -477,7 +477,11 @@ export default function ProfilePage() {
         <section className="content-card profile-card">
           <div className="profile-card-left">
              <img 
-               src={profileUser.profilePictureUrl ? `http://localhost:8080${profileUser.profilePictureUrl}` : defaultAvatar} 
+               src={
+                 profileUser.profilePictureUrl 
+                   ? (profileUser.profilePictureUrl.startsWith('http') ? profileUser.profilePictureUrl : `http://localhost:8080${profileUser.profilePictureUrl}`)
+                   : defaultAvatar
+               }
                alt={`${profileUser.fullName}'s profile`} 
                className="profile-picture"
                onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}

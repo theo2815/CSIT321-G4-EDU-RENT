@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useLikes from './useLikes'; // Import our existing useLikes hook
-import { getListingById } from '../services/apiService';
+import { getListingById, getUserReviews } from '../services/apiService';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 
@@ -14,6 +14,7 @@ import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton
  * @param {object} userData - The logged-in user's data object from useAuth.
  * @returns {object} An object containing all necessary state and handlers.
  */
+
 export default function usePageLogic(userData, likeData = null) {
   const navigate = useNavigate();
 
@@ -33,26 +34,46 @@ export default function usePageLogic(userData, likeData = null) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
+  const [sellerRatingData, setSellerRatingData] = useState(null);
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setSelectedListing(null);
+    setSellerRatingData(null);
   }, []); // This function has no dependencies, so it's safe first.
 
   // --- handleOpenListing is NOW DEFINED FIRST ---
   const handleOpenListing = useCallback(async (listingId) => {
-    if (!listingId) {
-      console.error("No listing ID provided");
-      return;
-    }
+    if (!listingId) return;
     
-    closeModal(); // Close any existing modal
-    setIsModalLoading(true); // Show loading skeleton
+    closeModal(); 
+    setIsModalLoading(true); 
 
     try {
       const response = await getListingById(listingId); 
+      
       if (response.data) {
-        setSelectedListing(response.data);
+        const listing = response.data;
+        setSelectedListing(listing);
+        
+        // --- PRE-FETCH REVIEWS ---
+        const sellerId = listing.user?.userId;
+        if (sellerId) {
+            try {
+                const reviewRes = await getUserReviews(sellerId);
+                const reviews = reviewRes.data || [];
+                const count = reviews.length;
+                const avg = count > 0 
+                  ? (reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / count).toFixed(1)
+                  : 0;
+                setSellerRatingData({ avg, count });
+            } catch (e) {
+                console.error("Failed to fetch seller reviews silently", e);
+                setSellerRatingData(null); // Fallback to internal fetch
+            }
+        }
+        // -------------------------
+
         setIsModalOpen(true);
       } else {
         throw new Error(`Listing ${listingId} not found.`);
@@ -61,9 +82,9 @@ export default function usePageLogic(userData, likeData = null) {
       console.error("Failed to fetch listing for modal:", err);
       alert(`Could not load item: ${err.message}.`);
     } finally {
-      setIsModalLoading(false); // Hide loading skeleton
+      setIsModalLoading(false); 
     }
-  }, [closeModal]); // Depends on closeModal, which is defined above
+  }, [closeModal]);
 
   // --- openModal is NOW DEFINED SECOND ---
   // It can safely access handleOpenListing
@@ -101,6 +122,7 @@ export default function usePageLogic(userData, likeData = null) {
            isLiked={likedListingIds.has(selectedListing.listingId)}
            onLikeClick={handleLikeToggle}
            isLiking={likingInProgress.has(selectedListing.listingId)}
+           sellerRatingInitialData={sellerRatingData}
          />
       )}
       {isModalLoading && (
@@ -115,7 +137,8 @@ export default function usePageLogic(userData, likeData = null) {
       likedListingIds, 
       handleLikeToggle, 
       likingInProgress,
-      isModalLoading
+      isModalLoading,
+      sellerRatingData
   ]);
 
   const likeLogic = {

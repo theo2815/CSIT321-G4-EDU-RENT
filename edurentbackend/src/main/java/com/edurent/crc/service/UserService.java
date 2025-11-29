@@ -5,11 +5,16 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 
 import com.edurent.crc.dto.AuthResponse;
 import com.edurent.crc.dto.UpdateUserRequest;
@@ -34,6 +39,49 @@ public class UserService {
     private JwtService jwtService;
     @Autowired
     private AuthenticationManager authenticationManager;
+
+    // --- Supabase Config ---
+    @Value("${supabase.url}")
+    private String supabaseUrl;
+
+    @Value("${supabase.key}")
+    private String supabaseKey;
+
+    private final String PROFILE_BUCKET = "profile-images";
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    /**
+     * Helper to delete the old image file from Supabase Storage.
+     */
+    private void deleteOldProfileImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty()) return;
+        
+        try {
+            // URL format: https://<ref>.supabase.co/storage/v1/object/public/profile-images/<userId>/<timestamp>.png
+            // We split by the bucket name to get the relative path: "<userId>/<timestamp>.png"
+            String[] parts = imageUrl.split("/" + PROFILE_BUCKET + "/");
+            
+            // Safety check: ensure we actually found the bucket part
+            if (parts.length < 2) return; 
+            
+            String filePath = parts[1];
+            String storageUrl = supabaseUrl + "/storage/v1/object/" + PROFILE_BUCKET + "/" + filePath;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + supabaseKey);
+            headers.set("apikey", supabaseKey);
+
+            HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+            
+            // Execute Delete
+            restTemplate.exchange(storageUrl, HttpMethod.DELETE, requestEntity, String.class);
+            
+            System.out.println("✅ Deleted old profile image: " + filePath);
+        } catch (Exception e) {
+            // Log error but don't break the user update process
+            System.err.println("⚠️ Failed to delete old profile image: " + e.getMessage());
+        }
+    }
 
     /**
      * Registers a new user and returns a token.
@@ -127,7 +175,20 @@ public class UserService {
         if (req.getAddress() != null) currentUser.setAddress(req.getAddress());
         if (req.getBio() != null) currentUser.setBio(req.getBio());
         if (req.getPhoneNumber() != null) currentUser.setPhoneNumber(req.getPhoneNumber());
-        if (req.getProfilePictureUrl() != null) currentUser.setProfilePictureUrl(req.getProfilePictureUrl());
+        
+        // --- IMAGE UPDATE LOGIC ---
+        if (req.getProfilePictureUrl() != null) {
+            String oldUrl = currentUser.getProfilePictureUrl();
+            String newUrl = req.getProfilePictureUrl();
+
+            // Only delete if there was an old image and the URL has actually changed
+            if (oldUrl != null && !oldUrl.isEmpty() && !oldUrl.equals(newUrl)) {
+                deleteOldProfileImage(oldUrl);
+            }
+            
+            currentUser.setProfilePictureUrl(newUrl);
+        }
+
         return userRepository.save(currentUser);
     }
 }

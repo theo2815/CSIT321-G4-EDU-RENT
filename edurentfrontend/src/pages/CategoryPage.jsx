@@ -6,7 +6,6 @@ import useAuth from '../hooks/useAuth';
 import usePageLogic from '../hooks/usePageLogic';
 import useSearch from '../hooks/useSearch';
 import useLikes from '../hooks/useLikes';
-// We don't use usePageData here, as this page has custom data-fetching needs.
 
 // --- Import Components ---
 import Header from '../components/Header';

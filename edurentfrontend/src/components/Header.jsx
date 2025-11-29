@@ -193,17 +193,20 @@ export default function Header({
 
           {/* User Dropdown */}
           <div className="user-dropdown">
-             {/* --- UPDATED: Replaced <span> with <img> for avatar --- */}
              <button className="user-button" onClick={toggleDropdown} aria-label="User menu">
                 <img
-                  src={profilePictureUrl ? `http://localhost:8080${profilePictureUrl}` : defaultAvatar}
+                  src={
+                    profilePictureUrl 
+                      ? (profilePictureUrl.startsWith('http') ? profilePictureUrl : `http://localhost:8080${profilePictureUrl}`)
+                      : defaultAvatar
+                  }
                   alt="Profile"
                   className="user-avatar"
+                  style={{ objectFit: 'cover' }} 
                   onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}
                 />
                {userName && `Hello, ${userName}`} ▼ 
              </button>
-             {/* --- End of Change --- */}
 
              {isDropdownOpen && ( 
                <div className="dropdown-menu"> 
