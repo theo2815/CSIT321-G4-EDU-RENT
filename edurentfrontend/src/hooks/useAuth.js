@@ -2,79 +2,105 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '../services/apiService';
 
-/**
- * Custom hook to manage user authentication state.
- * Fetches the current user on load and provides user data,
- * loading state, and a logout function.
- */
 export default function useAuth() {
-  const [userData, setUserData] = useState(null);
-  const [userName, setUserName] = useState('');
-  const [isLoading, setIsLoading] = useState(true); // Start loading
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Define the logout function once and wrap in useCallback
+  /**
+   * STATE INITIALIZATION
+   * We use a "lazy initializer" (function inside useState) here.
+   * This reads from localStorage immediately when the app launches.
+   * Benefit: Prevents the "loading flash" or "login screen flicker" on refresh
+   * because we assume the user is logged in if data exists in storage.
+   */
+  const [userData, setUserData] = useState(() => {
+    try {
+      const stored = localStorage.getItem('eduRentUserData');
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.error("Error parsing stored user data", error);
+      return null;
+    }
+  });
+
+  /**
+   * LOADING STATE
+   * If userData exists from the step above, we set isLoading to false immediately.
+   * If userData is null, we keep loading true until we finish checking the backend.
+   */
+  const [isLoading, setIsLoading] = useState(!userData);
+  const [error, setError] = useState(null);
+
+  // Derive the display name safely from the current state (no need for separate state)
+  const userName = userData?.fullName?.split(' ')[0] || userData?.email?.split('@')[0] || '';
+
+  /**
+   * LOGOUT FUNCTION
+   * Clears local storage and state, then redirects to the login page.
+   * Wrapped in useCallback to prevent unnecessary re-renders when passed to children.
+   */
   const logout = useCallback(() => {
-    console.log('Logging out from useAuth hook...');
-    localStorage.removeItem('eduRentUserData'); // Clear the token
-    setUserData(null); // Clear user state
-    setUserName('');
-    navigate('/login'); // Redirect to login
-  }, [navigate]); // Dependency
+    localStorage.removeItem('eduRentUserData');
+    setUserData(null);
+    navigate('/login');
+  }, [navigate]);
 
-  // Define the fetch function once and wrap in useCallback
+  /**
+   * FETCH USER / VALIDATE SESSION
+   * 1. Checks if a token exists in storage.
+   * 2. If it exists, calls the backend to get the freshest profile data.
+   * 3. Merges the fresh data with the existing token and updates the UI.
+   */
   const fetchUser = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    // Check if a token exists first
-    const storedData = localStorage.getItem('eduRentUserData');
-    if (!storedData) {
-      console.log("No user data found, redirecting to login.");
+    const stored = localStorage.getItem('eduRentUserData');
+    
+    // If no data is found in storage, we are definitely not logged in.
+    // Stop loading. Note: We do not auto-redirect here to allow public pages to use this hook.
+    if (!stored) {
       setIsLoading(false);
-      navigate('/login');
       return;
     }
 
     try {
-      // Token exists, try to get user data from backend
+      // Call the backend to verify the token is still valid
       const response = await getCurrentUser();
+      const freshData = response.data;
+
+      // The profile endpoint might not return the token, so we keep the one we have
+      const currentToken = JSON.parse(stored).token;
       
-      if (response.data && response.data.fullName) {
-        setUserData(response.data);
-        setUserName(response.data.fullName.split(' ')[0] || 'User');
-      } else {
-        // Token might be valid but data is weird
-        throw new Error("Incomplete user data received.");
-      }
+      // Combine fresh database info with the existing session token
+      const mergedData = { ...freshData, token: currentToken };
+
+      setUserData(mergedData);
+      
+      // Update local storage so the data is fresh for the next refresh
+      localStorage.setItem('eduRentUserData', JSON.stringify(mergedData));
+
     } catch (err) {
-      console.error("Failed to fetch user:", err.message);
-      let errorMsg = "Session expired or invalid. Please log in.";
-      // Check for auth-specific errors
-      if (err.message === "No authentication token found." || err.response?.status === 403 || err.response?.status === 401) {
-          errorMsg = "Please log in to continue.";
-          logout(); // Call logout to clear bad token and redirect
-      } else {
-          setError(errorMsg); // Set a generic error for other issues
+      console.error("Auth validation failed:", err);
+      
+      // If the error is 401 (Unauthorized) or 403 (Forbidden), the token is invalid.
+      // In this case, we must log the user out.
+      if (err.response?.status === 401 || err.response?.status === 403) {
+          logout();
       }
+      // For other errors (like no internet), we keep the user logged in using cached data.
     } finally {
       setIsLoading(false);
     }
-  }, [navigate, logout]); // Dependencies for useCallback
+  }, [logout]);
 
-  // Run the fetchUser function once when the hook is first used
+  // Run the fetch logic once when the component mounts
   useEffect(() => {
     fetchUser();
-  }, [fetchUser]); // The dependency is the useCallback function
+  }, [fetchUser]);
 
-  // Return the state and functions for components to use
   return {
-    userData,    // The full user object (or null)
-    userName,    // Just the first name (or '')
-    isLoadingAuth: isLoading, // Rename to avoid conflicts
-    authError: error,       // Rename to avoid conflicts
-    logout,      // The logout function
-    retryAuth: fetchUser // Expose the fetch function to retry
+    userData,        // The full user object (contains token, id, email, etc.)
+    userName,        // The derived display name
+    isLoadingAuth: isLoading, // Boolean: Is the auth check still running?
+    authError: error,         // Any error messages generated during auth
+    logout,          // Function to log the user out
+    retryAuth: fetchUser // Function to manually re-check auth (useful for error boundaries)
   };
 }
