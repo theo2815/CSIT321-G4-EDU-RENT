@@ -10,6 +10,8 @@ public class ConversationDTO {
     private String lastMessageContent;
     private LocalDateTime lastMessageTimestamp;
     private boolean isUnread;
+    private Long transactionId;
+    private boolean hasReviewed;
 
     // Constructors, Getters, Setters
     public ConversationDTO() {}
@@ -31,4 +33,10 @@ public class ConversationDTO {
 
     public boolean getIsUnread() { return isUnread; }
     public void setIsUnread(boolean isUnread) { this.isUnread = isUnread; }
+
+    public Long getTransactionId() { return transactionId; }
+    public void setTransactionId(Long transactionId) { this.transactionId = transactionId; }
+
+    public boolean isHasReviewed() { return hasReviewed; }
+    public void setHasReviewed(boolean hasReviewed) { this.hasReviewed = hasReviewed; }
 }

@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -26,10 +28,13 @@ import com.edurent.crc.dto.ListingDTO;
 import com.edurent.crc.dto.UserDTO;
 import com.edurent.crc.entity.ConversationEntity;
 import com.edurent.crc.entity.MessageEntity;
+import com.edurent.crc.entity.TransactionEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.service.ConversationService;
 import com.edurent.crc.service.MessageImageService;
 import com.edurent.crc.service.MessageService;
+import com.edurent.crc.repository.TransactionRepository;
+import com.edurent.crc.repository.ReviewRepository;
 
 @RestController
 @RequestMapping("/api/v1/conversations")
@@ -44,6 +49,12 @@ public class ConversationController {
 
     @Autowired
     private MessageImageService messageImageService;
+
+    @Autowired 
+    private TransactionRepository transactionRepository;
+
+    @Autowired 
+    private ReviewRepository reviewRepository;
 
     // --- 1. Get User's Conversations (DTO) ---
     @GetMapping("/user/{userId}")
@@ -76,6 +87,25 @@ public class ConversationController {
                      listingDto.setOwner(ownerDto);
                 }
                 dto.setListing(listingDto);
+
+                Optional<TransactionEntity> transaction = transactionRepository.findByListingId(entity.getListing().getListingId());
+                
+                if (transaction.isPresent()) {
+                    TransactionEntity t = transaction.get();
+                    
+                    Set<Long> chatParticipantIds = entity.getParticipants().stream()
+                        .map(p -> p.getUser().getUserId())
+                        .collect(Collectors.toSet());
+
+                    boolean isCorrectChat = chatParticipantIds.contains(t.getBuyer().getUserId()) 
+                                         && chatParticipantIds.contains(t.getSeller().getUserId());
+                    
+                    if (isCorrectChat) {
+                        dto.setTransactionId(t.getTransactionId());
+                        boolean hasReviewed = reviewRepository.existsByTransaction_TransactionIdAndReviewer_UserId(t.getTransactionId(), userId);
+                        dto.setHasReviewed(hasReviewed);
+                    }
+                }
             }
             
             List<UserDTO> participants = entity.getParticipants().stream().map(p -> 

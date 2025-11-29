@@ -14,7 +14,9 @@ import com.edurent.crc.entity.ReviewEntity;
 public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
 
     @Query("SELECT r FROM ReviewEntity r WHERE r.transaction.transactionId = :transactionId")
-    Optional<ReviewEntity> findByTransactionId(@Param("transactionId") Long transactionId);
+    List<ReviewEntity> findAllByTransactionId(@Param("transactionId") Long transactionId);
+
+    boolean existsByTransaction_TransactionIdAndReviewer_UserId(Long transactionId, Long reviewerId);
 
     @Query("SELECT r FROM ReviewEntity r WHERE r.reviewer.userId = :reviewerId")
     List<ReviewEntity> findByReviewerId(@Param("reviewerId") Long reviewerId);
@@ -22,5 +24,18 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     @Query("SELECT r FROM ReviewEntity r WHERE r.reviewedUser.userId = :reviewedUserId")
     List<ReviewEntity> findByReviewedUserId(@Param("reviewedUserId") Long reviewedUserId);
 
+    @Query("SELECT DISTINCT r FROM ReviewEntity r " + 
+           "LEFT JOIN FETCH r.transaction t " +
+           "LEFT JOIN FETCH t.listing l " +
+           "LEFT JOIN FETCH l.images " +
+           "LEFT JOIN FETCH r.reviewer " +
+           "LEFT JOIN FETCH t.buyer " +
+           "LEFT JOIN FETCH t.seller " +
+           "LEFT JOIN FETCH r.images " + 
+           "WHERE r.reviewedUser.userId = :userId " +
+           "ORDER BY r.createdAt DESC")
+    List<ReviewEntity> findWithDetailsByReviewedUserId(@Param("userId") Long userId);
+
     List<ReviewEntity> findByReviewedUser_UserId(Long userId);
+
 }

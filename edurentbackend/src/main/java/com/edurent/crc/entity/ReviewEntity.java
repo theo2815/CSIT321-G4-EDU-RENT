@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import java.util.ArrayList; 
+import java.util.List;     
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
 @Table(name = "reviews")
@@ -24,8 +27,8 @@ public class ReviewEntity {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     // --- Relationships ---
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "transaction_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transaction_id", nullable = false) 
     @JsonBackReference(value = "transaction-review")
     private TransactionEntity transaction;
 
@@ -38,6 +41,11 @@ public class ReviewEntity {
     @JoinColumn(name = "reviewed_user_id", nullable = false)
     @JsonBackReference(value = "reviewed-user-reviews")
     private UserEntity reviewedUser;
+
+    // --- NEW RELATIONSHIP ---
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    @JsonManagedReference(value = "review-images")
+    private List<ReviewImageEntity> images = new ArrayList<>();
 
     // Constructors
     public ReviewEntity() {
@@ -98,6 +106,19 @@ public class ReviewEntity {
 
     public void setReviewedUser(UserEntity reviewedUser) {
         this.reviewedUser = reviewedUser;
+    }
+
+    public List<ReviewImageEntity> getImages() { 
+        return images; 
+    }
+
+    public void setImages(List<ReviewImageEntity> images) { 
+        this.images = images; 
+    }
+
+    public void addImage(ReviewImageEntity image) {
+        images.add(image);
+        image.setReview(this);
     }
 
     // equals, hashCode, toString (excluding relationships)
