@@ -105,7 +105,7 @@ export default function ListingCard({
         )}
 
         {/* --- Like Badge with Count --- */}
-        {/* This replaces the simple button with a badge showing the heart and count */}
+        {variant !== 'compact' && (
         <div 
             className="like-badge"
             onClick={!isOwner ? handleLikeClick : undefined}
@@ -133,11 +133,13 @@ export default function ListingCard({
             <span style={{ fontSize: '1rem', lineHeight: 1, color: isOwner ? '#6c757d' : (isLiked ? '#e53935' : '#ccc') }}>
                 {isLiking ? '...' : (isOwner ? '🖤' : (isLiked ? '❤️' : '🤍'))}
             </span>
-            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#333' }}>
-                {displayLikeCount}
-            </span>
+            {variant !== 'compact' && (
+                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#333' }}>
+                    {displayLikeCount}
+                </span>
+            )}
         </div>
-
+      )}
         {/* --- Main Image or Fallback --- */}
         {coverImageUrl ? (
           <img 
@@ -162,7 +164,9 @@ export default function ListingCard({
         <h3 className="listing-title">{title}</h3>
         
         {variant !== 'compact' && (
-           <p className="listing-description">{description.substring(0, 100)}{description.length > 100 ? '...' : ''}</p>
+          <p className="listing-description">
+            {description.substring(0, 100)}{description.length > 100 ? '...' : ''}
+          </p>
         )}
 
         <div className="listing-footer">

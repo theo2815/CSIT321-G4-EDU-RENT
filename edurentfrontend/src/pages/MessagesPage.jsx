@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
-// WebSocket libraries for real-time communication
+// Libraries for handling real-time WebSocket connections (Live Chat)
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 
-// UI Components
+// Custom UI Components
 import Header from '../components/Header';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 import ListingCard from '../components/ListingCard'; 
+import ReviewModal from '../components/ReviewModal'; // Merged: Import for the review functionality
+import UserRatingDisplay from '../components/UserRatingDisplay';
 
-// Backend API interaction services
+// API Service functions for backend communication
 import { 
   getCurrentUser, 
   getListingById,
@@ -28,11 +30,12 @@ import {
   uploadMessageImage
 } from '../services/apiService';
 
-// Styling and static assets
+// Styles and Assets
 import '../static/MessagesPage.css';
 import defaultAvatar from '../assets/default-avatar.png';
 
-// --- Icon Components ---
+// --- Icon Definitions ---
+// Functional components returning SVG icons to keep the main JSX clean
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -66,9 +69,8 @@ const Icons = {
   )
 };
 
-// --- Skeleton Loaders ---
-
-// Loader for the Chat Window area
+// --- Skeleton Components ---
+// These are used to display a loading state placeholder while data is being fetched
 function ChatWindowSkeleton() {
   return (
     <div className="chat-skeleton-loader">
@@ -83,7 +85,6 @@ function ChatWindowSkeleton() {
   );
 }
 
-// Loader for the Sidebar area
 function MessagesSkeleton() {
   return (
     <div className="messages-skeleton-container">
@@ -107,7 +108,7 @@ function MessagesSkeleton() {
   );
 }
 
-// Helper: Format raw date strings into readable time (HH:MM AM/PM)
+// Helper: Converts ISO date strings to simple 12-hour time format (e.g., 2:30 PM)
 const formatMessageTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -115,118 +116,102 @@ const formatMessageTime = (dateString) => {
 };
 
 export default function MessagesPage() {
-  // --- Global User State ---
+  // --- User and Data State ---
   const [userData, setUserData] = useState(null);
   const [userName, setUserName] = useState('');
-  
-  // --- Conversation Data State ---
   const [conversations, setConversations] = useState([]);
   const [filteredConversations, setFilteredConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]); 
   
-  // --- Filter & Search State ---
+  // --- Filtering and Search State ---
   const [searchQuery, setSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Messages');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
-
-  // --- NEW STATE: Specific Listing Filter (Highest Priority) ---
+  // This state is used when a user clicks "Contact Seller" or "View Messages" for a specific item
   const [listingFilterId, setListingFilterId] = useState(null); 
   const location = useLocation(); 
 
   // --- UI Visibility State ---
-  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false); // Top-right menu inside chat
-  const [activeListMenuId, setActiveListMenuId] = useState(null); // Three-dot menu on sidebar items
-  const [isChatVisible, setIsChatVisible] = useState(false); // Mobile toggle
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false); // Dropdown inside the chat window
+  const [activeListMenuId, setActiveListMenuId] = useState(null); // Dropdown on the sidebar list items
+  const [isChatVisible, setIsChatVisible] = useState(false); // Controls mobile view switching
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false); // Merged: Controls visibility of Review Modal
 
-  // --- Loading & Error State ---
+  // --- Loading and Error State ---
   const [isLoading, setIsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false); 
   const [error, setError] = useState(null);
 
-  // --- Modal & Listings State ---
+  // --- Modal and Listing Interaction State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   const [likingInProgress, setLikingInProgress] = useState(new Set());
   const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
 
-  // --- Hooks & Refs ---
+  // --- Refs for DOM Access ---
   const navigate = useNavigate();
-  const chatContentRef = useRef(null); 
-  const textareaRef = useRef(null); 
+  const chatContentRef = useRef(null); // Used for auto-scrolling the chat
+  const textareaRef = useRef(null); // Used to auto-resize the input box
+  const fileInputRef = useRef(null); // Used to trigger hidden file input
   
-  // WebSocket Refs
+  // --- WebSocket Refs ---
   const stompClientRef = useRef(null);
   const conversationSubscriptionRef = useRef(null);
 
-  // Pagination State
+  // --- Pagination State ---
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
 
-  // Scroll Behavior State
+  // --- Scroll State ---
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const isNearBottomRef = useRef(true); 
   const lastMessageIdRef = useRef(null); 
-  const fileInputRef = useRef(null); // For image uploads
 
-  // Helper: Get friendly date labels (Today, Yesterday, etc.)
+  // Helper: Returns readable date labels like "Today", "Yesterday"
   const getDateLabel = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
     const now = new Date();
-    
-    // Normalize to midnight for accurate day comparison
     const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const n = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const y = new Date(n);
     y.setDate(n.getDate() - 1);
-
     if (d.getTime() === n.getTime()) return 'Today';
     if (d.getTime() === y.getTime()) return 'Yesterday';
-    
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // --- EFFECT: Handle Deep Linking / Listing Filter ---
-  // Detects if the user navigated here with a request to filter by a specific item (e.g., "Sold" modal)
+  // --- Effect: Handle Deep Linking / Specific Item Filtering ---
+  // Checks if the user navigated here with instructions to filter by a specific product
   useEffect(() => {
       if (location.state?.filterByListingId) {
           const targetId = location.state.filterByListingId;
-          console.log("Applying filter for listing ID:", targetId);
           setListingFilterId(targetId);
-          
-          // Reset other filters to ensure the target item is visible
           setSearchQuery('');
           setActiveFilter('All Messages'); 
       }
   }, [location.state]);
 
-  // Helper to clear the specific listing filter
   const clearListingFilter = () => {
       setListingFilterId(null);
-      // Clean up history state so the filter doesn't reappear on refresh
       navigate(location.pathname, { replace: true, state: {} });
   };
 
-  // --- EFFECT: Main Filter Logic ---
-  // Re-runs whenever filters, search, or data changes
+  // --- Effect: Central Filtering Logic ---
+  // Filters conversations based on Listing ID (priority), Status (Buying/Selling), or Search Query
   useEffect(() => {
     if (!userData) return;
-
     let result = conversations;
 
-    // 1. Specific Listing Filter (Highest Priority)
     if (listingFilterId) {
-        // Show ONLY conversations related to this specific product ID
+        // Priority: Only show chats for the specific item passed in navigation
         result = result.filter(c => c.product && c.product.id === listingFilterId);
-        
-        // Note: We deliberately DO NOT filter by isArchived here. 
-        // When viewing history for a Sold item, users expect to see all past chats, including archived ones.
     } else {
-        // 2. Standard Filters (Only apply if NOT filtering by specific listing)
+        // Standard filters
         if (activeFilter === 'Selling') {
             result = result.filter(c => c.product && c.product.ownerId === userData.userId);
         } else if (activeFilter === 'Buying') {
@@ -236,12 +221,10 @@ export default function MessagesPage() {
         } else if (activeFilter === 'Archived') {
             result = result.filter(c => c.isArchived);
         } else {
-            // Default view: Hide archived
             result = result.filter(c => !c.isArchived); 
         }
     }
-
-    // 3. Search Filter (Always applied on top of the above)
+    // Search filter applies on top of previous filters
     if (searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase();
         result = result.filter(conv =>
@@ -249,42 +232,32 @@ export default function MessagesPage() {
           (conv.product && conv.product.title.toLowerCase().includes(query))
         );
     }
-
     setFilteredConversations(result);
   }, [activeFilter, searchQuery, conversations, userData, listingFilterId]);
 
-  // --- Handler: Image File Selection ---
+  // --- Handler: Image Upload ---
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file || !selectedConversation) return;
-
     try {
-      // 1. Upload the image first
+      // Upload image to server first
       const response = await uploadMessageImage(selectedConversation.id, file);
       const imageUrl = response.data.url;
 
-      // 2. Send the message containing the image URL
+      // Optimistically update UI
       const tempTimestamp = new Date();
-      
-      // Optimistic UI update
       const optimisticMsg = {
           id: Date.now(),
           senderId: userData.userId,
-          text: '', // Image-only messages have empty text
+          text: '',
           attachmentUrl: imageUrl,
           timestamp: formatMessageTime(tempTimestamp),
           rawDate: tempTimestamp.toISOString()
       };
       setMessages(prev => [...prev, optimisticMsg]);
 
-      // API Call
-      await sendMessage(
-          '', // content
-          selectedConversation.id, 
-          userData.userId, 
-          imageUrl // attachment
-      );
-      
+      // Send the message payload with the image URL
+      await sendMessage('', selectedConversation.id, userData.userId, imageUrl);
     } catch (error) {
       console.error("Failed to send image", error);
       alert("Failed to send image.");
@@ -293,23 +266,18 @@ export default function MessagesPage() {
     }
   };
 
-  // --- EFFECT: Smart Auto-scroll ---
+  // --- Effect: Auto-Scroll Logic ---
   useEffect(() => {
     if (messages.length === 0) return;
-
     const lastMsg = messages[messages.length - 1];
-    
-    // Only trigger if the last message ID has changed (new message arrived/sent)
     if (lastMsg.id !== lastMessageIdRef.current) {
         lastMessageIdRef.current = lastMsg.id;
-
+        // Scroll to bottom only if user is already near bottom, otherwise show "New Message" button
         if (isNearBottomRef.current) {
-            // User is at the bottom, auto-scroll to show new message
             if (chatContentRef.current) {
                 chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight;
             }
         } else {
-            // User is reading history, show "New Message" button instead of interrupting
             setShowScrollBtn(true);
         }
     }
@@ -325,12 +293,12 @@ export default function MessagesPage() {
     }
   };
 
-  // --- Data Fetching: Initial Load ---
+  // --- Data Fetching ---
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Get Current User
+      // 1. Fetch User
       const userResponse = await getCurrentUser();
       const currentUser = userResponse.data;
       if (!currentUser) throw new Error("No user data.");
@@ -339,28 +307,24 @@ export default function MessagesPage() {
       setUserName(currentUser.fullName.split(' ')[0]);
       const userId = currentUser.userId;
 
-      // 2. Get Conversations
+      // 2. Fetch Conversations
       const convResponse = await getConversationsForUser(userId);
       const convs = convResponse.data || [];
 
-      // Normalize backend data into UI structure
+      // Process raw data into UI-friendly structure
       const processedConvs = convs.map(conv => {
           if (!conv.participants) return null;
-
           const otherParticipant = conv.participants.find(p => {
               const pUserId = p.userId || p.user?.userId || p.user?.id; 
               return pUserId !== userId;
           });
-          
           const otherUserObj = otherParticipant || otherParticipant?.user || {};
-
           const otherUser = { 
               userId: otherUserObj.userId || otherUserObj.id || 0, 
               fullName: otherUserObj.fullName || otherUserObj.name || 'Unknown User', 
               profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null 
           };
           
-          // Image fallback logic
           let productImageUrl = null;
           if (conv.listing) {
                productImageUrl = conv.listing.imageUrl 
@@ -384,23 +348,25 @@ export default function MessagesPage() {
                   image: productImageUrl, 
                   iconUrl: productImageUrl 
               } : null,
-              
               lastMessagePreview: conv.lastMessageContent || 'Start a conversation', 
               lastMessageDate: conv.lastMessageTimestamp || conv.listing?.createdAt,
               isUnread: conv.isUnread || false,
-              isArchived: conv.isArchivedForCurrentUser || false 
+              isArchived: conv.isArchivedForCurrentUser || false,
+              
+              // Merged: Add transaction and review status fields
+              transactionId: conv.transactionId || null,
+              hasReviewed: conv.hasReviewed || false 
           };
       }).filter(Boolean);
 
       setConversations(processedConvs);
       
-      // 3. Handle Deep Linking (Create New Chat from Profile/Listing page)
+      // 3. Handle External Navigation (Start New Chat)
       const passedConv = location.state?.openConversation;
       const passedConvId = location.state?.openConversationId;
       if (passedConvId) {
           let targetConv = processedConvs.find(c => c.id === passedConvId);
-
-          // If conversation doesn't exist yet, manually construct it from passed state
+          // If the conversation doesn't exist yet, manually create a temporary one
           if (!targetConv && passedConv) {
               const participants = passedConv.participants || [];
               const otherParticipantObj = participants.find(p => {
@@ -427,20 +393,16 @@ export default function MessagesPage() {
                   lastMessageDate: new Date().toISOString(),
                   isUnread: false
               };
-
-              // Prepend new conversation to list
               setConversations(prev => [targetConv, ...prev]);
           }
-
-          // Select the conversation immediately
           if (targetConv) {
               handleSelectConversation(targetConv);
               setIsChatVisible(true);
-              window.history.replaceState({}, document.title); // Clear state
+              window.history.replaceState({}, document.title);
           }
       }
 
-      // 4. Get Liked Listings (for Heart icons)
+      // 4. Fetch Liked Listings (for UI hearts)
       const likesResponse = await getLikedListings();
       const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
       setLikedListingIds(likedIds);
@@ -456,12 +418,10 @@ export default function MessagesPage() {
     }
   }, [navigate, location.state]);
 
-  // Initial Fetch
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Initial Fetch Effect
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // --- WebSocket Connection ---
+  // --- WebSocket Setup ---
   useEffect(() => {
     if (userData) {
       const socket = new SockJS('http://localhost:8080/ws');
@@ -469,20 +429,15 @@ export default function MessagesPage() {
 
       stompClient.connect({}, () => {
         stompClientRef.current = stompClient;
-        
-        // Subscribe to user-specific updates (sidebar list updates)
+        // Subscribe to general user updates (sidebar list)
         stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
           const payload = JSON.parse(message.body);
-          
           setConversations(prevConvs => {
             const convIndex = prevConvs.findIndex(c => c.id === payload.conversationId);
             if (convIndex > -1) {
-              // Move updated conversation to top
               const updatedConvs = [...prevConvs];
               const conv = updatedConvs[convIndex];
-              
               updatedConvs.splice(convIndex, 1);
-              
               updatedConvs.unshift({
                 ...conv,
                 lastMessagePreview: payload.text,
@@ -491,35 +446,23 @@ export default function MessagesPage() {
               });
               return updatedConvs;
             } else {
-              // New conversation detected, reload list
               fetchData(); 
               return prevConvs;
             }
           });
         });
-
-      }, (error) => {
-        console.error("WebSocket error:", error);
       });
-
-      return () => {
-        if (stompClientRef.current) {
-          stompClientRef.current.disconnect();
-        }
-      };
+      return () => { if (stompClientRef.current) stompClientRef.current.disconnect(); };
     }
   }, [userData, fetchData]);
 
   // --- Interaction Handlers ---
 
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-  };
+  const handleSearchChange = (e) => setSearchQuery(e.target.value);
 
-  // Select a conversation from sidebar
+  // Called when a user clicks a conversation from the sidebar
   const handleSelectConversation = async (conversation) => {
     if (activeListMenuId) return; 
-
     setIsMessagesLoading(true);
     setSelectedConversation(conversation);
     setIsChatVisible(true); 
@@ -528,57 +471,39 @@ export default function MessagesPage() {
     setHasMore(true);
     setIsChatMenuOpen(false);
 
-    // Optimistically mark as read locally
+    // Mark as read locally immediately
     setConversations(prev => prev.map(c => 
       c.id === conversation.id ? { ...c, isUnread: false } : c
     ));
 
-    // Subscribe to specific conversation socket
+    // Subscribe to the specific conversation channel
     if (stompClientRef.current && stompClientRef.current.connected) {
-        if (conversationSubscriptionRef.current) {
-            conversationSubscriptionRef.current.unsubscribe();
-        }
-        
+        if (conversationSubscriptionRef.current) conversationSubscriptionRef.current.unsubscribe();
         conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${conversation.id}`, (message) => {
             const payload = JSON.parse(message.body);
-            
-            if (payload.senderId === userData.userId) return; // Ignore own messages
-
+            if (payload.senderId === userData.userId) return;
             const newMsg = {
-                id: payload.id,
-                senderId: payload.senderId,
-                text: payload.text,
-                attachmentUrl: payload.attachmentUrl, 
-                timestamp: formatMessageTime(payload.timestamp),
-                rawDate: payload.timestamp
+                id: payload.id, senderId: payload.senderId, text: payload.text,
+                attachmentUrl: payload.attachmentUrl, timestamp: formatMessageTime(payload.timestamp), rawDate: payload.timestamp
             };
             setMessages(prev => [...prev, newMsg]);
-            
             markConversationAsRead(conversation.id);
         });
     }
 
-    // Fetch message history
+    // Load message history from API
     try {
-      const [messagesRes, _] = await Promise.all([
+      const [messagesRes] = await Promise.all([
           getMessages(conversation.id, 0),
           markConversationAsRead(conversation.id)
       ]);
 
       const mappedMessages = messagesRes.data.map(msg => ({
-          id: msg.messageId,
-          senderId: msg.sender?.userId,
-          text: msg.content,
-          attachmentUrl: msg.attachmentUrl,
-          timestamp: formatMessageTime(msg.sentAt),
-          rawDate: msg.sentAt
+          id: msg.messageId, senderId: msg.sender?.userId, text: msg.content,
+          attachmentUrl: msg.attachmentUrl, timestamp: formatMessageTime(msg.sentAt), rawDate: msg.sentAt
       }));
       setMessages(mappedMessages);
-
-      if (messagesRes.data.length < 20) {
-          setHasMore(false);
-      }
-
+      if (messagesRes.data.length < 20) setHasMore(false);
     } catch (err) {
       console.error("Error loading conversation:", err);
     } finally {
@@ -586,199 +511,117 @@ export default function MessagesPage() {
     }
   };
 
-  // Sidebar Menu Actions (Archive/Delete/Read)
-  const handleListMenuToggle = (e, convId) => {
-    e.stopPropagation();
-    setActiveListMenuId(prev => prev === convId ? null : convId);
-  };
-
+  // Sidebar context menu handlers
+  const handleListMenuToggle = (e, convId) => { e.stopPropagation(); setActiveListMenuId(prev => prev === convId ? null : convId); };
+  
   const handleArchiveListAction = async (e, conv) => {
-    e.stopPropagation();
-    setActiveListMenuId(null);
-    setConversations(prev => prev.map(c => 
-      c.id === conv.id ? { ...c, isArchived: !c.isArchived } : c
-    ));
+    e.stopPropagation(); setActiveListMenuId(null);
+    setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, isArchived: !c.isArchived } : c));
     try { await archiveConversation(conv.id); } catch (err) { console.error("Archive failed", err); fetchData(); }
   };
 
   const handleDeleteListAction = async (e, convId) => {
-    e.stopPropagation();
-    setActiveListMenuId(null);
-    if (!window.confirm("Are you sure you want to delete this conversation?")) return;
-    
+    e.stopPropagation(); setActiveListMenuId(null);
+    if (!window.confirm("Are you sure?")) return;
     setConversations(prev => prev.filter(c => c.id !== convId));
-    if (selectedConversation?.id === convId) {
-      setSelectedConversation(null);
-      setIsChatVisible(false);
-    }
+    if (selectedConversation?.id === convId) { setSelectedConversation(null); setIsChatVisible(false); }
     try { await deleteConversation(convId); } catch (err) { console.error("Delete failed", err); fetchData(); }
   };
 
   const handleReadUnreadAction = async (e, conv) => {
-    e.stopPropagation();
-    setActiveListMenuId(null);
+    e.stopPropagation(); setActiveListMenuId(null);
     const newStatus = !conv.isUnread; 
-    setConversations(prev => prev.map(c => 
-      c.id === conv.id ? { ...c, isUnread: newStatus } : c
-    ));
-    try {
-      if (newStatus) await markConversationAsUnread(conv.id);
-      else await markConversationAsRead(conv.id);
-    } catch (err) { console.error("Toggle failed", err); fetchData(); }
+    setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, isUnread: newStatus } : c));
+    try { if (newStatus) await markConversationAsUnread(conv.id); else await markConversationAsRead(conv.id); } catch (err) { console.error("Toggle failed", err); fetchData(); }
   };
 
-  // Chat Actions
+  // Chat Interface Handlers
   const handleBackToList = () => {
     setIsChatVisible(false);
-    if (conversationSubscriptionRef.current) {
-        conversationSubscriptionRef.current.unsubscribe();
-        conversationSubscriptionRef.current = null;
-    }
+    if (conversationSubscriptionRef.current) { conversationSubscriptionRef.current.unsubscribe(); conversationSubscriptionRef.current = null; }
     setSelectedConversation(null);
   };
 
   const handleTextareaChange = (e) => {
     setNewMessage(e.target.value);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
+    if (textareaRef.current) { textareaRef.current.style.height = 'auto'; textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`; }
   };
 
   const handleSendMessage = async () => {
       if (!newMessage.trim() || !selectedConversation || !userData) return;
-
       const textToSend = newMessage;
       setNewMessage(''); 
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
-
       const tempTimestamp = new Date();
-      const formattedTime = formatMessageTime(tempTimestamp);
-
-      // Optimistic Update
+      
       const optimisticMsg = {
-          id: Date.now(),
-          senderId: userData.userId,
-          text: textToSend,
-          timestamp: formattedTime,
-          rawDate: tempTimestamp.toISOString()
+          id: Date.now(), senderId: userData.userId, text: textToSend,
+          timestamp: formatMessageTime(tempTimestamp), rawDate: tempTimestamp.toISOString()
       };
       setMessages(prev => [...prev, optimisticMsg]);
-
-      // Move conversation to top
+      
       setConversations(prevConvs => {
           const updatedConvs = [...prevConvs];
           const index = updatedConvs.findIndex(c => c.id === selectedConversation.id);
           if (index > -1) {
               const conv = updatedConvs[index];
               updatedConvs.splice(index, 1); 
-              updatedConvs.unshift({ 
-                  ...conv,
-                  lastMessagePreview: textToSend,
-                  lastMessageDate: tempTimestamp.toISOString(),
-                  isUnread: false
-              });
+              updatedConvs.unshift({ ...conv, lastMessagePreview: textToSend, lastMessageDate: tempTimestamp.toISOString(), isUnread: false });
           }
           return updatedConvs;
       });
 
-      try {
-          await sendMessage(textToSend, selectedConversation.id, userData.userId);
-      } catch (error) { 
-          console.error("Failed to send message", error); 
-          alert("Failed to send message. Please try again.");
-      }
+      try { await sendMessage(textToSend, selectedConversation.id, userData.userId); } catch (error) { console.error("Failed to send", error); alert("Failed."); }
   };
 
-  // Scroll Handler for Pagination (Lazy Loading)
+  // Infinite Scroll Handler
   const handleScroll = async (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    const isNear = distanceFromBottom < 100;
-    isNearBottomRef.current = isNear;
-
-    if (isNear) {
-        setShowScrollBtn(false);
-    }
+    isNearBottomRef.current = distanceFromBottom < 100;
+    if (isNearBottomRef.current) setShowScrollBtn(false);
 
     if (scrollTop === 0 && hasMore && !isFetchingMore) {
       setIsFetchingMore(true);
       const prevHeight = scrollHeight; 
       const nextPage = page + 1;
-
       try {
         const response = await getMessages(selectedConversation.id, nextPage);
         const newRawMessages = response.data;
-
         if (newRawMessages.length > 0) {
           const mappedNewMessages = newRawMessages.map(msg => ({
-            id: msg.messageId,
-            senderId: msg.sender?.userId,
-            text: msg.content,
-            attachmentUrl: msg.attachmentUrl, 
-            timestamp: formatMessageTime(msg.sentAt),
-            rawDate: msg.sentAt
+            id: msg.messageId, senderId: msg.sender?.userId, text: msg.content,
+            attachmentUrl: msg.attachmentUrl, timestamp: formatMessageTime(msg.sentAt), rawDate: msg.sentAt
           }));
-
           setMessages(prev => [...mappedNewMessages, ...prev]);
           setPage(nextPage);
-
-          // Restore scroll position
-          requestAnimationFrame(() => {
-             if (chatContentRef.current) {
-                chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight - prevHeight;
-             }
-          });
-
+          requestAnimationFrame(() => { if (chatContentRef.current) chatContentRef.current.scrollTop = chatContentRef.current.scrollHeight - prevHeight; });
           if (newRawMessages.length < 20) setHasMore(false);
-        } else {
-          setHasMore(false);
-        }
-      } catch (err) {
-        console.error("Failed to load older messages", err);
-      } finally {
-        setIsFetchingMore(false);
-      }
+        } else { setHasMore(false); }
+      } catch (err) { console.error("Failed load older messages", err); } finally { setIsFetchingMore(false); }
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('eduRentUserData');
-    navigate('/login');
-  };
-
-  // --- Modal Logic ---
-
+  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/login'); };
+  
+  // --- General Modal Handlers ---
   const handleNotificationClick = async (notification) => {
     const urlParts = notification.linkUrl?.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
     if (!listingId) return;
-    
-    closeModal(); 
-    setIsNotificationLoading(true);
+    closeModal(); setIsNotificationLoading(true);
     try {
       const response = await getListingById(listingId); 
-      if (response.data) {
-        setSelectedListing(response.data);
-        setIsModalOpen(true);
-      }
-    } catch (err) {
-      console.error("Failed to fetch listing:", err);
-      navigate('/browse');
-    } finally {
-      setIsNotificationLoading(false); 
-    }
+      if (response.data) { setSelectedListing(response.data); setIsModalOpen(true); }
+    } catch (err) { navigate('/browse'); } finally { setIsNotificationLoading(false); }
   };
 
   const handleArchiveChat = async () => {
       if (!selectedConversation) return;
       const convId = selectedConversation.id;
       setConversations(prev => prev.map(c => c.id === convId ? { ...c, isArchived: !c.isArchived } : c));
-      setSelectedConversation(null); 
-      setIsChatMenuOpen(false);
-      setIsChatVisible(false); 
-      try { await archiveConversation(convId); } catch (err) { console.error("Failed to archive:", err); fetchData(); }
+      setSelectedConversation(null); setIsChatMenuOpen(false); setIsChatVisible(false); 
+      try { await archiveConversation(convId); } catch (err) { fetchData(); }
   };
 
   const handleDeleteChat = async () => {
@@ -786,10 +629,8 @@ export default function MessagesPage() {
       if (!window.confirm("Are you sure?")) return;
       const convId = selectedConversation.id;
       setConversations(prev => prev.filter(c => c.id !== convId));
-      setSelectedConversation(null);
-      setIsChatMenuOpen(false);
-      setIsChatVisible(false);
-      try { await deleteConversation(convId); } catch (err) { console.error("Failed to delete:", err); fetchData(); }
+      setSelectedConversation(null); setIsChatMenuOpen(false); setIsChatVisible(false);
+      try { await deleteConversation(convId); } catch (err) { fetchData(); }
   };
 
   const openModal = async (listingSummary) => {
@@ -798,49 +639,40 @@ export default function MessagesPage() {
     setIsNotificationLoading(true);
     try {
       const response = await getListingById(listingId);
-      if (response.data) {
-        setSelectedListing(response.data);
-        setIsModalOpen(true);
-      }
-    } catch (err) {
-      console.error("Failed to load details:", err);
-    } finally {
-      setIsNotificationLoading(false);
-    }
+      if (response.data) { setSelectedListing(response.data); setIsModalOpen(true); }
+    } catch (err) { console.error("Error", err); } finally { setIsNotificationLoading(false); }
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedListing(null);
-  };
+  const closeModal = () => { setIsModalOpen(false); setSelectedListing(null); };
 
   const handleLikeToggle = async (listingId) => {
     if (likingInProgress.has(listingId)) return;
     setLikingInProgress(prev => new Set(prev).add(listingId));
     const newLikedIds = new Set(likedListingIds);
     const isCurrentlyLiked = likedListingIds.has(listingId);
-    if (isCurrentlyLiked) newLikedIds.delete(listingId);
-    else newLikedIds.add(listingId);
+    if (isCurrentlyLiked) newLikedIds.delete(listingId); else newLikedIds.add(listingId);
     setLikedListingIds(newLikedIds);
-    try {
-      if (isCurrentlyLiked) await unlikeListing(listingId);
-      else await likeListing(listingId);
-    } catch (err) {
-      console.error("Failed to toggle like:", err);
-      // Revert optimism if failed
+    try { if (isCurrentlyLiked) await unlikeListing(listingId); else await likeListing(listingId); } catch (err) {
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
-          if (isCurrentlyLiked) revertedIds.add(listingId);
-          else revertedIds.delete(listingId);
+          if (isCurrentlyLiked) revertedIds.add(listingId); else revertedIds.delete(listingId);
           return revertedIds;
       });
     } finally {
-      setLikingInProgress(prev => {
-        const next = new Set(prev);
-        next.delete(listingId);
-        return next;
-      });
+      setLikingInProgress(prev => { const next = new Set(prev); next.delete(listingId); return next; });
     }
+  };
+
+  // --- Merged: Review Handler ---
+  // Callback when a review is successfully submitted via the Modal
+  const handleReviewSuccess = () => {
+      // Update local state to show the "Reviewed" checkmark immediately
+      setConversations(prev => prev.map(c => 
+          c.id === selectedConversation.id ? { ...c, hasReviewed: true } : c
+      ));
+      if (selectedConversation) {
+          setSelectedConversation(prev => ({ ...prev, hasReviewed: true }));
+      }
   };
 
   // --- Main Render ---
@@ -855,6 +687,7 @@ export default function MessagesPage() {
 
   return (
     <div className="profile-page">
+      {/* Header with z-index control to stay above skeletons but below modals */}
       <div style={{ position: 'relative', zIndex: (isModalOpen || isNotificationLoading) ? 1 : 2000 }}>
         <Header userName={userName} 
           profilePictureUrl={userData?.profilePictureUrl}
@@ -865,11 +698,11 @@ export default function MessagesPage() {
 
       <div className="messages-page-container">
         
-        {/* --- Left Sidebar: Conversation List --- */}
+        {/* --- Sidebar: Conversation List --- */}
         <aside className={`conversations-sidebar ${isChatVisible ? 'mobile-hidden' : ''}`}>
           <div className="conversations-header">
             
-            {/* Conditional Header: Show Banner if filtering by Listing ID, else show Dropdown */}
+            {/* Show "Clear Filter" banner if looking at a specific item's messages */}
             {listingFilterId ? (
                 <div className="active-filter-banner">
                     <span>Filtering by Item</span>
@@ -919,10 +752,7 @@ export default function MessagesPage() {
             key={conv.id}
             className={`conversation-list-item ${selectedConversation?.id === conv.id ? 'active' : ''} ${conv.isUnread ? 'unread' : ''} ${activeListMenuId === conv.id ? 'menu-active' : ''}`}
             onClick={() => handleSelectConversation(conv)}
-            style={{ 
-                zIndex: activeListMenuId === conv.id ? 1000 : 1, 
-                position: 'relative' 
-            }}
+            style={{ zIndex: activeListMenuId === conv.id ? 1000 : 1, position: 'relative' }}
             role="button"
             tabIndex={0}
           >
@@ -936,7 +766,6 @@ export default function MessagesPage() {
                   />
               </div>
 
-              {/* Content Area */}
               <div style={{ flex: 1, minWidth: 0, marginRight: '0.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <div className="conversation-user-name" style={{ marginBottom: '0.25rem' }}>
                     {conv.otherUser.name}
@@ -954,14 +783,12 @@ export default function MessagesPage() {
                   </div>
               </div>
 
-              {/* Actions Area (Right Side) */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           {formatMessageTime(conv.lastMessageDate)}
                       </span>
                       
-                      {/* Sidebar Item Menu */}
                       <div style={{ position: 'relative' }}>
                           <button 
                             className="icon-button" 
@@ -972,10 +799,7 @@ export default function MessagesPage() {
                           </button>
 
                           {activeListMenuId === conv.id && (
-                            <div 
-                                className="filter-dropdown-menu" 
-                                style={{ right: '0', left: 'auto', top: '100%', width: '150px', zIndex: 50 }}
-                            >
+                            <div className="filter-dropdown-menu" style={{ right: '0', left: 'auto', top: '100%', width: '150px', zIndex: 50 }}>
                                 <button className="filter-option" onClick={(e) => handleReadUnreadAction(e, conv)}>
                                   {conv.isUnread ? 'Mark as Read' : 'Mark as Unread'}
                                 </button>
@@ -989,9 +813,7 @@ export default function MessagesPage() {
                           )}
                       </div>
                   </div>
-                  
-                  {/* Unread Dot */}
-                  {conv.isUnread && <span className="unread-dot" title="Unread messages"></span>}
+                  {conv.isUnread && <span className="unread-dot"></span>}
               </div>
             </li>
           ))}
@@ -1018,11 +840,26 @@ export default function MessagesPage() {
                 <button className="chat-back-button" onClick={handleBackToList}>
                   <Icons.BackArrow />
                 </button>
-                <div className="chat-user-info">
-                  <span className="user-name">{selectedConversation.otherUser.name}</span>
-                </div>
+                <div className="chat-user-info" style={{ flexDirection: 'column', justifyContent: 'center' }}>
+                {/* 1. Clickable Name */}
+                <Link 
+                  to={`/profile/${selectedConversation.otherUser.id}`} 
+                  className="user-name" 
+                  style={{ 
+                    textDecoration: 'none', 
+                    color: 'var(--text-color)', 
+                    cursor: 'pointer',
+                    lineHeight: '1.2'
+                  }}
+                >
+                  {selectedConversation.otherUser.name}
+                </Link>
+
+                {/* 2. User Reviews */}
+                <UserRatingDisplay userId={selectedConversation.otherUser.id} />
+              </div>
                 
-                {/* Embedded Product Card in Header */}
+                {/* Embedded Product Card (Clickable) */}
                 {selectedConversation.product && (
                   <div className="chat-listing-card-wrapper" style={{ marginLeft: 'auto', marginRight: '10px' }}>
                       <ListingCard
@@ -1037,14 +874,29 @@ export default function MessagesPage() {
                   </div>
                 )}
 
-                {/* Top Right Chat Actions Menu */}
-                <div style={{ marginLeft: 'auto', position: 'relative' }}>
+                {/* --- Merged: Review Button Logic --- */}
+                {/* Only show "Write Review" if a transaction exists and hasn't been reviewed yet */}
+                {selectedConversation.transactionId && !selectedConversation.hasReviewed && (
+                    <button 
+                        className="btn btn-primary-accent btn-small"
+                        style={{ marginRight: '10px', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                        onClick={() => setIsReviewModalOpen(true)}
+                    >
+                        Write Review
+                    </button>
+                )}
+                {/* Show badge if already reviewed */}
+                {selectedConversation.transactionId && selectedConversation.hasReviewed && (
+                    <span style={{ marginRight: '10px', fontSize: '0.8rem', color: '#2ecc71', fontWeight: 'bold' }}>
+                        ✓ Reviewed
+                    </span>
+                )}
+
+                {/* Top Right Chat Actions (Archive/Delete) */}
+                <div style={{ marginLeft: '0', position: 'relative' }}>
                       <button 
                           className="icon-button" 
-                          onClick={(e) => {
-                              e.stopPropagation(); 
-                              setIsChatMenuOpen(!isChatMenuOpen);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); setIsChatMenuOpen(!isChatMenuOpen); }}
                           style={{ fontSize: '1.5rem', cursor: 'pointer', padding: '0 5px' }}
                       >
                           ⋮
@@ -1062,16 +914,10 @@ export default function MessagesPage() {
                 </div>
               </div>
 
-              {/* Chat History Container */}
-              <div className="chat-content" 
-              ref={chatContentRef}
-              onScroll={handleScroll}
-              >
-                {isFetchingMore && (
-                    <div style={{ textAlign: 'center', padding: '10px', fontSize: '0.8rem', color: '#888' }}>
-                        Loading history...
-                    </div>
-                )}
+              {/* Chat History Messages */}
+              <div className="chat-content" ref={chatContentRef} onScroll={handleScroll}>
+                {isFetchingMore && <div style={{ textAlign: 'center', padding: '10px', fontSize: '0.8rem', color: '#888' }}>Loading history...</div>}
+                
                 {messages.map((msg, index) => {
                   const prevMsg = messages[index - 1];
                   const currentDateLabel = getDateLabel(msg.rawDate);
@@ -1080,15 +926,10 @@ export default function MessagesPage() {
 
                   return (
                     <React.Fragment key={msg.id}>
-                      {showDateHeader && (
-                        <div className="date-header-badge">
-                          {currentDateLabel}
-                        </div>
-                      )}
+                      {showDateHeader && <div className="date-header-badge">{currentDateLabel}</div>}
 
                       <div className={`message-bubble-wrapper ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
                         <div className={`message-bubble ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
-                          {/* Attachment Rendering */}
                           {msg.attachmentUrl && (
                               <img 
                                   src={msg.attachmentUrl} 
@@ -1107,15 +948,12 @@ export default function MessagesPage() {
               </div>
 
               {showScrollBtn && (
-                  <button 
-                      className="scroll-bottom-btn" 
-                      onClick={scrollToBottom}
-                  >
+                  <button className="scroll-bottom-btn" onClick={scrollToBottom}>
                       ⬇ New Message
                   </button>
               )}
 
-              {/* Input Area */}
+              {/* Chat Input Area */}
               <div className="chat-input-area">
                 <input 
                     type="file" 
@@ -1124,19 +962,13 @@ export default function MessagesPage() {
                     accept="image/*"
                     onChange={handleFileSelect} 
                 />
-
                 <textarea
                   ref={textareaRef}
                   className="chat-input"
                   placeholder="Type here..."
                   value={newMessage}
                   onChange={handleTextareaChange}
-                  onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                      }
-                  }}
+                  onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                   rows={1}
                 />
                 {newMessage.trim() ? (
@@ -1144,11 +976,7 @@ export default function MessagesPage() {
                     <Icons.Send />
                   </button>
                 ) : (
-                  <button 
-                      className="icon-button" 
-                      aria-label="Attach file"
-                      onClick={() => fileInputRef.current?.click()} 
-                  >
+                  <button className="icon-button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()}>
                     <Icons.Attachment />
                   </button>
                 )}
@@ -1167,7 +995,9 @@ export default function MessagesPage() {
         </main>
       </div>
       
-      {/* --- Modals --- */}
+      {/* --- Modals Section --- */}
+      
+      {/* Listing Detail Modal */}
       {isModalOpen && selectedListing && (
         <div style={{ position: 'relative', zIndex: 3000 }}>
             <ProductDetailModal
@@ -1180,6 +1010,21 @@ export default function MessagesPage() {
             />
         </div>
       )}
+
+      {/* Merged: Review Modal */}
+      {isReviewModalOpen && selectedConversation && (
+        <div style={{ position: 'relative', zIndex: 3000 }}>
+          <ReviewModal 
+              transactionId={selectedConversation.transactionId}
+              reviewerId={userData.userId}
+              otherUserName={selectedConversation.otherUser.name}
+              onClose={() => setIsReviewModalOpen(false)}
+              onSuccess={handleReviewSuccess}
+          />
+        </div>
+      )}
+
+      {/* Loading Skeleton for Notifications */}
       {isNotificationLoading && (
         <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
       )}

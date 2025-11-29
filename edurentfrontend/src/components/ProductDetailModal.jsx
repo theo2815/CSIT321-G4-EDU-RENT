@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { startConversation } from '../services/apiService'; 
 import MarkAsSoldModal from './MarkAsSoldModal';
+import UserRatingDisplay from './UserRatingDisplay';
 
 // Styles and Assets
 import '../static/ProductDetailModal.css';
@@ -230,6 +231,7 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
                   />
                   <div className="seller-details">
                     <div className="seller-username">{seller.username} (You)</div>
+                    <UserRatingDisplay userId={currentUserId} />
                   </div>
                 </div>
 
@@ -287,6 +289,7 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
                             {seller.username}
                         </Link>
                     </div>
+                      <UserRatingDisplay userId={seller.id} />
                   </div>
                 </div>
 

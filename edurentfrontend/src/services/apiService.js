@@ -469,6 +469,94 @@ export const createTransaction = async (transactionData) => {
   }
 };
 
+// --- Reviews ---
+
+/**
+ * Creates a new review for a specific transaction.
+ * Payload: { rating, comment, transactionId, reviewerId }
+ */
+export const createReview = async (reviewData) => {
+  try {
+    const formData = new FormData();
+    formData.append('rating', reviewData.rating);
+    formData.append('comment', reviewData.comment);
+    formData.append('transactionId', reviewData.transactionId);
+    formData.append('reviewerId', reviewData.reviewerId);
+
+    if (reviewData.images && reviewData.images.length > 0) {
+      reviewData.images.forEach((file) => {
+        formData.append('images', file);
+      });
+    }
+
+    const response = await apiClient.post(`/reviews`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response;
+  } catch (error) {
+    console.error("Error during createReview API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Fetches a review associated with a specific transaction.
+ * Useful for checking if a review already exists or displaying it.
+ */
+export const getReviewByTransaction = async (transactionId) => {
+  try {
+    const response = await apiClient.get(`/reviews/transaction/${transactionId}`);
+    return response;
+  } catch (error) {
+    // It's okay if 404 (no review yet), but we log real errors
+    if (error.response && error.response.status !== 404) {
+        console.error(`Error fetching review for transaction ${transactionId}:`, error);
+    }
+    throw error;
+  }
+};
+
+export const updateReview = async (reviewId, data) => {
+  try {
+    const formData = new FormData();
+    if (data.rating) formData.append('rating', data.rating);
+    if (data.comment) formData.append('comment', data.comment);
+    
+    // Append IDs of images to delete
+    if (data.imagesToDelete && data.imagesToDelete.length > 0) {
+      data.imagesToDelete.forEach(id => formData.append('imagesToDelete', id));
+    }
+
+    // Append new files
+    if (data.newImages && data.newImages.length > 0) {
+      data.newImages.forEach(file => formData.append('newImages', file));
+    }
+
+    // Notice we use PUT with FormData now
+    const response = await apiClient.put(`/reviews/${reviewId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error updating review ${reviewId}:`, error);
+    throw error;
+  }
+};
+
+export const deleteReview = async (reviewId) => {
+  try {
+    const response = await apiClient.delete(`/reviews/${reviewId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error deleting review ${reviewId}:`, error);
+    throw error;
+  }
+};
+
+
+
 // --- NEW: Update Listing Status ---
 export const updateListingStatus = async (listingId, status) => {
   try {

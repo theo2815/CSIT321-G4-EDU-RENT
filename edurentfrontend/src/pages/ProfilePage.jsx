@@ -1,58 +1,59 @@
-// src/pages/ProfilePage.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios'; 
 
-// --- Custom Hooks ---
-// useAuth: Manages the current logged-in user's session and token
-// useLikes: Handles the logic for liking/unliking items and tracking liked status
-// usePageLogic: Centralizes modal states and common page interactions
-// useSearch: Filters the listing array based on user input
+// Custom hooks for application logic
 import useAuth from '../hooks/useAuth';
 import useLikes from '../hooks/useLikes';
 import usePageLogic from '../hooks/usePageLogic';
 import useSearch from '../hooks/useSearch';
 
-// --- UI Components ---
+// UI Components
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
+import ReviewImagesModal from '../components/ReviewImagesModal';
+import ReviewModal from '../components/ReviewModal'; // Used for editing existing reviews
 
-// --- API Services ---
-import { getUserListings, getUserReviews, getCurrentUser } from '../services/apiService';
+// API Services
+import { 
+  getUserListings, 
+  getUserReviews, 
+  getCurrentUser, 
+  deleteReview 
+} from '../services/apiService';
 
-// --- Styles & Assets ---
+// Styles and Assets
 import '../static/ProfilePage.css';
 import '../static/DashboardPage.css';
 import ShareIcon from '../assets/share.png';
 import defaultAvatar from '../assets/default-avatar.png';
 
-// Defined API URL for the fallback fetch function
 const API_URL = 'http://localhost:8080/api/v1';
 
-/**
- * Fallback function to fetch a specific user by ID.
- * This is used if the main apiService does not yet have a 'getUserById' function exported.
- * It manually retrieves the auth token to ensure the request is authorized.
- */
+// SVG Placeholder for items without images
+const defaultProductPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3e%3crect width='60' height='60' fill='%23f0f0f0'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='10' fill='%23aaaaaa'%3eItem%3c/text%3e%3c/svg%3e";
+
+// Helper function to ensure image paths are absolute URLs
+const getImageUrl = (path) => {
+  if (!path) return null;
+  return path.startsWith('http') ? path : `http://localhost:8080${path}`;
+};
+
+// Fallback to manually fetch user data by ID if the service function is unavailable
 const fetchUserById = async (id) => {
   const storedData = localStorage.getItem('eduRentUserData');
   const token = storedData ? JSON.parse(storedData).token : null;
   
   return axios.get(`${API_URL}/users/${id}`, {
-       headers: token ? { Authorization: `Bearer ${token}` } : {}
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
 };
 
-/**
- * Skeleton Loader Component
- * Displays a placeholder layout while profile data is being fetched from the backend.
- */
+// Loading state component displaying a skeleton layout
 function ProfileSkeleton() {
   return (
     <main className="dashboard-body">
-      {/* Profile Header Skeleton */}
       <div className="content-card profile-card skeleton">
         <div className="profile-card-left skeleton skeleton-avatar" style={{width: '120px', height: '120px', borderRadius:'50%'}}></div>
         <div className="profile-card-center" style={{flexGrow: 1}}>
@@ -70,7 +71,6 @@ function ProfileSkeleton() {
         </div>
       </div>
 
-      {/* Tabs and Listings Skeleton */}
       <div className="content-card skeleton" style={{marginTop: '1.5rem'}}>
         <div className="profile-tabs" style={{ borderBottom: '1px solid var(--border-color-light)' }}>
           <div className="skeleton skeleton-text" style={{ width: '100px', height: '2rem', marginBottom: '-1px' }}></div>
@@ -90,10 +90,7 @@ function ProfileSkeleton() {
   );
 }
 
-/**
- * Profile Details Modal
- * Shows extended information about the user (Join date, School, Location).
- */
+// Modal component showing detailed user information
 function ProfileDetailsModal({ user, onClose }) {
   if (!user) return null;
 
@@ -101,7 +98,6 @@ function ProfileDetailsModal({ user, onClose }) {
     ? new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'N/A';
 
-  // Close modal if the user clicks the dark overlay background
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -125,10 +121,7 @@ function ProfileDetailsModal({ user, onClose }) {
   );
 }
 
-/**
- * Error Display Component
- * Renders a user-friendly error message with a retry button.
- */
+// Error component with a retry button
 function ErrorDisplay({ error, onRetry }) {
   return (
     <div className="error-container" style={{ margin: '2rem auto', maxWidth: '600px'}}>
@@ -139,96 +132,209 @@ function ErrorDisplay({ error, onRetry }) {
   );
 }
 
-/**
- * Review Card Component
- * Displays individual reviews with star ratings and timestamps.
- */
-function ReviewCard({ review }) {
+// Card component displaying individual review details
+// Handles data extraction for images and conditional rendering of edit/delete buttons
+function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
   const reviewerName = review.reviewer?.fullName || 'Anonymous';
+  const reviewerAvatar = getImageUrl(review.reviewer?.profilePictureUrl) || defaultAvatar;
+   
+  const listingTitle = review.listing?.title || 'Unknown Item';
+   
+  // Display the Product Cover Photo on the left for context
+  const productCoverImage = review.listing?.imageUrl 
+    ? getImageUrl(review.listing.imageUrl) 
+    : defaultProductPlaceholder;
+
   const reviewDate = review.createdAt ? new Date(review.createdAt).toLocaleDateString() : 'N/A';
+   
+  // Extract Review Images
+  // Ensure we map the array of image objects (from backend) to simple URL strings for display
+  const reviewImageObjects = review.reviewImages || [];
+  const reviewImageUrls = reviewImageObjects.map(img => img.url);
+
+  // Determine if the currently logged-in user is the author of this review
+  const isAuthor = currentUserId && review.reviewer?.userId === currentUserId;
 
   return (
-    <div className="review-card">
-      <div className="review-header">
-        <strong className="review-reviewer">{reviewerName}</strong>
-        <span className="review-rating">
-          {'⭐'.repeat(review.rating || 0)}
-          {'☆'.repeat(5 - (review.rating || 0))}
-        </span>
+    <div className="review-card" style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+        
+        {/* Left: Product Cover Photo (Always visible) */}
+        <div style={{ flexShrink: 0 }}>
+            <img 
+              src={productCoverImage} 
+              alt={listingTitle} 
+              style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #eee' }} 
+              onError={(e) => { e.target.onerror = null; e.target.src = defaultProductPlaceholder; }}
+            />
+        </div>
+
+        {/* Right: Review Content */}
+        <div style={{ flexGrow: 1 }}>
+            
+            {/* Header: Reviewer Info, Rating, and Actions */}
+            <div className="review-header" style={{ marginBottom: '0.25rem', display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <img 
+                      src={reviewerAvatar} 
+                      alt="Reviewer" 
+                      style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} 
+                      onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }} 
+                    />
+                    <strong className="review-reviewer">{reviewerName}</strong>
+                    <span style={{ fontSize: '0.8rem', color: '#6c757d' }}>• {reviewDate}</span>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="review-rating">
+                      {'⭐'.repeat(review.rating || 0)}
+                      {'☆'.repeat(5 - (review.rating || 0))}
+                    </span>
+
+                    {/* Edit and Delete Buttons (Visible only to the author) */}
+                    {isAuthor && (
+                        <div style={{ marginLeft: '0.5rem', display: 'flex', gap: '5px' }}>
+                            <button 
+                                onClick={() => onEdit(review)} 
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', color: '#6c757d' }} 
+                                title="Edit"
+                            >
+                                ✏️
+                            </button>
+                            <button 
+                                onClick={() => onDelete(review.id)} 
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', color: '#e53935' }} 
+                                title="Delete"
+                            >
+                                🗑️
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Item Name */}
+            <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--primary-color)', marginBottom: '0.5rem' }}>
+              Item: {listingTitle}
+            </div>
+
+            {/* Review Comment */}
+            <p className="review-comment" style={{ marginBottom: reviewImageUrls.length > 0 ? '0.75rem' : '0' }}>
+                {review.comment || 'No comment provided.'}
+            </p>
+
+            {/* Review Images Section (Displayed below the comment) */}
+            {reviewImageUrls.length > 0 && (
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {reviewImageUrls.map((imgUrl, index) => (
+                        <img 
+                            key={index}
+                            src={getImageUrl(imgUrl)}
+                            alt={`Evidence ${index}`}
+                            // Pass the array of URLs (converted to absolute paths) to the modal viewer
+                            onClick={() => onImageClick(reviewImageUrls.map(getImageUrl), index)}
+                            style={{ 
+                                width: '60px', 
+                                height: '60px', 
+                                borderRadius: '6px', 
+                                objectFit: 'cover', 
+                                cursor: 'pointer',
+                                border: '1px solid #ddd'
+                            }}
+                            onError={(e) => e.target.style.display = 'none'} 
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
       </div>
-      <p className="review-comment">{review.comment || 'No comment provided.'}</p>
-      <small className="review-date">{reviewDate}</small>
     </div>
   );
 }
 
-/**
- * Main Profile Page Component
- * Handles displaying user profiles, distinguishing between "My Profile" and "Public Profiles".
- */
 export default function ProfilePage() {
   
-  // Retrieve profileId from the URL parameters (e.g., /profile/123)
   const { profileId } = useParams();
   const navigate = useNavigate();
 
-  // --- Hook Initialization ---
+  // Custom hooks for application features
   const { userData: loggedInUser, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
-  
   const likesHook = useLikes();
   const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
-  
   const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(loggedInUser, likesHook);
 
-  // --- Local State Management ---
-  // Stores data of the user being VIEWED (which might differ from loggedInUser)
+  // Local state management
   const [profileUser, setProfileUser] = useState(null); 
   const [originalListings, setOriginalListings] = useState([]); 
   const [userReviews, setUserReviews] = useState([]);
   const [activeTab, setActiveTab] = useState('listings');
   
-  // Loading and Error states for page-specific data fetching
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   const [pageDataError, setPageDataError] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-  // Search functionality for the listings array
+  // State to manage the Review Image Modal
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [modalImages, setModalImages] = useState([]);
+  const [modalInitialIndex, setModalInitialIndex] = useState(0); 
+
+  // State to manage the Edit Review Modal
+  const [editingReview, setEditingReview] = useState(null);
+
+  // Search filtering logic
   const { searchQuery, handleSearch, filteredListings: displayedListings } = useSearch(
     originalListings,
     ['title', 'description']
   );
 
-  /**
-   * Determines if the profile being viewed belongs to the currently logged-in user.
-   * It is "My Profile" if:
-   * 1. No profileId is in the URL (default route /profile), OR
-   * 2. The profileId in URL matches the logged-in user's ID.
-   */
+  // Determines if we are viewing the logged-in user's own profile
   const isMyProfile = !profileId || (loggedInUser && profileUser && String(loggedInUser.userId) === String(profileUser.userId));
 
-  /**
-   * Asynchronously fetches all necessary data for the profile page.
-   * This includes the user's details, their listings, and their reviews.
-   */
+  // Handler to open the image modal with specific images and starting index
+  const openReviewImages = (images, index = 0) => {
+      setModalImages(images);
+      setModalInitialIndex(index);
+      setIsImageModalOpen(true);
+  };
+
+  // Handlers for deleting reviews
+  const handleDeleteReview = async (reviewId) => {
+      if (!window.confirm("Are you sure you want to delete this review?")) return;
+      try {
+          await deleteReview(reviewId);
+          // Reload the page to reflect changes
+          window.location.reload(); 
+      } catch (error) {
+          alert("Failed to delete review.");
+      }
+  };
+
+  // Handlers for editing reviews
+  const handleEditReview = (review) => {
+      setEditingReview(review);
+  };
+
+  const handleEditSuccess = () => {
+      setEditingReview(null);
+      // Reload the page to reflect changes
+      window.location.reload();
+  };
+
+  // Main data fetching function for the profile
   const fetchProfileData = useCallback(async (targetId) => {
     setIsLoadingPageData(true);
     setPageDataError(null);
     try {
-      // 1. Determine how to fetch the user details
       let userPromise;
       if (profileId) {
-          // If viewing a public profile, use the fallback fetcher or API service
           userPromise = fetchUserById(profileId); 
       } else {
-          // If viewing my own profile, use the endpoint for "me"
           userPromise = getCurrentUser();
       }
 
-      // 2. Fetch Listings and Reviews using the target ID
       const listingsPromise = getUserListings(targetId);
       const reviewsPromise = getUserReviews(targetId);
       
-      // 3. Wait for all requests to complete
       const [userResponse, listingsResponse, reviewsResponse] = await Promise.all([
         userPromise,
         listingsPromise,
@@ -236,24 +342,22 @@ export default function ProfilePage() {
       ]);
 
       setProfileUser(userResponse.data);
-      // --- SORTING: Available First, Sold Last (Both Newest First) ---
+      
+      // Sorting logic: Sold items last, then by date descending
       const rawListings = listingsResponse.data || [];
       const sortedListings = rawListings.sort((a, b) => {
-          // 1. Status Check: "Sold" goes to bottom
           const isSoldA = a.status?.toLowerCase() === 'sold';
           const isSoldB = b.status?.toLowerCase() === 'sold';
 
-          if (isSoldA && !isSoldB) return 1;  // A is sold, B is not -> A goes after B
-          if (!isSoldA && isSoldB) return -1; // A is not sold, B is sold -> A goes before B
+          if (isSoldA && !isSoldB) return 1; 
+          if (!isSoldA && isSoldB) return -1; 
           
-          // 2. Date Check: Newest first (Secondary sort)
           return new Date(b.createdAt) - new Date(a.createdAt);
       });
       
       setOriginalListings(listingsResponse.data || []);
       setUserReviews(reviewsResponse.data || []);
 
-      // If viewing "My Profile", ensure the likes state is synced
       if (!profileId || (loggedInUser && profileId === String(loggedInUser.userId))) {
           refetchLikes();
       }
@@ -266,13 +370,7 @@ export default function ProfilePage() {
     }
   }, [profileId, loggedInUser, refetchLikes]); 
 
-
-  /**
-   * Effect: Trigger data fetching when the component mounts or IDs change.
-   * Priorities:
-   * 1. If profileId exists in URL, fetch that ID immediately.
-   * 2. If no profileId, wait for loggedInUser to be ready, then fetch their ID.
-   */
+  // Effect to trigger data fetching on mount or ID change
   useEffect(() => {
     if (profileId) {
         fetchProfileData(profileId);
@@ -281,13 +379,10 @@ export default function ProfilePage() {
     }
   }, [profileId, loggedInUser, fetchProfileData]);
 
-
-  // --- Event Handlers ---
-
+  // Modal handlers
   const openProfileModal = () => setIsProfileModalOpen(true);
   const closeProfileModal = () => setIsProfileModalOpen(false);
 
-  // Retry logic for any failed network requests on the page
   const handleRetry = () => {
     if (authError) retryAuth();
     const idToFetch = profileId || loggedInUser?.userId;
@@ -295,7 +390,6 @@ export default function ProfilePage() {
     if (likeError) refetchLikes();
   };
   
-  // Logic to copy the profile URL to clipboard or use native share
   const handleShareProfile = () => {
     const id = profileUser?.userId;
     const url = `${window.location.origin}/profile/${id}`;
@@ -311,22 +405,23 @@ export default function ProfilePage() {
     }
   };
 
-  // Placeholder for future messaging functionality
   const handleChatClick = () => {
       console.log("Navigating to chat with", profileUser?.fullName);
       navigate('/messages'); 
   };
 
-  // Calculate average rating (to one decimal place)
+  // Split reviews into Buyer and Seller categories
+  const buyerReviews = userReviews.filter(r => r.reviewerRole === 'BUYER');
+  const sellerReviews = userReviews.filter(r => r.reviewerRole === 'SELLER');
+
   const averageRating = userReviews.length > 0
     ? (userReviews.reduce((sum, review) => sum + (review.rating || 0), 0) / userReviews.length).toFixed(1)
     : 0;
 
-  // Combine loading/error states for clean UI rendering
   const isPageLoading = isLoadingAuth || isLoadingPageData || isLoadingLikes;
   const pageError = authError || pageDataError || likeError;
   
-  // --- Render: Loading State ---
+  // Loading State
   if (isPageLoading) {
     return (
       <div className="profile-page">
@@ -336,7 +431,7 @@ export default function ProfilePage() {
     );
   }
 
-  // --- Render: Error State ---
+  // Error State
   if (pageError) {
     return (
       <div className="profile-page">
@@ -348,7 +443,7 @@ export default function ProfilePage() {
     );
   }
 
-  // --- Render: User Not Found State ---
+  // Not Found State
   if (!profileUser) {
     return (
       <div className="profile-page">
@@ -378,7 +473,7 @@ export default function ProfilePage() {
 
       <main className="dashboard-body">
         
-        {/* --- Profile Header Section --- */}
+        {/* Profile Header Section */}
         <section className="content-card profile-card">
           <div className="profile-card-left">
              <img 
@@ -398,7 +493,6 @@ export default function ProfilePage() {
              <div className="profile-card-joined"><span>Joined </span><span>{joinedDate}</span></div> 
              
              <div className="profile-card-actions"> 
-               {/* Conditional Rendering: Edit (if owner) vs Message (if visitor) */}
                {isMyProfile ? (
                  <button className="btn btn-small btn-primary" onClick={() => navigate('/settings/profile')}> Edit Profile </button> 
                ) : (
@@ -409,7 +503,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        {/* --- Content Tabs: Listings & Reviews --- */}
+        {/* Tabs for Listings and Reviews */}
         <section className="content-card">
           <div className="profile-tabs">
             <button className={`tab-button ${activeTab === 'listings' ? 'active' : ''}`} onClick={() => setActiveTab('listings')}>
@@ -421,7 +515,7 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            {/* Listings Tab Content */}
+            {/* Listings Tab */}
             {activeTab === 'listings' && (
               <div className="profile-listings-section">
                 <div className="profile-listings-header">
@@ -434,7 +528,6 @@ export default function ProfilePage() {
                       value={searchQuery}
                       onChange={handleSearch}
                     />
-                    {/* Only show Manage Listings button if viewing own profile */}
                     {isMyProfile && (
                         <button className="btn btn-small btn-primary-accent" onClick={() => navigate('/manage-listings')}>
                           Manage Listings
@@ -451,39 +544,66 @@ export default function ProfilePage() {
                         listing={listing}
                         onClick={openModal}
                         currentUserId={loggedInUser?.userId} 
-                        
-                        // Logic: 
-                        // 1. If it's My Profile, isLiked is forced false (owner can't like own items)
-                        // 2. If Public Profile, check likedListingIds Set.
                         isLiked={isMyProfile ? false : likedListingIds.has(listing.listingId)}
-                        
-                        // Logic: Disable click handler if owner, enable if visitor
                         onLikeClick={isMyProfile ? () => {} : handleLikeToggle}
-                        
                         isLiking={isMyProfile ? false : likingInProgress.has(listing.listingId)}
                       />
                     ))}
                   </div>
                 ) : (
                   <div className="empty-state">
-                     <div className="empty-state-icon">📦</div> 
-                     <div className="empty-state-title">{searchQuery ? 'No Listings Found' : 'No Listings Yet'}</div>
-                     {!searchQuery && isMyProfile && (
-                         <button className="empty-state-action" onClick={() => navigate('/list-item')}> Create Listing </button>
-                     )}
+                      <div className="empty-state-icon">📦</div> 
+                      <div className="empty-state-title">{searchQuery ? 'No Listings Found' : 'No Listings Yet'}</div>
+                      {!searchQuery && isMyProfile && (
+                          <button className="empty-state-action" onClick={() => navigate('/list-item')}> Create Listing </button>
+                      )}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Reviews Tab Content */}
+            {/* Reviews Tab */}
             {activeTab === 'reviews' && (
               <div className="profile-reviews-section">
-                  <h2 className="profile-listings-title" style={{ marginBottom: '1.5rem' }}>Reviews</h2>
-                  {userReviews.length > 0 ? (
-                     userReviews.map((review) => <ReviewCard key={review.reviewId} review={review} />)
+                  
+                  {/* Reviews from Buyers Section */}
+                  <h3 className="profile-listings-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', fontSize: '1.1rem' }}>
+                    Reviews from Buyers
+                  </h3>
+                  {buyerReviews.length > 0 ? (
+                      buyerReviews.map((review) => (
+                        <ReviewCard 
+                           key={review.id || review.reviewId} 
+                           review={review} 
+                           onImageClick={openReviewImages}
+                           currentUserId={loggedInUser?.userId} // Pass user ID to check authorship
+                           onEdit={handleEditReview}            // Pass handler
+                           onDelete={handleDeleteReview}        // Pass handler
+                        />
+                      ))
                   ) : (
-                     <div className="empty-state"><div className="empty-state-title">No Reviews Yet</div></div>
+                      <p className="text-muted" style={{ fontStyle: 'italic', marginBottom: '2rem' }}>No reviews from buyers yet.</p>
+                  )}
+
+                  <hr style={{ margin: '2rem 0', borderColor: 'var(--border-color)' }} />
+
+                  {/* Reviews from Sellers Section */}
+                  <h3 className="profile-listings-title" style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>
+                    Reviews from Sellers
+                  </h3>
+                  {sellerReviews.length > 0 ? (
+                      sellerReviews.map((review) => (
+                        <ReviewCard 
+                           key={review.id || review.reviewId} 
+                           review={review}
+                           onImageClick={openReviewImages}
+                           currentUserId={loggedInUser?.userId} // Pass user ID to check authorship
+                           onEdit={handleEditReview}            // Pass handler
+                           onDelete={handleDeleteReview}        // Pass handler
+                        />
+                      ))
+                  ) : (
+                      <p className="text-muted" style={{ fontStyle: 'italic' }}>No reviews from sellers yet.</p>
                   )}
               </div>
             )}
@@ -491,9 +611,33 @@ export default function ProfilePage() {
         </section>
       </main>
 
-      {/* Modals */}
+      {/* User Details Modal */}
       {isProfileModalOpen && <ProfileDetailsModal user={profileUser} onClose={closeProfileModal} />}
+      
+      {/* Product Details Modal */}
       <ModalComponent />
+
+      {/* Review Images Viewer Modal */}
+      {isImageModalOpen && (
+          <ReviewImagesModal 
+              images={modalImages} 
+              initialIndex={modalInitialIndex}
+              onClose={() => setIsImageModalOpen(false)} 
+          />
+      )}
+
+      {/* Edit Review Modal */}
+      {editingReview && (
+          <ReviewModal 
+              initialReview={editingReview} 
+              onClose={() => setEditingReview(null)}
+              onSuccess={handleEditSuccess}
+              // Fallback props required by propTypes (not used in edit mode)
+              transactionId={null} 
+              reviewerId={null}
+              otherUserName="User"
+          />
+      )}
 
     </div>
   );
