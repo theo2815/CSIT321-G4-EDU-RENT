@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { startConversation } from '../services/apiService'; 
 import MarkAsSoldModal from './MarkAsSoldModal';
+import ReviewModal from './ReviewModal';
 import UserRatingDisplay from './UserRatingDisplay';
 
 // Styles and Assets
@@ -11,8 +12,7 @@ import '../static/DashboardPage.css';
 import defaultAvatar from '../assets/default-avatar.png'; 
 
 /**
- * Normalizes seller data from potentially different API response structures.
- * Returns a consistent user object for display to prevent crashes.
+ * Helper to normalize seller data and prevent crashes if API response is partial.
  */
 const getSellerInfo = (listingUser) => {
   const defaultUser = { userId: null, fullName: 'Seller Unknown', profilePictureUrl: null, school: { name: 'N/A' } };
@@ -26,48 +26,52 @@ const getSellerInfo = (listingUser) => {
   };
 };
 
-export default function ProductDetailModal({ listing, onClose, currentUserId, isLiked, onLikeClick, isLiking, sellerRatingInitialData}) {
+export default function ProductDetailModal({ 
+  listing, 
+  onClose, 
+  currentUserId, 
+  isLiked, 
+  onLikeClick, 
+  isLiking, 
+  sellerRatingInitialData,
+  initialContext // Received from usePageLogic to avoid fetch delays
+}) {
   const navigate = useNavigate();
   
-  // --- UI State Management ---
+  // --- UI State ---
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [showMarkSoldModal, setShowMarkSoldModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false); 
 
-  // Safety check: Immediately exit if no data is provided
+  // Safety check
   if (!listing) return null;
 
-  // --- Data Parsing & Formatting ---
-
-  // Check status and ownership
+  // --- Data Parsing ---
   const isSold = listing.status === 'Sold';
   const isOwner = currentUserId === listing?.user?.userId;
   const seller = getSellerInfo(listing.user);
 
-  // Calculate stats
   const priceDisplay = `₱${(listing.price || 0).toFixed(2)}`;
   const isRent = listing.listingType?.toUpperCase().includes('RENT');
   const typeText = isRent ? 'Want to rent the item?' : 'Want to buy the item?';
-  // --- DYNAMIC LIKE COUNT ---
-  const serverLikeCount = listing.likes ? listing.likes.length : 0;
 
+  // --- Like Logic (Optimistic UI) ---
+  const serverLikeCount = listing.likes ? listing.likes.length : 0;
   const wasLikedInitial = useMemo(() => {
     if (!listing.likes || !currentUserId) return false;
     return listing.likes.some(like => like.id?.userId === currentUserId);
   }, [listing.likes, currentUserId]);
 
   let displayLikeCount = serverLikeCount;
-  if (isLiked && !wasLikedInitial) {
-    displayLikeCount++;
-  } else if (!isLiked && wasLikedInitial) {
-    displayLikeCount--;
-  }
+  if (isLiked && !wasLikedInitial) displayLikeCount++;
+  else if (!isLiked && wasLikedInitial) displayLikeCount--;
   displayLikeCount = Math.max(0, displayLikeCount);
 
-  // --- Image Handling Logic ---
-  // Consolidate image sources and determine the starting image (Cover > First > Default)
+  // --- Image Handling ---
   const rawImages = listing.listingImages || listing.images || [];
   const images = Array.isArray(rawImages) ? rawImages.map(img => img.imageUrl) : [];
 
+  // Prioritize Cover Photo, fallback to first image
   const initialImageIndex = Math.max(0, images.findIndex(img => 
       rawImages.find(li => li.imageUrl === img)?.isCoverPhoto 
   ));
@@ -76,11 +80,24 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
   const showArrows = images.length > 1;
   const currentImageUrl = images[currentImageIndex] || 'https://via.placeholder.com/400x400?text=No+Image';
 
-  // Helper to ensure image URLs are absolute
   const getFullImageUrl = (path) => {
       if (!path) return 'https://via.placeholder.com/400x400?text=No+Image';
       return path.startsWith('http') ? path : `http://localhost:8080${path}`;
   };
+
+  // --- Context Logic (Derived from Props) ---
+  // 1. Seller Logic: How many chats exist for this item?
+  const chatCount = initialContext?.chatCount || 0;
+
+  // 2. Buyer Logic: Do I have an existing chat?
+  const existingChat = initialContext?.existingChat;
+  
+  // 3. Transaction Logic: Did I buy this specific item?
+  const isBuyerOfSoldItem = isSold && existingChat && existingChat.transactionId;
+
+  // 4. Review Logic: Has this transaction been reviewed?
+  // Note: Ensure your backend populates 'hasReviewed' on the conversation object
+  const hasAlreadyReviewed = existingChat?.hasReviewed;
 
   // --- Event Handlers ---
 
@@ -93,7 +110,25 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
     if (onLikeClick) onLikeClick(listing.listingId);
   };
 
-  // Chat initiation logic
+  const handleViewChats = () => {
+    navigate('/messages', { state: { filterByListingId: listing.listingId } });
+    onClose();
+  };
+
+  /**
+   * Handles the review button click.
+   * If already reviewed -> Go to seller profile to see it.
+   * If not reviewed -> Open the review form.
+   */
+  const handleReviewClick = () => {
+    if (hasAlreadyReviewed) {
+        navigate(`/profile/${seller.id}`); 
+        onClose();
+    } else {
+        setShowReviewModal(true);
+    }
+  };
+
   const handleChatClick = async () => {
     if (!currentUserId) {
         alert("Please log in to chat with the seller.");
@@ -101,16 +136,26 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
         return;
     }
 
+    // Case A: Resume existing chat
+    if (existingChat) {
+        navigate('/messages', { 
+            state: { 
+                openConversation: existingChat,
+                openConversationId: existingChat.conversationId 
+            } 
+        });
+        onClose();
+        return;
+    }
+
+    // Case B: Create new chat
     const sellerId = listing?.user?.userId;
     if (!sellerId) return;
 
     setIsStartingChat(true);
-
     try {
         const response = await startConversation(listing.listingId, currentUserId, sellerId);
         const fullConversation = response.data;
-        
-        // Navigate to Messages and pass the conversation object
         navigate('/messages', { 
             state: { 
                 openConversation: fullConversation,
@@ -118,7 +163,6 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
             } 
         });
         onClose();
-
     } catch (error) {
         console.error("Failed to start conversation:", error);
         alert("Could not start chat. Please try again.");
@@ -131,7 +175,7 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
     <div className="modal-overlay visible" onClick={handleOverlayClick} role="dialog" aria-modal="true">
       <div className="product-modal-content">
 
-        {/* --- Left Column: Image Carousel --- */}
+        {/* --- Left Column: Images --- */}
         <section className="product-image-section">
           <img
             src={getFullImageUrl(currentImageUrl)}
@@ -147,16 +191,14 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
           )}
         </section>
 
-        {/* --- Right Column: Product Details --- */}
+        {/* --- Right Column: Details --- */}
         <section className="product-details-section">
           <button onClick={onClose} className="product-modal-close-btn" aria-label="Close modal">&times;</button>
 
-          {/* Header Area */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
               <h2 className="product-info-name" style={{ margin: 0 }}>
                 {listing.title || 'No Title'}
-                {/* Sold Badge */}
                 {isSold && (
                   <span style={{
                     color: '#e53935', 
@@ -172,7 +214,6 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
                 )}
               </h2>
               
-              {/* Like Badge with Count */}
               <div 
                   onClick={(!isOwner && !isSold) ? handleLikeClick : undefined}
                   style={{ 
@@ -191,15 +232,12 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
                   <span style={{ fontSize: '1.2rem', lineHeight: 1, color: isOwner ? '#6c757d' : (isLiked ? '#e53935' : '#ccc') }}>
                       {isLiking ? '...' : (isOwner ? '🖤' : (isLiked ? '❤️' : '🤍'))}
                   </span>
-                  <span style={{ fontWeight: 'bold', color: '#495057' }}>
-                      {displayLikeCount}
-                  </span>
+                  <span style={{ fontWeight: 'bold', color: '#495057' }}>{displayLikeCount}</span>
               </div>
             </div>
 
             <p className="product-info-price">{priceDisplay}</p>
             
-            {/* Metadata Grid */}
             <div className="product-info-block">
               <span className="product-info-label">Location:</span>
               <span className="product-info-value">{listing.meetupLocation || 'N/A'}</span>
@@ -216,10 +254,10 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
             </div>
           </div>
 
-          {/* --- Bottom Section: Seller Info & Actions --- */}
+          {/* --- Seller Info & Actions --- */}
           <div className="seller-info-section">
             
-            {/* 1. OWNER VIEW */}
+            {/* 1. OWNER VIEW (User owns this listing) */}
             {isOwner ? (
               <>
                 <div className="seller-info-header">
@@ -236,50 +274,47 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
                   <div className="seller-details">
                     <div className="seller-username">{seller.username} (You)</div>
                     <UserRatingDisplay userId={currentUserId} initialData={sellerRatingInitialData} />
-                
                   </div>
                 </div>
 
+                {/* Owner: View Chats (if any exist) */}
+                {chatCount > 0 && (
+                    <button 
+                        className="btn-chat" 
+                        style={{ backgroundColor: "#0077B6", marginBottom: '0.5rem' }}
+                        onClick={handleViewChats}
+                    >
+                        View {chatCount} Chat{chatCount !== 1 ? 's' : ''}
+                    </button>
+                )}
+
+                {/* Owner: Status Actions */}
                 {isSold ? (
-                  /* Case A: Owner + Item Sold -> View Chat History */
-                  <button
-                    className="btn-chat"
-                    style={{ backgroundColor: "#34495e", marginTop: '1rem' }} 
-                    onClick={() => {
-                        navigate('/messages', { state: { filterByListingId: listing.listingId } });
-                        onClose();
-                    }}
-                  >
-                    SOLD – View All Chat
-                  </button>
+                  <div className="action-note" style={{ color: '#e53935', fontWeight: 'bold', marginTop: '0.5rem' }}>
+                    Item marked as Sold
+                  </div>
                 ) : (
-                   /* Case B: Owner + Item Available -> Edit or Sell */
-                   <>
-                    <div className="action-note" style={{ fontStyle: "italic", color: "var(--text-color)" }}>
-                      This is your listing.
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <button
-                          className="btn-chat"
-                          style={{ backgroundColor: "var(--text-muted)", flex: 1 }}
-                          onClick={() => { navigate(`/edit-listing/${listing.listingId}`); onClose(); }}
-                        >
+                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <button 
+                        className="btn-chat" 
+                        style={{ backgroundColor: "var(--text-muted)", flex: 1 }} 
+                        onClick={() => { navigate(`/edit-listing/${listing.listingId}`); onClose(); }}
+                      >
                         Edit
                       </button>
-                      <button
-                          className="btn-chat"
-                          style={{ backgroundColor: "#2ecc71", flex: 1 }} 
-                          onClick={() => setShowMarkSoldModal(true)}
-                        >
+                      <button 
+                        className="btn-chat" 
+                        style={{ backgroundColor: "#2ecc71", flex: 1 }} 
+                        onClick={() => setShowMarkSoldModal(true)}
+                      >
                         Mark as Sold
                       </button>
-                    </div>
-                   </>
+                   </div>
                 )}
               </>
 
             ) : (
-              /* 2. VISITOR VIEW */
+              /* 2. BUYER/VISITOR VIEW */
               <>
                 <div className="seller-info-header">
                   <img
@@ -305,18 +340,42 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
                   </div>
                 </div>
 
-                <div className="action-note">
-                    {isSold ? 'This item has been sold.' : typeText}
-                </div>
-
-                {/* Only show chat button if item is NOT sold */}
-                {!isSold && (
+                {/* Buyer Actions */}
+                {isSold ? (
+                    isBuyerOfSoldItem ? (
+                        /* Scenario: Sold to THIS current user -> Allow Review or Show Reviewed State */
+                        <>
+                            <div className="action-note" style={{ color: '#2ecc71', fontWeight: 'bold' }}>
+                                SOLD TO YOU
+                            </div>
+                            <button 
+                                className="btn-chat" 
+                                style={{ 
+                                    backgroundColor: hasAlreadyReviewed ? "#2ecc71" : "#f1c40f", 
+                                    color: hasAlreadyReviewed ? "white" : "#333" 
+                                }} 
+                                onClick={handleReviewClick}
+                            >
+                                {hasAlreadyReviewed 
+                                    ? "✓ SOLD TO YOU – You already reviewed this" 
+                                    : "⭐ Leave a Review"
+                                }
+                            </button>
+                        </>
+                    ) : (
+                        /* Scenario: Sold to someone else -> Disabled */
+                        <button className="btn-chat" disabled style={{ backgroundColor: "#e0e0e0", color: "#888", cursor: "not-allowed" }}>
+                            This item is already sold
+                        </button>
+                    )
+                ) : (
+                    /* Scenario: Available -> Allow Chat */
                     <button 
                       className="btn-chat" 
-                      onClick={handleChatClick}
-                      disabled={isStartingChat} 
+                      onClick={handleChatClick} 
+                      disabled={isStartingChat}
                     >
-                      {isStartingChat ? 'Starting Chat...' : 'Chat with the Seller'}
+                      {existingChat ? 'View Existing Chat' : 'Chat with the Seller'}
                     </button>
                 )}
               </>
@@ -326,7 +385,8 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
         </section>
       </div>
 
-      {/* --- Nested Modal: Mark as Sold Confirmation --- */}
+      {/* --- Modals --- */}
+      
       {showMarkSoldModal && (
         <MarkAsSoldModal 
           listing={listing}
@@ -334,11 +394,27 @@ export default function ProductDetailModal({ listing, onClose, currentUserId, is
           onClose={() => setShowMarkSoldModal(false)}
           onSuccess={() => {
             setShowMarkSoldModal(false);
-            onClose(); // Close parent modal
-            window.location.reload(); // Refresh to update status
+            onClose(); 
+            window.location.reload(); 
           }}
         />
       )}
+
+      {showReviewModal && existingChat && (
+          <div style={{ position: 'absolute', zIndex: 1100 }}>
+            <ReviewModal 
+                transactionId={existingChat.transactionId}
+                reviewerId={currentUserId}
+                otherUserName={seller.username}
+                onClose={() => setShowReviewModal(false)}
+                onSuccess={() => {
+                    alert("Review submitted!");
+                    setShowReviewModal(false);
+                }}
+            />
+          </div>
+      )}
+
     </div>
   );
 }

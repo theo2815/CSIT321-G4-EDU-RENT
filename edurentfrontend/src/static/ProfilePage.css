@@ -737,3 +737,58 @@
   flex-shrink: 0;
 
 }
+
+/* Container for the filter buttons */
+.profile-sub-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-right: auto; /* Pushes search bar to the right */
+  margin-left: 1.5rem; /* Space from title */
+  flex-wrap: wrap;
+}
+
+/* Individual Filter Button */
+.sub-tab-btn {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  background-color: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sub-tab-btn:hover {
+  background-color: #f1f3f5;
+  color: var(--text-color);
+}
+
+/* Active State */
+.sub-tab-btn.active {
+  background-color: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .profile-sub-tabs {
+    margin-left: 0;
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+    width: 100%;
+    order: 2; /* Ensure it wraps below title but above search */
+  }
+  
+  .profile-listings-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .profile-listings-actions {
+    width: 100%;
+    order: 3;
+  }
+}

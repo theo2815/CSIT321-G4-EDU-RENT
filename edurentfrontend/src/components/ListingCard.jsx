@@ -49,10 +49,12 @@ export default function ListingCard({
 
   // Adjust count based on current optimistic state (Live state)
   let displayLikeCount = serverLikeCount;
-  if (isLiked && !wasLikedInitial) {
-    displayLikeCount++; 
-  } else if (!isLiked && wasLikedInitial) {
-    displayLikeCount--;
+  if (!isSold) {
+    if (isLiked && !wasLikedInitial) {
+      displayLikeCount++; 
+    } else if (!isLiked && wasLikedInitial) {
+      displayLikeCount--;
+    }
   }
   // Safety floor
   displayLikeCount = Math.max(0, displayLikeCount);
