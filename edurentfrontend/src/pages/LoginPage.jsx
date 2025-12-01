@@ -13,11 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  /**
-   * FORM VALIDATION CHECK
-   * We calculate this on every render to dynamically enable/disable the submit button.
-   * This improves UX by preventing users from clicking "Login" with empty fields.
-   */
+  // Simple validation to ensure fields aren't empty before enabling the button
   const isFormValid = formData.email.trim() !== '' && formData.password.trim() !== '';
 
   const handleChange = (e) => {
@@ -32,7 +28,7 @@ export default function LoginPage() {
     e.preventDefault();
     setMessage({ type: '', content: '' });
 
-    // Stop execution immediately if fields are empty to save network resources
+    // Prevent submission if the form is incomplete
     if (!isFormValid) {
         setMessage({ type: 'error', content: 'Please enter both email and password.' });
         return;
@@ -41,7 +37,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Attempt to authenticate with the backend
+      // Send credentials to the backend
       const response = await loginUser({
         email: formData.email,
         password: formData.password
@@ -49,23 +45,22 @@ export default function LoginPage() {
 
       const { token, message: successMessage } = response.data;
 
-      // SAFETY CHECK: Even if the status is 200, ensure we actually received a token.
-      // This prevents the app from entering a "logged in" state without valid credentials.
+      // Double check that we actually got a token back
       if (!token) {
         throw new Error('Login failed: Server did not return a session token.');
       }
 
-      // Store the token and identifier for session persistence
+      // Save the session data so the user stays logged in
       const userDataToStore = {
         token: token,
         email: formData.email
       };
       localStorage.setItem('eduRentUserData', JSON.stringify(userDataToStore));
 
-      // Show success feedback and initiate navigation
+      // Notify user and prepare to redirect
       setMessage({ type: 'success', content: successMessage || 'Login successful! Redirecting...' });
 
-      // Add a slight delay so the user can read the success message before the page changes
+      // Small delay to let the user see the success message
       setTimeout(() => {
         navigate('/dashboard');
       }, 1500);
@@ -73,10 +68,7 @@ export default function LoginPage() {
     } catch (error) {
       console.error('Login failed:', error);
       
-      // ERROR HANDLING STRATEGY
-      // 1. Check for 401/403 specifically to give a clear "Wrong Password" message.
-      // 2. Fallback to the server's error message if available.
-      // 3. Default to a generic message if the server is unreachable.
+      // Handle specific error codes to give better feedback
       let errorMessage = 'Login failed. Please try again.';
       
       if (error.response) {
@@ -91,17 +83,17 @@ export default function LoginPage() {
 
       setMessage({ type: 'error', content: errorMessage });
       
-      // Security: Clear any partial data to ensure a clean state for the next attempt
+      // Clear old session data on failure
       localStorage.removeItem('eduRentUserData'); 
     } finally {
-      // Always stop the loading spinner, regardless of success or failure
+      // Stop loading spinner
       setLoading(false);
     }
   };
 
   return (
     <div className="auth-container">
-      {/* Branding Panel: Displays the logo and mission statement to reinforce brand identity */}
+      {/* Left side: Logo and branding */}
       <div className="auth-branding-panel">
         <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
         <p className="auth-tagline">
@@ -109,14 +101,14 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Form Panel: Handles user interaction */}
+      {/* Right side: Login form */}
       <div className="auth-form-panel">
         <div className="auth-form-container">
           <h2 className="auth-title">Sign in to your account</h2>
 
           <form className="auth-form" onSubmit={handleSubmit}>
 
-            {/* Email Input Field */}
+            {/* Email Input */}
             <div>
               <label htmlFor="email" className="auth-label">
                 School Institution Email
@@ -130,11 +122,11 @@ export default function LoginPage() {
                 value={formData.email}
                 onChange={handleChange}
                 className="auth-input"
-                disabled={loading} // Prevent edits while submitting
+                disabled={loading} 
               />
             </div>
 
-            {/* Password Input Field */}
+            {/* Password Input */}
             <div>
               <label htmlFor="password" className="auth-label">
                 Password
@@ -158,7 +150,7 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* Dynamic Status Message: Renders success (green) or error (red) alerts */}
+            {/* Success or Error message display */}
             {message.content && (
               <div
                 className={`auth-message ${
@@ -176,7 +168,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 className="auth-btn auth-btn-primary"
-                // Disable if form is invalid OR if currently loading to prevent double-submits
+                // Disable button if form is invalid or currently processing
                 disabled={!isFormValid || loading}
                 // Visual feedback for disabled state
                 style={{ opacity: (!isFormValid || loading) ? 0.7 : 1 }}
@@ -186,7 +178,7 @@ export default function LoginPage() {
             </div>
           </form>
 
-          {/* Registration Redirection */}
+          {/* Registration Link */}
           <div className="auth-redirect-link">
             Don't have an account?{' '}
             <Link to="/register" className="auth-link">

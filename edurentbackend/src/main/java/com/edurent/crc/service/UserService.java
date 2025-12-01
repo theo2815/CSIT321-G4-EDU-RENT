@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -13,13 +15,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 
 import com.edurent.crc.dto.AuthResponse;
-import com.edurent.crc.dto.UpdateUserRequest;
 import com.edurent.crc.dto.LoginRequest;
 import com.edurent.crc.dto.RegisterRequest;
+import com.edurent.crc.dto.UpdateUserRequest;
 import com.edurent.crc.entity.SchoolEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.SchoolRepository;
@@ -50,18 +50,13 @@ public class UserService {
     private final String PROFILE_BUCKET = "profile-images";
     private final RestTemplate restTemplate = new RestTemplate();
 
-    /**
-     * Helper to delete the old image file from Supabase Storage.
-     */
+    // --- Delete Old Profile Image Helper ---
     private void deleteOldProfileImage(String imageUrl) {
         if (imageUrl == null || imageUrl.isEmpty()) return;
         
         try {
-            // URL format: https://<ref>.supabase.co/storage/v1/object/public/profile-images/<userId>/<timestamp>.png
-            // We split by the bucket name to get the relative path: "<userId>/<timestamp>.png"
             String[] parts = imageUrl.split("/" + PROFILE_BUCKET + "/");
             
-            // Safety check: ensure we actually found the bucket part
             if (parts.length < 2) return; 
             
             String filePath = parts[1];
@@ -73,21 +68,15 @@ public class UserService {
 
             HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
             
-            // Execute Delete
             restTemplate.exchange(storageUrl, HttpMethod.DELETE, requestEntity, String.class);
             
             System.out.println("✅ Deleted old profile image: " + filePath);
         } catch (Exception e) {
-            // Log error but don't break the user update process
             System.err.println("⚠️ Failed to delete old profile image: " + e.getMessage());
         }
     }
 
-    /**
-     * Registers a new user and returns a token.
-     * @param request DTO with registration details.
-     * @return AuthResponse containing the JWT.
-     */
+    // --- Auth Methods ---
     public AuthResponse registerUser(RegisterRequest request) {
         // 1. Find the school
         SchoolEntity school = schoolRepository.findById(request.getSchoolId())
@@ -125,11 +114,7 @@ public class UserService {
         return new AuthResponse(token, "User registered successfully.");
     }
 
-    /**
-     * Authenticates a user and returns a token.
-     * @param request DTO with login credentials.
-     * @return AuthResponse containing the JWT.
-     */
+    // Login Method
     public AuthResponse loginUser(LoginRequest request) {
         // 1. Let Spring Security do the authentication
         Authentication authentication = authenticationManager.authenticate(
@@ -166,10 +151,7 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
-    /**
-     * Updates the currently authenticated user's editable profile fields.
-     * Only non-null fields in the request are applied.
-     */
+    // Update Current User Profile
     public UserEntity updateCurrentUser(UserEntity currentUser, UpdateUserRequest req) {
         if (req.getFullName() != null) currentUser.setFullName(req.getFullName());
         if (req.getAddress() != null) currentUser.setAddress(req.getAddress());

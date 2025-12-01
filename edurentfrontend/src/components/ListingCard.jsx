@@ -1,6 +1,7 @@
+// This component displays a single listing card with image, title, price, and like functionality
 import React, { useMemo } from 'react';
 
-// Use a Data URI for the placeholder to prevent network errors/broken images
+// Use a built-in base64 image as a backup so we don't have broken image icons
 const defaultPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3e%3crect width='200' height='200' fill='%23f0f0f0'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='%23aaaaaa'%3eNo Image%3c/text%3e%3c/svg%3e";
 
 export default function ListingCard({ 
@@ -13,7 +14,7 @@ export default function ListingCard({
   variant = 'standard' // 'standard' | 'compact'
 }) { 
   
-  // --- Event Handlers ---
+  // Navigate to the listing unless a specific handler prevents it
   const handleClick = (e) => {
     if (onClick) {
       e.preventDefault();
@@ -21,6 +22,7 @@ export default function ListingCard({
     }
   };
   
+  // Prevent the main card click from firing when the user clicks the "Like" heart
   const handleLikeClick = (e) => {
     e.stopPropagation(); 
     if (onLikeClick) {
@@ -28,26 +30,26 @@ export default function ListingCard({
     }
   };
 
-  // --- Data Extraction & Formatting ---
+  // Pull out the data we need to display, using safe defaults if something is missing
   const categoryName = listing?.category?.name || "Category";
   const listingType = listing?.listingType || "For Sale";
   const title = listing?.title || "No title";
   const description = listing?.description || "";
   const price = listing?.price || 0;
   
-  // Logic to determine if the item is sold
+  // Check if the item is already sold
   const isSold = listing?.status === 'Sold';
 
-  // Calculate the number of likes based on the likes array
+  // Count the likes currently stored in the listing data
   const serverLikeCount = listing?.likes ? listing.likes.length : 0;
 
-  // Check if the server thinks we liked it (Stale state)
+  // Check if the user had already liked this item when the data first loaded
   const wasLikedInitial = useMemo(() => {
     if (!listing?.likes || !currentUserId) return false;
     return listing.likes.some(like => like.id?.userId === currentUserId);
   }, [listing?.likes, currentUserId]);
 
-  // Adjust count based on current optimistic state (Live state)
+  // Update the like count immediately for the UI (optimistic update)
   let displayLikeCount = serverLikeCount;
   if (!isSold) {
     if (isLiked && !wasLikedInitial) {
@@ -56,13 +58,13 @@ export default function ListingCard({
       displayLikeCount--;
     }
   }
-  // Safety floor
+  // Ensure we never show a negative number
   displayLikeCount = Math.max(0, displayLikeCount);
 
-  // --- Image Handling Logic ---
-  // 1. Check for a direct image URL string.
-  // 2. If not found, look through the image arrays (listingImages or images).
-  // 3. Prioritize the cover photo, otherwise default to the first image found.
+  // Figure out which image to show
+  // 1. Try the direct image string.
+  // 2. If missing, look for an array of images.
+  // 3. Prefer the one marked as 'coverPhoto', or just take the first one.
   let coverImageUrl = listing?.image || null;
 
   if (!coverImageUrl) {
@@ -78,10 +80,10 @@ export default function ListingCard({
   const typeClassName = isRent ? 'rent' : 'sale';
   const typeText = isRent ? 'For Rent' : 'For Sale';
   
-  // Determine if the current user owns this listing to disable self-liking
+  // Disable liking if the current user is the owner
   const isOwner = currentUserId === listing?.user?.userId || currentUserId === listing?.ownerId;
 
-  // Helper to ensure image URLs are absolute (handles localhost vs production paths)
+  // Fix image paths to ensure they work on both localhost and production
   const getFullImageUrl = (path) => {
       if (!path) return null;
       return path.startsWith('http') ? path : `http://localhost:8080${path}`;
@@ -89,7 +91,7 @@ export default function ListingCard({
 
   return (
     <div 
-      // Apply conditional classes for compact view and sold status (grayscale effect)
+      // Add classes for styling based on if it's compact or sold
       className={`listing-card ${variant === 'compact' ? 'compact' : ''} ${isSold ? 'sold-item' : ''}`} 
       onClick={handleClick} 
       role="button" 
@@ -99,14 +101,14 @@ export default function ListingCard({
 
       <div className="listing-image">
         
-        {/* --- Sold Status Badge --- */}
+        {/* Overlay badge if the item is sold */}
         {isSold && (
           <div className="sold-badge-overlay">
             <span>SOLD</span>
           </div>
         )}
 
-        {/* --- Like Badge with Count --- */}
+        {/* Like button (Heart) with count */}
         {variant !== 'compact' && (
         <div 
             className="like-badge"
@@ -128,7 +130,7 @@ export default function ListingCard({
                 transition: 'transform 0.2s',
                 border: '1px solid rgba(0,0,0,0.05)'
             }}
-            // Add subtle hover animation for non-owners
+            // Simple hover effect for non-owners
             onMouseEnter={(e) => !isOwner && (e.currentTarget.style.transform = 'scale(1.05)')}
             onMouseLeave={(e) => !isOwner && (e.currentTarget.style.transform = 'scale(1)')}
         >
@@ -142,7 +144,7 @@ export default function ListingCard({
             )}
         </div>
       )}
-        {/* --- Main Image or Fallback --- */}
+        {/* Show the actual image, or the icon if no image exists */}
         {coverImageUrl ? (
           <img 
             src={getFullImageUrl(coverImageUrl)} 
@@ -159,7 +161,7 @@ export default function ListingCard({
         )}
       </div>
 
-      {/* --- Card Content --- */}
+      {/* Listing details text */}
       <div className="listing-content">
         {variant !== 'compact' && <div className="listing-category">{categoryName}</div>}
         

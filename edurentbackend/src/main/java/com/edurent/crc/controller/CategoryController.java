@@ -1,6 +1,6 @@
 package com.edurent.crc.controller;
 
-import com.edurent.crc.entity.CategoryEntity; // Updated
+import com.edurent.crc.entity.CategoryEntity;
 import com.edurent.crc.service.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,27 +17,29 @@ public class CategoryController {
     private CategoryService categoryService;
 
     @GetMapping
-    public List<CategoryEntity> getAllCategories() { // Updated
+    public List<CategoryEntity> getAllCategories() {
         return categoryService.getAllCategories();
     }
-
+    // Get Category by ID
     @GetMapping("/{id}")
-    public ResponseEntity<CategoryEntity> getCategoryById(@PathVariable Long id) { // Updated
+    public ResponseEntity<CategoryEntity> getCategoryById(@PathVariable Long id) { 
         return categoryService.getCategoryById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    // Create Category
     @PostMapping
-    public ResponseEntity<CategoryEntity> createCategory(@RequestBody CategoryEntity category) { // Updated
+    public ResponseEntity<CategoryEntity> createCategory(@RequestBody CategoryEntity category) { 
         try {
-            CategoryEntity newCategory = categoryService.createCategory(category); // Updated
+            CategoryEntity newCategory = categoryService.createCategory(category);
             return new ResponseEntity<>(newCategory, HttpStatus.CREATED);
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
     }
 
+    // Delete Category
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
         categoryService.deleteCategory(id);

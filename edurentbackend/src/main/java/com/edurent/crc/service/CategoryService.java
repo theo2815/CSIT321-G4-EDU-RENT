@@ -1,6 +1,6 @@
 package com.edurent.crc.service;
 
-import com.edurent.crc.entity.CategoryEntity; // Updated
+import com.edurent.crc.entity.CategoryEntity;
 import com.edurent.crc.repository.CategoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,15 +13,15 @@ public class CategoryService {
     @Autowired
     private CategoryRepository categoryRepository;
 
-    public List<CategoryEntity> getAllCategories() { // Updated
+    public List<CategoryEntity> getAllCategories() {
         return categoryRepository.findAll();
     }
 
-    public Optional<CategoryEntity> getCategoryById(Long id) { // Updated
+    public Optional<CategoryEntity> getCategoryById(Long id) { 
         return categoryRepository.findById(id);
     }
 
-    public CategoryEntity createCategory(CategoryEntity category) { // Updated
+    public CategoryEntity createCategory(CategoryEntity category) {
         if (categoryRepository.findByName(category.getName()).isPresent()) {
             throw new IllegalStateException("Category '" + category.getName() + "' already exists.");
         }

@@ -30,12 +30,7 @@ public class UserController {
         this.userService = userService;
     }
 
-    /**
-     * A protected endpoint to get the currently authenticated user's details.
-     * The user is identified by the JWT token.
-     * @param authentication Automatically injected by Spring Security.
-     * @return The authenticated UserEntity.
-     */
+    // Example endpoint to get the currently authenticated user
     @GetMapping("/me")
     public ResponseEntity<UserEntity> getMyProfile(Authentication authentication) {
         // Spring Security, via the JwtAuthFilter, places the UserEntity in the 'principal'
@@ -43,22 +38,14 @@ public class UserController {
         return ResponseEntity.ok(currentUser);
     }
 
-    /**
-     * Admin-only (example) endpoint to get all users.
-     * (We haven't implemented role-based security, but this is where it would go)
-     * @return A list of all users.
-     */
+    // Get All Users
     @GetMapping
     public ResponseEntity<List<UserEntity>> getAllUsers() {
         List<UserEntity> users = userService.getAllUsers();
         return ResponseEntity.ok(users);
     }
 
-    /**
-     * Get a specific user by ID.
-     * @param id The ID of the user.
-     * @return The UserEntity or 404 Not Found.
-     */
+    // Get User by ID
     @GetMapping("/{id}")
     public ResponseEntity<UserEntity> getUserById(@PathVariable Long id) {
         return userService.getUserById(id)
@@ -66,21 +53,14 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * Delete a user by ID.
-     * @param id The ID of the user to delete.
-     * @return 204 No Content.
-     */
+    // Delete User by ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Update the currently authenticated user's profile details.
-     * Accepts only editable fields (fullName, address, bio, phoneNumber, profilePictureUrl).
-     */
+    // Update Current User Profile
     @PutMapping("/me")
     public ResponseEntity<UserEntity> updateMyProfile(Authentication authentication,
                                                       @RequestBody UpdateUserRequest request) {

@@ -1,11 +1,6 @@
+// This hooks filters a list of listings based on the selected filter type.
 import { useMemo } from 'react';
 
-/**
- * A hook that memoizes a filtered list based on listing type.
- * @param {Array} masterList - The full list of listings to filter.
- * @param {string} filterType - 'sale' or 'rent'.
- * @returns {Array} The memoized, filtered list.
- */
 export default function useFilteredListings(masterList, filterType) {
   
   const filteredList = useMemo(() => {

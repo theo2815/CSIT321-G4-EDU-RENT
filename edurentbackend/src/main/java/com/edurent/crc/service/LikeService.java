@@ -1,11 +1,11 @@
 package com.edurent.crc.service;
 
-import java.util.List; // Updated
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service; // Updated
-import org.springframework.transaction.annotation.Transactional; // Updated
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.edurent.crc.entity.LikeEntity;
 import com.edurent.crc.entity.LikeIdEntity;
@@ -35,18 +35,16 @@ public class LikeService {
     @Autowired
     private NotificationRepository notificationRepository;
 
-    // --- UPDATED METHOD ---
-    @Transactional(readOnly = true) // <-- Add Transactional
+    // 1. Get Liked Listings for User
+    @Transactional(readOnly = true)
     public List<ListingEntity> getLikedListings(Long userId) {
-        // This now calls the new repository method which eagerly fetches
-        // everything we need, preventing the LazyInitializationException.
         return likeRepository.findLikedListingsByUserId(userId);
     }
-    // --- END UPDATED METHOD ---
 
+    // 2. Like a Listing
     @Transactional
-    public LikeEntity likeListing(Long userId, Long listingId) { // Updated
-        UserEntity user = userRepository.findById(userId) // Updated
+    public LikeEntity likeListing(Long userId, Long listingId) { 
+        UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
         ListingEntity listing = listingRepository.findByIdWithUser(listingId)
@@ -56,39 +54,33 @@ public class LikeService {
         if (likeRepository.existsById(likeId)) {
             throw new IllegalStateException("User has already liked this listing.");
         }
-
-        // --- NEW: Notification Logic ---
         UserEntity owner = listing.getUser();
         if (owner == null) {
-             throw new RuntimeException("Listing has no owner."); // Safety check
+             throw new RuntimeException("Listing has no owner."); 
         }
 
-        // Only send a notification if the liker is not the owner
         if (!user.getUserId().equals(owner.getUserId())) {
             NotificationEntity notification = new NotificationEntity();
-            notification.setUser(owner); // Set the notification *for the owner*
+            notification.setUser(owner);
             notification.setType("NEW_LIKE");
             
-            // Create a descriptive message
             String content = String.format("%s liked your listing: '%s'", 
                                         user.getFullName(), 
                                         listing.getTitle());
             notification.setContent(content);
             
-            // Create a link for the frontend
             String linkUrl = String.format("/listing/%d", listing.getListingId());
             notification.setLinkUrl(linkUrl);
             
-            // isRead defaults to false, createdAt defaults to now
             
             notificationRepository.save(notification);
         }
-        // --- END: Notification Logic ---
 
         LikeEntity like = new LikeEntity(likeId, user, listing); // Updated
         return likeRepository.save(like);
     }
-    // --- UPDATED METHOD ---
+
+    // 3. Unlike a Listing
     @Transactional
     public void unlikeListing(Long userId, Long listingId) {
         LikeIdEntity likeId = new LikeIdEntity(userId, listingId);
@@ -101,37 +93,31 @@ public class LikeService {
             return;
         }
 
-        // We can't use the entities after deleting, so get the data we need now.
-        // We MUST fetch the full objects inside the transaction.
         UserEntity unliker = userRepository.findById(userId)
                 .orElse(null);
-        ListingEntity listing = listingRepository.findByIdWithUser(listingId) // Use eager fetch
+        ListingEntity listing = listingRepository.findByIdWithUser(listingId) 
                 .orElse(null); 
         
         if (unliker == null || listing == null) {
              System.err.println("Could not find user or listing for unlike notification deletion.");
-             // Still delete the like, but skip notification logic
              likeRepository.deleteById(likeId);
              return;
         }
         
-        UserEntity owner = listing.getUser(); // This is now safe to access
+        UserEntity owner = listing.getUser();
 
         // 2. Delete the like
         likeRepository.deleteById(likeId);
 
         // 3. Find and delete the corresponding notification
         if (owner != null && !unliker.getUserId().equals(owner.getUserId())) {
-            // Re-create the exact content string
             String contentToDelete = String.format("<strong>%s</strong> liked your listing: <strong>%s</strong>", 
                                                    unliker.getFullName(), 
                                                    listing.getTitle());
             
-            // Find the notification
             Optional<NotificationEntity> notifOptional = notificationRepository
                 .findByTypeAndUser_UserIdAndContent("NEW_LIKE", owner.getUserId(), contentToDelete);
 
-            // If found, delete it
             if (notifOptional.isPresent()) {
                 notificationRepository.delete(notifOptional.get());
                 System.out.println("Deleted corresponding 'NEW_LIKE' notification.");
@@ -140,6 +126,5 @@ public class LikeService {
             }
         }
     }
-    // --- END UPDATED METHOD ---
 }
 

@@ -1,6 +1,6 @@
 package com.edurent.crc.controller;
 
-import java.io.IOException; // Updated
+import java.io.IOException;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,64 +32,58 @@ public class ListingController {
     @Autowired
     private ListingService listingService;
 
+    // Retrieves a list of all available listings in the system
     @GetMapping
-    public List<ListingEntity> getAllListings() { // Updated
+    public List<ListingEntity> getAllListings() {
         return listingService.getAllListings();
     }
 
-    // <--- MODIFIED: Standardized to /{listingId} for consistency --->
+    // Fetches a single listing by its unique ID. Returns 404 if not found.
     @GetMapping("/{listingId}") 
-    public ResponseEntity<ListingEntity> getListingById(@PathVariable Long listingId) { // <--- MODIFIED: Renamed 'id' to 'listingId'
-        return listingService.getListingById(listingId) // <--- MODIFIED: Renamed 'id' to 'listingId'
+    public ResponseEntity<ListingEntity> getListingById(@PathVariable Long listingId) { 
+        return listingService.getListingById(listingId) 
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // --- NEW Endpoint: Get Listings by User ID ---
+    // Retrieves all listings created by a specific user profile
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<ListingEntity>> getListingsByUserId(@PathVariable Long userId) {
-        // We need a corresponding method in ListingService
         List<ListingEntity> listings = listingService.getListingsByUserId(userId);
-        // Return OK even if list is empty
         return ResponseEntity.ok(listings);
     }
     
+    // Retrieves all listings belonging to a specific category
     @GetMapping("/category/{categoryId}")
     public ResponseEntity<List<ListingEntity>> getListingsByCategoryId(@PathVariable Long categoryId) {
-        // We already created this method in ListingService
         List<ListingEntity> listings = listingService.getListingsByCategoryId(categoryId);
         if (listings.isEmpty()) {
-            return ResponseEntity.noContent().build(); // Or OK with empty list
+            return ResponseEntity.noContent().build(); 
         }
         return ResponseEntity.ok(listings);
     }
 
-    // --- UPDATED createListing Endpoint ---
-    @PostMapping(consumes = {"multipart/form-data"}) // Specify content type
+    // Creates a new listing. Handles mixed data types: text fields for details and file uploads for images.
+    @PostMapping(consumes = {"multipart/form-data"}) 
     public ResponseEntity<ListingEntity> createListing(
-            // Get user from JWT token
             Authentication authentication,
-            // Use @RequestParam for form fields
             @RequestParam("categoryId") Long categoryId,
             @RequestParam("title") String title,
             @RequestParam("condition") String condition,
             @RequestParam("description") String description,
-            @RequestParam("listingType") String listingType, // e.g., "For Sale", "For Rent"
+            @RequestParam("listingType") String listingType, 
             @RequestParam("price") Double price,
             @RequestParam("allowMeetup") Boolean allowMeetup,
             @RequestParam(value = "meetupLocation", required = false) String meetupLocation,
             @RequestParam("allowDelivery") Boolean allowDelivery,
             @RequestParam(value = "deliveryOptions", required = false) String deliveryOptions,
-            // Use @RequestPart for files (optional)
             @RequestPart(value = "images", required = false) List<MultipartFile> images
-            // Add @RequestParam for rentPeriod if needed
-            // @RequestParam(value = "rentPeriod", required = false) String rentPeriod
     ) {
-        // 1. Get User ID from Authentication
+        // Identify the user making the request
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         Long userId = currentUser.getUserId();
 
-        // 2. Create ListingEntity object from request params
+        // Build the listing object from the request parameters
         ListingEntity newListing = new ListingEntity();
         newListing.setTitle(title);
         newListing.setCondition(condition);
@@ -100,27 +94,21 @@ public class ListingController {
         newListing.setMeetupLocation(meetupLocation);
         newListing.setAllowDelivery(allowDelivery);
         newListing.setDeliveryOptions(deliveryOptions);
-        // newListing.setRentPeriod(rentPeriod); // If applicable
 
         try {
-            // 3. Call service (pass user ID, category ID, listing object, and files)
-            //    We need to update the service method signature too.
+            // Save the listing and upload images via the service
             ListingEntity createdListing = listingService.createListingWithImages(
                 newListing, userId, categoryId, images
             );
             return new ResponseEntity<>(createdListing, HttpStatus.CREATED);
-        } catch (RuntimeException | IOException e) { // Catch potential IO errors from file handling
-            // Log the error for debugging
-             System.err.println("Error creating listing: " + e.getMessage());
-             e.printStackTrace(); // Print stack trace
-            // Return appropriate error response
-            // Consider creating a specific ErrorResponse DTO
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); // Or Internal Server Error
+        } catch (RuntimeException | IOException e) { 
+            System.err.println("Error creating listing: " + e.getMessage());
+            e.printStackTrace(); 
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); 
         }
     }
-    // --- End UPDATED createListing ---
 
-    // <--- NEW: Endpoint to UPDATE a listing --->
+    // Updates an existing listing. This supports updating text details, adding new images, and deleting specific old images.
     @PutMapping(value = "/{listingId}", consumes = {"multipart/form-data"})
     public ResponseEntity<ListingEntity> updateListing(
             @PathVariable Long listingId,
@@ -136,10 +124,10 @@ public class ListingController {
             @RequestParam("allowDelivery") Boolean allowDelivery,
             @RequestParam(value = "deliveryOptions", required = false) String deliveryOptions,
             
-            // --- NEW PARAMETER ---
+            // List of image IDs to remove from the listing
             @RequestParam(value = "imagesToDelete", required = false) List<Long> imagesToDelete, 
             
-            // Renamed for clarity
+            // New image files to add to the listing
             @RequestPart(value = "images", required = false) List<MultipartFile> newImages
     ) {
         try {
@@ -156,14 +144,14 @@ public class ListingController {
             listingUpdateData.setAllowDelivery(allowDelivery);
             listingUpdateData.setDeliveryOptions(deliveryOptions);
 
-            // Call the updated service method
+            // Perform the update logic in the service
             ListingEntity updatedListing = listingService.updateListing(
                 listingId,
                 currentUser.getUserId(),
                 categoryId,
                 listingUpdateData,
-                imagesToDelete, // <-- Pass the new list
-                newImages       // <-- Pass the new files
+                imagesToDelete, 
+                newImages       
             );
             return ResponseEntity.ok(updatedListing);
 
@@ -173,9 +161,8 @@ public class ListingController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
     }
-    // --- End UPDATED Endpoint ---
 
-    // --- NEW: Update Status Endpoint ---
+    // Specific endpoint to update just the status of a listing (e.g., marking it as 'Sold')
     @PutMapping("/{listingId}/status")
     public ResponseEntity<Void> updateListingStatus(
             @PathVariable Long listingId,
@@ -193,8 +180,7 @@ public class ListingController {
         }
     }
     
-
-    // <--- MODIFIED: Updated error handling --->
+    // Permanently deletes a listing. Ensures the user owns the listing before deleting.
     @DeleteMapping("/{listingId}")
     public ResponseEntity<Void> deleteListing(
             @PathVariable Long listingId, 
@@ -208,13 +194,10 @@ public class ListingController {
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
             System.err.println("Error deleting listing: " + e.getMessage());
-             // Check for specific security exception
              if (e instanceof AccessDeniedException) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
-            // Fallback for other errors (e.g., Not Found)
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 }
-

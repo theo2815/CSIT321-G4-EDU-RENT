@@ -35,19 +35,13 @@ const API_URL = 'http://localhost:8080/api/v1';
 // Placeholder for items missing an image
 const defaultProductPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3e%3crect width='60' height='60' fill='%23f0f0f0'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='10' fill='%23aaaaaa'%3eItem%3c/text%3e%3c/svg%3e";
 
-/**
- * Ensures all image paths are absolute URLs.
- * Handles both full URLs and relative backend paths.
- */
+// Fix image paths to ensure they are absolute URLs
 const getImageUrl = (path) => {
   if (!path) return null;
   return path.startsWith('http') ? path : `http://localhost:8080${path}`;
 };
 
-/**
- * Fallback to manually fetch user data by ID if the service function is unavailable.
- * Retrieves auth token from local storage to make authenticated requests.
- */
+// Manually fetch user data if the standard service isn't enough
 const fetchUserById = async (id) => {
   const storedData = localStorage.getItem('eduRentUserData');
   const token = storedData ? JSON.parse(storedData).token : null;
@@ -57,10 +51,7 @@ const fetchUserById = async (id) => {
   });
 };
 
-/**
- * Skeleton Loader Component
- * Displays a loading state while profile data is being fetched.
- */
+// Shows a loading layout while the profile data is being fetched
 function ProfileSkeleton() {
   return (
     <main className="dashboard-body">
@@ -100,10 +91,7 @@ function ProfileSkeleton() {
   );
 }
 
-/**
- * Profile Details Modal
- * Shows extended user information like Join Date, School, and Location.
- */
+// Pop-up modal showing extra user details like join date and location
 function ProfileDetailsModal({ user, onClose }) {
   if (!user) return null;
 
@@ -134,10 +122,7 @@ function ProfileDetailsModal({ user, onClose }) {
   );
 }
 
-/**
- * Error Display Component
- * Renders an error message with a retry button for better UX.
- */
+// Reusable component to show error messages
 function ErrorDisplay({ error, onRetry }) {
   return (
     <div className="error-container" style={{ margin: '2rem auto', maxWidth: '600px'}}>
@@ -148,11 +133,7 @@ function ErrorDisplay({ error, onRetry }) {
   );
 }
 
-/**
- * Review Card Component
- * Displays individual review details including rating, comment, images, and the item reviewed.
- * Also handles conditional rendering for Edit/Delete actions if the user is the author.
- */
+// Display a single review with the product image, comment, and rating
 function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
   const reviewerName = review.reviewer?.fullName || 'Anonymous';
   const reviewerAvatar = getImageUrl(review.reviewer?.profilePictureUrl) || defaultAvatar;
@@ -174,7 +155,7 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
     <div className="review-card" style={{ position: 'relative' }}>
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
         
-        {/* Product Image */}
+        {/* Product Image Thumbnail */}
         <div style={{ flexShrink: 0 }}>
             <img 
               src={productCoverImage} 
@@ -205,7 +186,7 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                       {'☆'.repeat(5 - (review.rating || 0))}
                     </span>
 
-                    {/* Author Actions */}
+                    {/* Show Edit/Delete buttons if the current user wrote this review */}
                     {isAuthor && (
                         <div style={{ marginLeft: '0.5rem', display: 'flex', gap: '5px' }}>
                             <button 
@@ -235,7 +216,7 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                 {review.comment || 'No comment provided.'}
             </p>
 
-            {/* Review Evidence Images */}
+            {/* Show attached images if any */}
             {reviewImageUrls.length > 0 && (
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {reviewImageUrls.map((imgUrl, index) => (
@@ -263,33 +244,30 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
   );
 }
 
-// -----------------------------------------------------------------------------
-// MAIN PROFILE PAGE COMPONENT
-// -----------------------------------------------------------------------------
 export default function ProfilePage() {
   
   const { profileId } = useParams();
   const navigate = useNavigate();
 
-  // --- Hooks for Data & Actions ---
+  // Load auth data and global logic
   const { userData: loggedInUser, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
   const likesHook = useLikes();
   const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
   const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(loggedInUser, likesHook);
 
-  // --- Local Data State ---
+  // Store the profile data, listings, and reviews locally
   const [profileUser, setProfileUser] = useState(null); 
   const [originalListings, setOriginalListings] = useState([]); 
   const [userReviews, setUserReviews] = useState([]);
   
-  // --- UI State (Tabs & Filters) ---
+  // UI Controls for tabs and filters
   const [activeTab, setActiveTab] = useState('listings');
-  const [listingFilter, setListingFilter] = useState('all'); // Values: 'all', 'rent', 'sale', 'sold'
+  const [listingFilter, setListingFilter] = useState('all'); 
   
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   const [pageDataError, setPageDataError] = useState(null);
 
-  // --- Modal Visibility State ---
+  // Modal visibility states
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImages, setModalImages] = useState([]);
@@ -297,9 +275,7 @@ export default function ProfilePage() {
   const [editingReview, setEditingReview] = useState(null);
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
 
-  // --- Filtering Logic ---
-  // Filters the master list of listings based on the selected sub-tab (Rent/Sale/Sold)
-  // This logic runs before the Search hook so search only applies to the filtered view.
+  // Filter listings based on the selected sub-tab (Sale, Rent, Sold)
   const typeFilteredListings = useMemo(() => {
     return originalListings.filter(item => {
       const status = item.status?.toLowerCase() || 'available';
@@ -314,23 +290,22 @@ export default function ProfilePage() {
           return status !== 'sold' && type.includes('sale');
         case 'all':
         default:
-          // 'All' shows everything except Sold items (Sold has its own tab)
+          // 'All' shows everything except Sold items, as Sold has its own tab
           return status !== 'sold';
       }
     });
   }, [originalListings, listingFilter]);
 
-  // --- Search Logic ---
-  // Applies search query against the list that has already been filtered by type
+  // Apply search functionality on top of the filtered list
   const { searchQuery, handleSearch, filteredListings: displayedListings } = useSearch(
     typeFilteredListings,
     ['title', 'description']
   );
 
-  // Helper: Checks if the current profile belongs to the logged-in user
+  // Determine if we are viewing our own profile
   const isMyProfile = !profileId || (loggedInUser && profileUser && String(loggedInUser.userId) === String(profileUser.userId));
 
-  // --- Handlers ---
+  // --- Actions & Handlers ---
 
   const openReviewImages = (images, index = 0) => {
       setModalImages(images);
@@ -357,10 +332,7 @@ export default function ProfilePage() {
       window.location.reload();
   };
 
-  /**
-   * Main Data Fetching
-   * loads user info, listings, and reviews in parallel to speed up load time.
-   */
+  // Load the user's profile information, listings, and reviews from the server
   const fetchProfileData = useCallback(async (targetId) => {
     setIsLoadingPageData(true);
     setPageDataError(null);
@@ -383,7 +355,7 @@ export default function ProfilePage() {
 
       setProfileUser(userResponse.data);
       
-      // Sort logic: Sold items last, new items first
+      // Sort listings so Sold items are at the bottom, and newest are at the top
       const rawListings = listingsResponse.data || [];
       const sortedListings = rawListings.sort((a, b) => {
           const isSoldA = a.status?.toLowerCase() === 'sold';
@@ -410,7 +382,7 @@ export default function ProfilePage() {
     }
   }, [profileId, loggedInUser, refetchLikes]); 
 
-  // Effect: Triggers data fetch when component mounts or ID changes
+  // Trigger data load when the component mounts or the ID changes
   useEffect(() => {
     if (profileId) {
         fetchProfileData(profileId);
@@ -452,7 +424,7 @@ export default function ProfilePage() {
       openModal(listing);
   };
 
-  // Group Reviews by Role (Buyer vs Seller)
+  // Separate reviews into two categories: Buyer and Seller
   const buyerReviews = userReviews.filter(r => r.reviewerRole === 'BUYER');
   const sellerReviews = userReviews.filter(r => r.reviewerRole === 'SELLER');
 
@@ -463,7 +435,7 @@ export default function ProfilePage() {
   const isPageLoading = isLoadingAuth || isLoadingPageData || isLoadingLikes;
   const pageError = authError || pageDataError || likeError;
   
-  // --- Render Conditions ---
+  // --- Render Views ---
   
   if (isPageLoading) {
     return (
@@ -514,7 +486,7 @@ export default function ProfilePage() {
 
       <main className="dashboard-body">
         
-        {/* Profile Info Header */}
+        {/* Profile Card Header */}
         <section className="content-card profile-card">
           <div className="profile-card-left">
              <img 
@@ -560,13 +532,13 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            {/* Listings Tab Content */}
+            {/* Listings Tab */}
             {activeTab === 'listings' && (
               <div className="profile-listings-section">
                 <div className="profile-listings-header">
                   <h2 className="profile-listings-title">{isMyProfile ? 'Your' : `${profileUser.fullName}'s`} Listings</h2>
                   
-                  {/* Sub-Tabs for Filtering Listings */}
+                  {/* Filters for Listings */}
                   <div className="profile-sub-tabs">
                     <button 
                       className={`sub-tab-btn ${listingFilter === 'all' ? 'active' : ''}`} 
@@ -618,7 +590,7 @@ export default function ProfilePage() {
                         listing={listing}
                         onClick={openModal}
                         currentUserId={loggedInUser?.userId} 
-                        // Disable "Like" button if the item is Sold, or if it is the user's own profile
+                        // Only allow liking if it's not your own profile and the item isn't sold
                         isLiked={isMyProfile ? false : likedListingIds.has(listing.listingId)}
                         onLikeClick={isMyProfile || listing.status === 'Sold' ? () => {} : handleLikeToggle}
                         isLiking={isMyProfile ? false : likingInProgress.has(listing.listingId)}
@@ -628,7 +600,6 @@ export default function ProfilePage() {
                 ) : (
                   <div className="empty-state">
                       <div className="empty-state-icon">📦</div> 
-                      {/* Dynamic empty state text based on the active filter */}
                       <div className="empty-state-title">
                         {listingFilter === 'sold' ? 'No Sold Items' : 'No Listings Found'}
                       </div>
@@ -643,11 +614,11 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Reviews Tab Content */}
+            {/* Reviews Tab */}
             {activeTab === 'reviews' && (
               <div className="profile-reviews-section">
                   
-                  {/* Reviews from Buyers */}
+                  {/* Buyer Reviews */}
                   <h3 className="profile-listings-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', fontSize: '1.1rem' }}>
                     Reviews from Buyers
                   </h3>
@@ -668,7 +639,7 @@ export default function ProfilePage() {
 
                   <hr style={{ margin: '2rem 0', borderColor: 'var(--border-color)' }} />
 
-                  {/* Reviews from Sellers */}
+                  {/* Seller Reviews */}
                   <h3 className="profile-listings-title" style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>
                     Reviews from Sellers
                   </h3>
@@ -692,9 +663,9 @@ export default function ProfilePage() {
         </section>
       </main>
 
-      {/* --- Global Modals --- */}
+      {/* --- Modals --- */}
 
-      {/* Conversation Starter: Filters out inactive/sold items for messaging context */}
+      {/* Conversation Starter */}
       <ConversationStarterModal 
         isOpen={isStarterModalOpen}
         onClose={() => setIsStarterModalOpen(false)}
@@ -706,13 +677,13 @@ export default function ProfilePage() {
         onLikeToggle={handleLikeToggle}
       />
 
-      {/* User Details Overlay */}
+      {/* User Details */}
       {isProfileModalOpen && <ProfileDetailsModal user={profileUser} onClose={closeProfileModal} />}
       
-      {/* Product Details (Stacked above other modals if necessary) */}
+      {/* Product Details */}
       <ModalComponent />
 
-      {/* Review Image Gallery */}
+      {/* Review Images Viewer */}
       {isImageModalOpen && (
           <ReviewImagesModal 
               images={modalImages} 

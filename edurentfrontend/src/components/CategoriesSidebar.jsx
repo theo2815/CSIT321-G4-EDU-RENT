@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getCategories } from '../services/apiService';
 
-// Import the sidebar CSS
+// Custom styles for the sidebar
 import '../static/CategoriesSidebar.css';
 
-// --- How many categories to show at a time ---
+// Number of categories to display initially
 const PAGE_SIZE = 5;
 
-// --- Skeleton Component ---
+// Loading placeholder component
 function CategoryListSkeleton() {
-  // Show fewer skeletons to match the initial page size
+  // Render a specific number of skeleton items to match the page size
   return (
     <ul className="category-list" aria-hidden="true">
       {[...Array(PAGE_SIZE)].map((_, index) => (
@@ -25,17 +25,16 @@ function CategoryListSkeleton() {
   );
 }
 
-
 export default function CategoriesSidebar({ isVisible, onClose }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [categories, setCategories] = useState([]); // Holds ALL categories
+  const [categories, setCategories] = useState([]); // Stores the full list of categories
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // --- NEW State for pagination ---
+  // Controls how many items are currently shown for pagination
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // --- Fetch Categories ---
+  // Fetch data when the sidebar opens
   useEffect(() => {
     if (isVisible && categories.length === 0) {
       setIsLoading(true);
@@ -53,41 +52,41 @@ export default function CategoriesSidebar({ isVisible, onClose }) {
       };
       fetchCategories();
     } else {
-      // --- Reset search AND visible count when sidebar closes ---
+      // Reset search and pagination limit when the sidebar is closed
       setSearchQuery('');
       setVisibleCount(PAGE_SIZE);
     }
-  }, [isVisible, categories.length]);; 
+  }, [isVisible, categories.length]); 
 
-  // Filter all categories based on search
+  // Filter the full list based on the search input
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // --- NEW: Slice the filtered list to get only the visible ones ---
+  // Limit the displayed list based on the current visible count
   const visibleCategories = filteredCategories.slice(0, visibleCount);
 
-  // --- NEW: Handler for the "Load More" button ---
+  // Increase the visible count when the user clicks 'Load More'
   const handleLoadMore = () => {
     setVisibleCount(prevCount => prevCount + PAGE_SIZE);
   };
 
   return (
     <>
-      {/* Overlay */}
+      {/* Background overlay */}
       <div
         className={`categories-sidebar-overlay ${isVisible ? 'visible' : ''}`}
         onClick={onClose} 
         aria-hidden={!isVisible}
       ></div>
 
-      {/* Sidebar */}
+      {/* Main sidebar container */}
       <aside
         className={`categories-sidebar ${isVisible ? 'visible' : ''}`}
         aria-label="Categories Sidebar"
         aria-hidden={!isVisible}
       >
-        {/* Header */}
+        {/* Header section with close button */}
         <div className="sidebar-header">
           <h2 className="sidebar-title">All Categories</h2>
           <button onClick={onClose} className="sidebar-close-btn" aria-label="Close categories sidebar">
@@ -95,7 +94,7 @@ export default function CategoriesSidebar({ isVisible, onClose }) {
           </button>
         </div>
 
-        {/* Search Bar */}
+        {/* Search input field */}
         <div className="sidebar-search">
           <input
             type="text"
@@ -107,17 +106,16 @@ export default function CategoriesSidebar({ isVisible, onClose }) {
           />
         </div>
 
-        {/* Category List */}
+        {/* List of categories */}
         <div className="sidebar-content">
           {isLoading ? (
             <CategoryListSkeleton /> 
           ) : error ? (
             <p style={{ textAlign: 'center', color: 'red' }}>Error: {error}</p>
           ) : visibleCategories.length > 0 ? (
-            // Use a Fragment to hold the list and the button
+            // Fragment allows us to return the list and the button as siblings
             <>
               <ul className="category-list">
-                {/* --- Map over VISIBLE categories --- */}
                 {visibleCategories.map(category => (
                   <li key={category.categoryId} className="category-list-item">
                     <Link to={`/category/${category.categoryId}`} onClick={onClose}>
@@ -127,8 +125,7 @@ export default function CategoriesSidebar({ isVisible, onClose }) {
                 ))}
               </ul>
               
-              {/* --- NEW: Load More Button --- */}
-              {/* Show button only if there are more items to load */}
+              {/* Only show the 'Load More' button if there are hidden items left */}
               {filteredCategories.length > visibleCount && (
                 <button onClick={handleLoadMore} className="sidebar-load-more-btn">
                   Load More

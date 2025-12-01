@@ -1,4 +1,3 @@
-// src/components/ProductDetailModalSkeleton.jsx
 import React from 'react';
 
 // Import CSS

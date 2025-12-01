@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient'; // Import supabase client
+import { supabase } from '../supabaseClient'; 
 
-// Import shared styles
-import '../static/Auth.css'; // The ONLY CSS file needed
+// Shared styling for authentication pages
+import '../static/Auth.css'; 
 
-// Import your logo
 import eduRentLogo from '../assets/edurentlogo.png'; 
 
 export default function ForgotPasswordPage() {
@@ -20,9 +19,9 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      // Use Supabase auth to send password reset email
+      // Trigger the password reset email via Supabase
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        // You should configure this redirect URL in your Supabase project settings
+        // Ensure this URL is allowed in our Supabase Authentication settings
         // redirectTo: 'http://localhost:5173/reset-password', 
       });
 
@@ -32,11 +31,11 @@ export default function ForgotPasswordPage() {
 
       setMessage({ type: 'success', content: 'Password reset instructions sent! Check your email.' });
       
-      // Note: Supabase's default flow sends a link to click, not an OTP.
-      // The user clicks the link in their email which takes them to your /reset-password page.
-      // I am keeping your navigation logic, but you may want to review this flow.
+      // TO DO: Verify our authentication flow. Supabase defaults to sending a "Magic Link" 
+      // that users click to reset passwords. If we want them to manually enter an OTP code 
+      // on the next screen, we need to ensure our backend is configured for that.
+      // Otherwise, this navigation might confuse users who are waiting for a link.
       setTimeout(() => {
-        // If you are building a custom OTP flow, this is fine.
         navigate('/enter-otp', { state: { email } }); 
       }, 2000);
 
@@ -52,7 +51,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="auth-container">
       
-      {/* --- Left Column (Branding) --- */}
+      {/* Left Side: Branding and Logo */}
       <div className="auth-branding-panel">
         <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
         <p className="auth-tagline">
@@ -60,20 +59,19 @@ export default function ForgotPasswordPage() {
         </p>
       </div>
 
-      {/* --- Right Column (Form) --- */}
+      {/* Right Side: Input Form */}
       <div className="auth-form-panel">
         <div className="auth-form-container">
           
           <h2 className="auth-title">Forgot your password?</h2>
           
-          {/* Subtitle text - reusing a class for muted text style */}
           <p className="auth-redirect-link" style={{ marginTop: '-1rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
             Don’t worry! Just enter your email, and we’ll send you instructions to help you reset your password.
           </p>
 
           <form className="auth-form" onSubmit={handleSubmit}>
             
-            {/* Email */}
+            {/* Email Input Field */}
             <div>
               <label htmlFor="email" className="auth-label">
                 School Institution Email
@@ -92,7 +90,7 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            {/* --- Message Display --- */}
+            {/* Feedback Message (Success or Error) */}
             {message.content && (
               <div
                 className={`auth-message ${
@@ -105,7 +103,7 @@ export default function ForgotPasswordPage() {
               </div>
             )}
 
-            {/* Button */}
+            {/* Submit Button */}
             <div>
               <button
                 type="submit"
@@ -117,7 +115,7 @@ export default function ForgotPasswordPage() {
             </div>
           </form>
           
-          {/* Back to Login Link */}
+          {/* Navigation back to Login */}
           <div className="auth-redirect-link">
             Remembered your password?{' '}
             <Link to="/login" className="auth-link">

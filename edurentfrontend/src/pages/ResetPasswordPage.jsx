@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
-// Import shared styles
-import '../static/Auth.css'; // The ONLY CSS file needed
+// Shared styles for authentication pages
+import '../static/Auth.css'; 
 
-// Import your logo
 import eduRentLogo from '../assets/edurentlogo.png'; 
 
 export default function ResetPasswordPage() {
@@ -15,11 +14,11 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // --- Supabase Standard Flow: Handle token from URL fragment ---
+  // Detect when Supabase finishes handling the recovery link from the email.
+  // Once the 'PASSWORD_RECOVERY' event fires, the user is temporarily logged in to allow the update.
   useEffect(() => {
     supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // The user is now authenticated temporarily to change their password.
         setMessage({ type: 'info', content: 'You are authenticated. Please enter your new password.' });
       }
     });
@@ -30,10 +29,13 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setMessage({ type: '', content: '' });
 
+    // Basic checks for matching passwords and length
     if (password !== confirmPassword) {
       setMessage({ type: 'error', content: 'Passwords do not match.' });
       return;
     }
+    
+    // TO DO: Implement stronger password validation here (e.g., require numbers, uppercase letters, or special characters).
     if (password.length < 6) { 
       setMessage({ type: 'error', content: 'Password must be at least 6 characters.' });
       return;
@@ -42,7 +44,7 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      // Use Supabase auth to update the password
+      // Send the new password to Supabase to update the user's record
       const { data, error } = await supabase.auth.updateUser({
         password: password,
       });
@@ -69,7 +71,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="auth-container">
       
-      {/* --- Left Column (Branding) --- */}
+      {/* Left Side: Branding and Logo */}
       <div className="auth-branding-panel">
         <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
         <p className="auth-tagline">
@@ -77,7 +79,7 @@ export default function ResetPasswordPage() {
         </p>
       </div>
 
-      {/* --- Right Column (Form) --- */}
+      {/* Right Side: Password Form */}
       <div className="auth-form-panel">
         <div className="auth-form-container">
           <h2 className="auth-title">Create a New Password</h2>
@@ -87,7 +89,7 @@ export default function ResetPasswordPage() {
 
           <form className="auth-form" onSubmit={handleSubmit}>
             
-            {/* New Password */}
+            {/* New Password Input */}
             <div>
               <label htmlFor="password" className="auth-label">
                 New Password
@@ -104,7 +106,7 @@ export default function ResetPasswordPage() {
               />
             </div>
 
-            {/* Confirm New Password */}
+            {/* Confirm Password Input */}
             <div>
               <label htmlFor="confirmPassword" className="auth-label">
                 Confirm New Password
@@ -121,14 +123,14 @@ export default function ResetPasswordPage() {
               />
             </div>
 
-            {/* --- Message Display --- */}
+            {/* Status Message Display */}
             {message.content && (
               <div
                 className={`auth-message ${
                   message.type === 'success'
                     ? 'auth-message-success'
                     : message.type === 'info'
-                    ? 'auth-message-info' // Using our new style
+                    ? 'auth-message-info' 
                     : 'auth-message-error'
                 }`}
               >
@@ -136,7 +138,7 @@ export default function ResetPasswordPage() {
               </div>
             )}
 
-            {/* Button */}
+            {/* Submit Button */}
             <div>
               <button
                 type="submit"
@@ -148,7 +150,7 @@ export default function ResetPasswordPage() {
             </div>
           </form>
 
-          {/* Back to Login Link */}
+          {/* Fallback link to Login */}
           <div className="auth-redirect-link">
             <Link to="/login" className="auth-link">
               Back to Login

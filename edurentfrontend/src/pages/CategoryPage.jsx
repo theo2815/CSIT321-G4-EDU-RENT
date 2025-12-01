@@ -1,27 +1,26 @@
-import React, { useState, useEffect } from 'react'; // Keep useState/useEffect for local data
+import React, { useState, useEffect } from 'react'; 
 import { useParams, useNavigate, Link } from 'react-router-dom';
 
-// --- Import Hooks ---
+// Import our custom hooks
 import useAuth from '../hooks/useAuth';
 import usePageLogic from '../hooks/usePageLogic';
 import useSearch from '../hooks/useSearch';
 import useLikes from '../hooks/useLikes';
 
-// --- Import Components ---
+// Import UI components
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
-// ProductDetailModal and Skeleton are now handled internally by usePageLogic
 
-// --- Import API Functions (for this page's specific logic) ---
+// Import API functions needed for this specific page
 import { getCategories, getListingsByCategoryId } from '../services/apiService';
 
-// --- Import CSS ---
+// Import styles
 import '../static/CategoryPage.css';
-import '../static/BrowsePage.css'; // For search bar
-import '../static/DashboardPage.css'; // For grid and empty state
+import '../static/BrowsePage.css'; 
+import '../static/DashboardPage.css'; 
 
-// --- SVG Icon Component ---
+// Simple SVG icon for the search bar
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -30,49 +29,46 @@ const Icons = {
   ),
 };
 
-// --- Main Page Component ---
 export default function CategoryPage() {
-  const { categoryId } = useParams(); // Get category ID from the URL
+  const { categoryId } = useParams(); 
   const navigate = useNavigate();
 
-  // 1. Authentication Hook: Manages user data and login status.
+  // Get the current user's session data
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
   
-  // 2. Likes Hook: Manages all like-related state and logic.
-  const likesHook = useLikes();
-  const { 
-    likedListingIds, 
-    likingInProgress, 
-    isLoadingLikes, 
-    likeError, 
-    handleLikeToggle,
-    refetchLikes
-  } = likesHook;
+  // Handle the logic for liking items
+  const likesHook = useLikes();
+  const { 
+    likedListingIds, 
+    likingInProgress, 
+    isLoadingLikes, 
+    likeError, 
+    handleLikeToggle,
+    refetchLikes
+  } = likesHook;
 
-  // 3. Page Logic Hook: Manages modals and notifications.
-  // It receives 'likesHook' to pass all like data to the modal.
-  const { 
-    openModal,
-    handleNotificationClick, 
-    ModalComponent
-  } = usePageLogic(userData, likesHook); // <-- Pass the whole likesHook in
+  // Manage UI elements like the detail modal and notifications
+  const { 
+    openModal,
+    handleNotificationClick, 
+    ModalComponent
+  } = usePageLogic(userData, likesHook); 
 
-  // 4. Local State: Manages data specific *only* to this category page.
+  // Store the category details and the list of items locally
   const [categoryInfo, setCategoryInfo] = useState(null);
-  const [categoryListings, setCategoryListings] = useState([]); // Master list for this category
+  const [categoryListings, setCategoryListings] = useState([]); 
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   const [pageDataError, setPageDataError] = useState(null);
 
-  // 5. Search Hook: Takes the local 'categoryListings' and makes them searchable.
+  // Enable searching within this specific category list
   const { searchQuery, handleSearch, filteredListings } = useSearch(
     categoryListings,
-    ['title', 'description'] // Only search title and description
+    ['title', 'description'] 
   );
   
-  // --- Local Data Fetching ---
-  // This useEffect runs when the user or categoryId changes.
+  // Fetch the category name and its listings when the page loads
   useEffect(() => {
-    if (!userData || !categoryId) return; // Wait for user and category ID
+    if (!userData || !categoryId) return; 
 
     const fetchData = async () => {
       setIsLoadingPageData(true);
@@ -86,8 +82,8 @@ export default function CategoryPage() {
       }
 
       try {
-        // Fetch category info and the listings for that category
-        const categoriesPromise = getCategories(); // Fetch all to find the name
+        // Fetch both the full category list (to get the name) and the specific items
+        const categoriesPromise = getCategories(); 
         const listingsPromise = getListingsByCategoryId(catIdNumber);
 
         const [categoriesResponse, listingsResponse] = await Promise.all([
@@ -95,7 +91,7 @@ export default function CategoryPage() {
           listingsPromise,
         ]);
 
-        // Find the current category's name from the full list
+        // Find the matching category object
         const allCategories = categoriesResponse.data || [];
         const currentCategory = allCategories.find(cat => cat.categoryId === catIdNumber);
         
@@ -104,7 +100,7 @@ export default function CategoryPage() {
         }
         setCategoryInfo(currentCategory);
 
-        // Set the master list of listings for this category
+        // Save the items found in this category
         setCategoryListings(listingsResponse.data || []);
 
       } catch (err) {
@@ -120,26 +116,22 @@ export default function CategoryPage() {
     };
     
     fetchData();
-  }, [categoryId, userData]); // Re-run if category or user changes
+  }, [categoryId, userData]); 
 
-  // Combine loading and error states from hooks and local state
+  // Check if any part of the page is loading or has failed
   const isPageLoading = isLoadingAuth || isLoadingPageData || isLoadingLikes;
   const pageError = authError || pageDataError || likeError;
 
-  // This handler can retry auth, likes, or this page's specific data
+  // Try to fix errors by reloading specific parts or the whole page
   const handleRetry = () => {
     if (authError) retryAuth();
     if (likeError) refetchLikes();
     if (pageDataError) {
-       // Re-run the local useEffect logic by triggering a re-render
-       // (This is a simple way to force the effect to run again)
-       // A more complex solution would be to move fetchData outside useEffect,
-       // but for this case, a reload is simple and effective.
        window.location.reload(); 
     }
   };
 
-  // --- Loading State ---
+  // Show a loading skeleton while waiting for data
   if (isPageLoading) {
     return (
         <div className="profile-page">
@@ -153,7 +145,7 @@ export default function CategoryPage() {
     );
   }
 
-  // --- Error State ---
+  // Display error message if something went wrong
   if (pageError) {
      return (
         <div className="profile-page">
@@ -169,60 +161,59 @@ export default function CategoryPage() {
      );
   }
 
-  // --- Main Page Render ---
   return (
     <div className="profile-page">
       <Header
-        userName={userName}         // From useAuth
+        userName={userName}        
         profilePictureUrl={userData?.profilePictureUrl}
-        onLogout={logout}         // From useAuth
-        searchQuery=""            // Disable header search
-        onSearchChange={()=>{}}   // Disable header search
-        onNotificationClick={handleNotificationClick} // From usePageLogic
+        onLogout={logout}        
+        searchQuery=""            
+        onSearchChange={()=>{}}   
+        onNotificationClick={handleNotificationClick} 
       />
 
       <main className="category-page-container">
         <div className="category-page-header">
             <h1 className="category-page-title">
-              {/* Display category icon (using your original logic) */}
+              {/* Show the category icon, or a default box if none exists */}
               {categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>{categoryInfo.icon}</span>}
               {!categoryInfo?.icon && <span style={{ marginRight: '0.5rem' }}>📦</span>} 
               {categoryInfo?.name || 'Category'}
             </h1>
         </div>
 
-        {/* This page has its own search bar */}
+        {/* Search within this category */}
         <div className="browse-search-bar" style={{marginBottom: '2rem'}}>
            <span className="browse-search-icon"><Icons.Search /></span>
            <input
              type="text"
              className="browse-search-input"
              placeholder={`Search in ${categoryInfo?.name || 'this category'}...`}
-             value={searchQuery}       // From useSearch
-             onChange={handleSearch}   // From useSearch
+             value={searchQuery}       
+             onChange={handleSearch}   
              aria-label={`Search items in ${categoryInfo?.name}`}
            />
         </div>
 
         <section>
-          {/* Display the final filtered list from useSearch */}
+          {/* List the filtered items */}
           {filteredListings.length > 0 ? (
             <div className="listing-grid">
               {filteredListings.map(listing => (
                 <ListingCard
                   key={listing.listingId} 
                   listing={listing}
-                  onClick={openModal}                   // From usePageLogic
-                  isLiked={likedListingIds.has(listing.listingId)} // From usePageLogic
-                  onLikeClick={handleLikeToggle}        // From usePageLogic
-                  isOwner={userData?.userId === listing.user?.userId} // Prop from original code
-                  currentUserId={userData?.userId}      // From useAuth
-                  isLiking={likingInProgress.has(listing.listingId)} // From usePageLogic
+                  onClick={openModal}                   
+                  isLiked={likedListingIds.has(listing.listingId)} 
+                  onLikeClick={handleLikeToggle}        
+                  isOwner={userData?.userId === listing.user?.userId} 
+                  currentUserId={userData?.userId}      
+                  isLiking={likingInProgress.has(listing.listingId)} 
                 />
               ))}
             </div>
           ) : (
-            // Empty state (using your original logic)
+            // Show this if the search or category is empty
             <div className="empty-state">
                <div className="empty-state-icon">{categoryInfo?.icon || '📂'}</div>
                <div className="empty-state-title">No Listings Found</div>
@@ -236,7 +227,7 @@ export default function CategoryPage() {
         </section>
       </main>
 
-      {/* Modal rendering is now handled by this single component from usePageLogic */}
+      {/* Render the item detail modal when needed */}
       <ModalComponent />
     </div>
   );

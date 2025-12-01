@@ -1,67 +1,50 @@
-// hooks/useLikes.js
+// This hooks manages liked listings, including fetching, liking, unliking, and state management
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getLikedListings, likeListing, unlikeListing } from '../services/apiService';
 
-/**
- * A hook to manage the global "like" state of listings.
- * It handles fetching liked items, toggling likes, and manages all
- * loading, error, and race-condition states.
- */
+// Manages global like state and handles API interactions
 export default function useLikes() {
+  
   // --- State ---
 
-  // A Set for fast O(1) lookups of *which* items are liked.
+  // Set of IDs for efficient O(1) lookup
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   
-  // A Set to track items currently being processed by an API call.
-  // This is used to prevent double-clicks and race conditions.
+  // Tracks items currently being processed to prevent race conditions
   const [likingInProgress, setLikingInProgress] = useState(new Set());
   
-  // The full array of liked listing objects, used to render the Likes page.
+  // Full listing details for the display list
   const [likedListings, setLikedListings] = useState([]);
   
-  // Loading state for the initial fetch of liked items.
   const [isLoadingLikes, setIsLoadingLikes] = useState(true);
-  
-  // Error state for any like-related API failures.
   const [likeError, setLikeError] = useState(null);
 
   // --- Refs ---
 
-  // A ref mirroring `likedListingIds`.
-  // This provides a stable, synchronous way to get the *latest*
-  // like status inside callbacks without re-triggering them.
+  // Refs allow access to current state inside async callbacks
   const likedIdsRef = useRef(likedListingIds);
-  
-  // A ref mirroring `likingInProgress`.
-  // Used for instant, synchronous checks to prevent race conditions.
   const likingInProgressRef = useRef(likingInProgress);
 
-  // --- Ref Synchronization ---
-
-  // Keeps `likedIdsRef` in sync with its state.
+  // Keep refs synced with state
   useEffect(() => {
     likedIdsRef.current = likedListingIds;
   }, [likedListingIds]);
 
-  // Keeps `likingInProgressRef` in sync with its state.
   useEffect(() => {
     likingInProgressRef.current = likingInProgress;
   }, [likingInProgress]);
 
   // --- Data Fetching ---
 
-  /**
-   * Fetches all liked listings from the API.
-   * Populates both the full list (`likedListings`) and the
-   * fast-lookup Set (`likedListingIds`).
-   */
+  // Fetches liked items from the API
   const fetchLikes = useCallback(async () => {
     setIsLoadingLikes(true);
     setLikeError(null);
     try {
       const response = await getLikedListings();
       const listings = response.data || [];
+      
+      // Create a Set of IDs for fast lookup
       const likedIds = new Set(listings.map(listing => listing.listingId));
       
       setLikedListings(listings);
@@ -74,45 +57,33 @@ export default function useLikes() {
     }
   }, []);
 
-  // Fetches the user's likes when the hook is first mounted.
+  // Initial fetch on mount
   useEffect(() => {
     fetchLikes();
   }, [fetchLikes]);
 
 
-  // --- Like/Unlike Logic ---
+  // --- Handlers ---
 
-  /**
-   * Handles toggling a "like" on or off for a specific listing.
-   * This function is designed to be "bulletproof" against race conditions.
-   */
+  // Toggles like status with race condition protection
   const handleLikeToggle = useCallback(async (listingId) => {
     
-    // 1. Race Condition Guard (Double-Click Prevention)
-    // Synchronously check the ref. If a request for this item is
-    // already in progress, stop execution.
+    // Prevent double-clicks/overlapping requests
     if (likingInProgressRef.current.has(listingId)) {
       console.log("Like action already in progress for item:", listingId);
       return;
     }
 
-    // 2. Set "In-Progress" State
-    // Synchronously update the ref *first* to win any potential race
-    // condition, then update state to trigger a re-render.
+    // Add to in-progress set
     const newLikingSet = new Set(likingInProgressRef.current).add(listingId);
     likingInProgressRef.current = newLikingSet;
     setLikingInProgress(newLikingSet);
     setLikeError(null);
 
-    // 3. Get Current Status
-    // Read from the ref to get the *actual* current like status,
-    // safe from React's state batching.
+    // Check current status via ref
     const isCurrentlyLiked = likedIdsRef.current.has(listingId);
 
-    // 4. Optimistic UI Update (for Like Status)
-    // Immediately update the `Set` of IDs. This will instantly
-    // change the state of like buttons (e.g., 🤍 -> ❤️) across the
-    // app without waiting for the API.
+    // Optimistic UI update: Toggle state immediately
     setLikedListingIds(prevIds => {
       const newIds = new Set(prevIds);
       if (isCurrentlyLiked) {
@@ -120,43 +91,30 @@ export default function useLikes() {
       } else {
         newIds.add(listingId);
       }
-      // Keep the ref synced atomically with the state update.
       likedIdsRef.current = newIds;
       return newIds;
     });
     
-    // 5. API Call
+    // API Call
     try {
       if (isCurrentlyLiked) {
-        // --- UNLIKE PATH ---
         await unlikeListing(listingId);
         console.log(`Unliked item ${listingId}`);
 
-        // 6. Pessimistic UI Update (for List Removal)
-        // Only remove the item from the *visible list* *after* the
-        // API call successfully completes. This breaks the "item comeback"
-        // feedback loop bug.
+        // Remove from list only after server confirmation
         setLikedListings(prev => prev.filter(item => item.listingId !== listingId));
 
       } else {
-        // --- LIKE PATH ---
         await likeListing(listingId);
         console.log(`Liked item ${listingId}`);
-        // If a user likes an item *from* the likes page (e.g., in a
-        // modal), we would need to re-fetch or manually add it to
-        // the `likedListings` array here.
       }
     } catch (err) {
-      // 7. Revert on Failure
-      // If the API call fails, re-fetch all data to ensure
-      // the UI reflects the true server state.
+      // Revert state if API call fails
       console.error("Failed to toggle like:", err);
       setLikeError("Failed to update like. Please refresh.");
       fetchLikes(); 
     } finally {
-      // 8. Cleanup
-      // Always remove the item from the 'in-progress' set,
-      // whether the request succeeded or failed.
+      // Cleanup: Remove from in-progress set
       setLikingInProgress(prevSet => {
         const nextSet = new Set(prevSet);
         nextSet.delete(listingId);
@@ -164,10 +122,8 @@ export default function useLikes() {
         return nextSet;
       });
     }
-  }, [fetchLikes]); // The ONLY dependency
+  }, [fetchLikes]);
 
-  // --- Return Values ---
-  // Expose all state and handlers for components to use.
   return {
     likedListingIds,
     likedListings,

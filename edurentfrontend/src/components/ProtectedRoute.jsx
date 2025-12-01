@@ -1,3 +1,4 @@
+// This Component protects routes that require authentication
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
@@ -17,7 +18,6 @@ const ProtectedRoute = () => {
         height: '100vh',
         backgroundColor: 'var(--bg-color)' 
       }}>
-        {/* TODO: replace this with a proper Spinner component later */}
         <div className="skeleton" style={{ width: '200px', height: '20px', borderRadius: '4px' }}></div>
       </div>
     );

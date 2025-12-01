@@ -18,6 +18,16 @@ import ManageListingsPage from './pages/ManageListingsPage.jsx';
 import CategoryPage from './pages/CategoryPage.jsx';
 import EditListingPage from './pages/EditListingPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import useAuth from './hooks/useAuth';
+
+// helper component for the root path
+const RootRoute = () => {
+  const { userData, isLoadingAuth } = useAuth();
+
+  if (isLoadingAuth) return null;
+
+  return userData ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+};
 
 function App() {
   return (
@@ -54,7 +64,7 @@ function App() {
       </Route>
 
       {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route path="/" element={<RootRoute />} />
 
     </Routes>
   )

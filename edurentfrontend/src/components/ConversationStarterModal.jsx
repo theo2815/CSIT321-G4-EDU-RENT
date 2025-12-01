@@ -1,4 +1,4 @@
-// edurentfrontend/src/components/ConversationStarterModal.jsx
+// This compotent is used in profile page to select a listing to start conversation about
 import React, { useState } from 'react';
 import ListingCard from './ListingCard';
 import useSearch from '../hooks/useSearch';
@@ -15,15 +15,16 @@ export default function ConversationStarterModal({
   likingInProgress,
   onLikeToggle
 }) {
-  const [filterType, setFilterType] = useState('all'); // 'all', 'rent', 'sale'
+  // Controls which filter tab is currently active
+  const [filterType, setFilterType] = useState('all'); 
 
-  // 1. Search Hook: Filter the raw list by search query
+  // Filter the raw listing data based on the user's search input
   const { searchQuery, handleSearch, filteredListings: searchedListings } = useSearch(
     listings,
     ['title', 'description', 'category.name']
   );
 
-  // 2. Filter Hook: Filter the searched list by Type (Rent/Sale)
+  // Apply the specific type filter (Rent/Sale) to the search results
   const finalDisplayListings = useFilteredListings(searchedListings, filterType);
 
   if (!isOpen) return null;
@@ -31,7 +32,7 @@ export default function ConversationStarterModal({
   return (
     <div className="starter-modal-overlay">
       <div className="starter-modal-content">
-        {/* Header */}
+        {/* Modal header containing the title and close action */}
         <div className="starter-modal-header">
           <h3 className="starter-modal-title">Select a product to start chatting</h3>
           <button className="starter-close-btn" onClick={onClose} aria-label="Close">
@@ -39,7 +40,7 @@ export default function ConversationStarterModal({
           </button>
         </div>
 
-        {/* Controls: Filter Tabs & Search */}
+        {/* Search bar and filter tabs for refining the list */}
         <div className="starter-controls">
           <div className="starter-filter-tabs">
             <button 
@@ -73,12 +74,11 @@ export default function ConversationStarterModal({
           </div>
         </div>
 
-        {/* Listing Grid */}
+        {/* Grid display for the filtered listings */}
         <div className="starter-listings-grid">
           {finalDisplayListings.length > 0 ? (
             finalDisplayListings.map(listing => (
-              // Reusing ListingCard with a "compact" variant if you have it, 
-              // otherwise the standard card works but might need CSS tweaking in the grid
+              // Wrap the ListingCard to ensure it fits the grid layout
               <div key={listing.listingId} className="starter-card-wrapper">
                 <ListingCard 
                   listing={listing}

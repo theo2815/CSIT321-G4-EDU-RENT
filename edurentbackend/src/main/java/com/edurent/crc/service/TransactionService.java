@@ -1,8 +1,8 @@
 package com.edurent.crc.service;
 
-import com.edurent.crc.entity.ListingEntity; // Updated
-import com.edurent.crc.entity.TransactionEntity; // Updated
-import com.edurent.crc.entity.UserEntity; // Updated
+import com.edurent.crc.entity.ListingEntity; 
+import com.edurent.crc.entity.TransactionEntity; 
+import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.ListingRepository;
 import com.edurent.crc.repository.TransactionRepository;
 import com.edurent.crc.repository.UserRepository;
@@ -23,26 +23,26 @@ public class TransactionService {
     @Autowired
     private UserRepository userRepository;
 
-    public List<TransactionEntity> getAllTransactions() { // Updated
+    public List<TransactionEntity> getAllTransactions() { 
         return transactionRepository.findAll();
     }
 
-    public Optional<TransactionEntity> getTransactionById(Long id) { // Updated
+    public Optional<TransactionEntity> getTransactionById(Long id) {
         return transactionRepository.findById(id);
     }
     
-    public List<TransactionEntity> getTransactionsByBuyerId(Long buyerId) { // Updated
+    public List<TransactionEntity> getTransactionsByBuyerId(Long buyerId) { 
         return transactionRepository.findByBuyerId(buyerId);
     }
 
-    public TransactionEntity createTransaction(TransactionEntity transaction, Long listingId, Long buyerId) { // Updated
-        ListingEntity listing = listingRepository.findById(listingId) // Updated
+    public TransactionEntity createTransaction(TransactionEntity transaction, Long listingId, Long buyerId) { 
+        ListingEntity listing = listingRepository.findById(listingId) 
                 .orElseThrow(() -> new RuntimeException("Listing not found with id: " + listingId));
         
-        UserEntity buyer = userRepository.findById(buyerId) // Updated
+        UserEntity buyer = userRepository.findById(buyerId) 
                 .orElseThrow(() -> new RuntimeException("Buyer not found with id: " + buyerId));
         
-        UserEntity seller = listing.getUser(); // Updated
+        UserEntity seller = listing.getUser();
 
         if (buyer.getUserId().equals(seller.getUserId())) {
             throw new IllegalStateException("Buyer and Seller cannot be the same person.");

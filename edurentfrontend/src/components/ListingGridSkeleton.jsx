@@ -1,7 +1,4 @@
-// src/components/ListingGridSkeleton.jsx
 import React from 'react';
-// Import skeleton CSS if it's in a separate file
-// import '../static/Skeleton.css';
 
 // Reusable component for a single skeleton listing card
 function SkeletonListingCard() {
@@ -20,7 +17,6 @@ function SkeletonListingCard() {
 }
 
 // Component that renders multiple skeleton cards in a grid
-// Takes 'count' prop for how many cards to show
 export default function ListingGridSkeleton({ count = 6 }) { // Default to showing 6 cards
   return (
     <div className="skeleton-listing-grid">

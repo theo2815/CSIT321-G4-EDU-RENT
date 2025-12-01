@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@CrossOrigin(origins = "*") // Allow requests from any origin (e.g., your React app)
+@CrossOrigin(origins = "*")
 public class AuthController {
 
     private final UserService userService;
@@ -21,11 +21,7 @@ public class AuthController {
         this.userService = userService;
     }
 
-    /**
-     * Registers a new user in the system.
-     * @param registerRequest DTO containing registration details
-     * @return A response entity with the AuthResponse (token and user info) or an error.
-     */
+    // Endpoints
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> registerUser(@RequestBody RegisterRequest registerRequest) {
         try {
@@ -39,11 +35,7 @@ public class AuthController {
         }
     }
 
-    /**
-     * Authenticates an existing user.
-     * @param loginRequest DTO containing login credentials
-     * @return A response entity with the AuthResponse (token and user info) or an error.
-     */
+    // Login Endpoint
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> loginUser(@RequestBody LoginRequest loginRequest) {
         try {

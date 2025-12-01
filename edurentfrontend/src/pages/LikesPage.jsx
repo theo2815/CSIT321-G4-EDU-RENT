@@ -1,22 +1,21 @@
-import React from 'react'; // No more useState, useEffect, useCallback
+import React from 'react'; 
 import { Link, useNavigate } from 'react-router-dom';
 
-// --- Import All Our Hooks ---
+// Import custom hooks for state management
 import useAuth from '../hooks/useAuth';
 import useLikes from '../hooks/useLikes';
 import usePageLogic from '../hooks/usePageLogic';
 
-// --- Import Components ---
+// Import UI Components
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
-// Modals are handled by usePageLogic
 
 // Import CSS
 import '../static/LikesPage.css';
-import '../static/DashboardPage.css'; // For shared grid and empty state styles
+import '../static/DashboardPage.css'; 
 
-// --- Error Display Component (Helper) ---
+// Reusable component to show error messages with a retry option
 function ErrorDisplay({ error, onRetry }) {
   return (
     <div className="error-container" style={{ margin: '2rem auto', maxWidth: '600px'}}>
@@ -29,65 +28,60 @@ function ErrorDisplay({ error, onRetry }) {
   );
 }
 
-// --- Main Page Component ---
 export default function LikesPage() {
   
-  // 1. Get Auth state (user, loading, error, logout)
+  // Check user session status
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
 
-  // 2. Get Likes state (This is our MAIN data source for this page)
-  const likesHook = useLikes(); // We get this to pass to usePageLogic
+  // Fetch and manage the list of items the user has liked
+  const likesHook = useLikes(); 
   const { 
-    likedListings, // The full list of liked listing objects
+    likedListings, 
     likedListingIds,
     likingInProgress,
     isLoadingLikes,
     likeError,
-    handleLikeToggle, // This is the function from the hook
+    handleLikeToggle, 
     refetchLikes
   } = likesHook;
 
-  // 3. Get Modal logic (and pass in the likes data)
+  // Handle global UI logic like modals and notifications
   const { 
     openModal,
     handleNotificationClick, 
-    ModalComponent // This is the ready-to-render Modal component
-  } = usePageLogic(userData, likesHook); // Pass the likesHook in
+    ModalComponent 
+  } = usePageLogic(userData, likesHook); 
 
-  // --- All other state and logic is now handled by hooks! ---
-
-  // --- Combined Loading/Error States ---
+  // Consolidate loading and error flags from different sources
   const isPageLoading = isLoadingAuth || isLoadingLikes;
   const pageError = authError || likeError;
 
-  // This handler can retry auth or like-fetching
+  // Attempt to reload data if something fails
   const handleRetry = () => {
     if (authError) retryAuth();
     if (likeError) refetchLikes();
-    // Fallback
+    
     if (!authError && !likeError) {
        retryAuth();
        refetchLikes();
     }
   };
   
-  /**
-   * Renders the main content of the page based on loading, error, or data state.
-   */
+  // Helper to decide what content to show: loading, error, empty, or list
   const renderContent = () => {
-    // Show skeleton while loading auth or likes
+    // Show a skeleton loader while waiting for data
     if (isPageLoading) {
       return <ListingGridSkeleton count={4} />;
     }
     
-    // Show a combined error message
+    // Display error if any occurred
     if (pageError) {
       return (
          <ErrorDisplay error={pageError} onRetry={handleRetry} />
       );
     }
     
-    // Show empty state if the user has no likes
+    // Fallback UI when the user hasn't liked anything yet
     if (likedListings.length === 0) {
       return (
         <div className="empty-state">
@@ -101,7 +95,7 @@ export default function LikesPage() {
       );
     }
     
-    // Render the grid of liked listings
+    // Map through the liked items and display them
     return (
       <div className="listing-grid">
         {likedListings.map(listing => (
@@ -109,8 +103,8 @@ export default function LikesPage() {
             key={listing.listingId}
             listing={listing}
             onClick={openModal}
-            isLiked={true} // Item on this page is always liked
-            onLikeClick={handleLikeToggle} // This will unlike and remove it
+            isLiked={true} // Since this is the Likes page, the item is always 'liked' initially
+            onLikeClick={handleLikeToggle} // Toggling the heart here removes it from the list
             currentUserId={userData?.userId}
             isLiking={likingInProgress.has(listing.listingId)}
           />
@@ -125,7 +119,7 @@ export default function LikesPage() {
         userName={userName}
         profilePictureUrl={userData?.profilePictureUrl}
         onLogout={logout}
-        searchQuery="" // No search on this page
+        searchQuery="" 
         onSearchChange={() => {}}
         onNotificationClick={handleNotificationClick}
       />
@@ -135,7 +129,7 @@ export default function LikesPage() {
         {renderContent()}
       </main>
 
-      {/* Render the modal component from usePageLogic */}
+      {/* The detail modal, rendered via the page logic hook */}
       <ModalComponent />
     </div>
   );

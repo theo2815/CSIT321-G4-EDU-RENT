@@ -1,25 +1,21 @@
-// src/components/NotificationsPopup.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   markNotificationAsRead,
   deleteNotification,
   markAllNotificationsAsRead,
-  markNotificationAsUnread // <-- Added
-} from '../services/apiService'; // API functions for notification actions
+  markNotificationAsUnread 
+} from '../services/apiService'; 
 
 // Import CSS
 import '../static/NotificationsPopup.css';
-import '../static/CategoriesSidebar.css'; // Reusing close button style
+import '../static/CategoriesSidebar.css'; 
 
 // Controls how many notifications are loaded per page
 const NOTIFICATIONS_PER_PAGE = 5;
 
 
-// --- NEW: Skeleton Component ---
-/**
- * Renders a single skeleton item that mimics a notification list item.
- */
+// Skeleton Component
 function NotificationItemSkeleton() {
   return (
     <li className="notification-skeleton-item">
@@ -32,9 +28,7 @@ function NotificationItemSkeleton() {
   );
 }
 
-/**
- * Renders a list of skeleton items.
- */
+// Renders a list of skeleton notification items
 function NotificationsListSkeleton() {
   return (
     <ul className="notification-skeleton-list">
@@ -46,21 +40,15 @@ function NotificationsListSkeleton() {
     </ul>
   );
 }
-// --- END: Skeleton Component ---
 
-/**
- * A popup component to display, filter, and manage notifications.
- *
- * This component is controlled by its parent (Header) and receives
- * functions to handle data fetching and state updates.
- */
+// Main Notifications Popup Component
 export default function NotificationsPopup({
-  isVisible, // Whether the popup is open
-  onClose, // Function to close the popup
-  notifications, // The list of notification objects to display
-  onRefresh, // Function to tell Header to refetch data after an action
-  currentFilter, // The currently active filter ('all' or 'unread')
-  onFilterChange, // Function to set the filter in Header
+  isVisible, 
+  onClose, 
+  notifications, 
+  onRefresh,
+  currentFilter, 
+  onFilterChange,
   onNotificationClick,
   isLoading
 }) {
@@ -77,13 +65,12 @@ export default function NotificationsPopup({
     setVisibleCount(prevCount => prevCount + NOTIFICATIONS_PER_PAGE);
   };
 
-  // --- Event Handlers ---
 
   // Called when clicking 'All' or 'Unread'
   const handleFilterClick = (filter) => {
-    onFilterChange(filter); // Tell Header to change the filter
-    setVisibleCount(NOTIFICATIONS_PER_PAGE); // Reset pagination
-    setActiveDropdown(null); // Close any open menus
+    onFilterChange(filter); 
+    setVisibleCount(NOTIFICATIONS_PER_PAGE); 
+    setActiveDropdown(null);
   };
 
   // Called from the new header 3-dot menu
@@ -100,23 +87,23 @@ export default function NotificationsPopup({
 
   // Called from the item 3-dot menu
   const handleMarkAsReadClick = async (e, notificationId) => {
-    e.stopPropagation(); // Stop click from bubbling to the item
-    setActiveDropdown(null); // Close dropdown
+    e.stopPropagation(); 
+    setActiveDropdown(null); 
     try {
       await markNotificationAsRead(notificationId);
-      onRefresh(); // Tell Header to refetch
+      onRefresh(); 
     } catch (error) {
       console.error("Failed to mark as read:", error);
     }
   };
 
-  // NEW: Called from the item 3-dot menu
+  // Called from the item 3-dot menu
   const handleMarkAsUnreadClick = async (e, notificationId) => {
     e.stopPropagation();
     setActiveDropdown(null);
     try {
       await markNotificationAsUnread(notificationId);
-      onRefresh(); // Tell Header to refetch
+      onRefresh(); 
     } catch (error) {
       console.error("Failed to mark as unread:", error);
     }
@@ -128,7 +115,7 @@ export default function NotificationsPopup({
     setActiveDropdown(null);
     try {
       await deleteNotification(notificationId);
-      onRefresh(); // Tell Header to refetch
+      onRefresh();
     } catch (error) {
       console.error("Failed to delete notification:", error);
     }
@@ -142,24 +129,20 @@ export default function NotificationsPopup({
 
   // Handles clicking on the main body of a notification item
   const handleItemClick = async (notification) => {
-    // 1. Mark as read (if needed)
     if (!notification.isRead) {
       try {
         await markNotificationAsRead(notification.notificationId);
         onRefresh();
       } catch (error) {
         console.error("Failed to mark as read on click:", error);
-        // Continue anyway
       }
     }
-        
-    // 2. ---  Call the parent function ---
+
+    // Trigger any additional click handling (e.g., navigation)
     if (onNotificationClick) {
       onNotificationClick(notification);
     }
-    // ------------------------------------
     
-    // 4. Close the popup
     onClose();
   };
 
@@ -200,11 +183,11 @@ export default function NotificationsPopup({
         aria-hidden={!isVisible}
         role="dialog"
       >
-        {/* --- UPDATED: Popup Header with 3-dot menu --- */}
+        {/* Popup Header with 3-dot menu */}
         <div className="popup-header">
           <h2 className="popup-title">Notifications</h2>
           
-          {/* --- NEW: Header 3-Dot Menu --- */}
+          {/*Header 3-Dot Menu*/}
           <div className="popup-header-options">
             <button 
               onClick={() => setIsHeaderMenuOpen(prev => !prev)} 
@@ -229,12 +212,10 @@ export default function NotificationsPopup({
               </div>
             )}
           </div>
-          {/* --- END: Header 3-Dot Menu --- */}
 
         </div>
-        {/* --- END: Updated Header --- */}
 
-        {/* --- UPDATED: Filter Bar (Mark all removed) --- */}
+        {/*Filter Bar (Mark all removed) */}
         <div className="popup-filter-bar">
           <div className="filter-btn-group">
             <button
@@ -250,22 +231,17 @@ export default function NotificationsPopup({
               Unread
             </button>
          </div>
-          {/* "Mark all as read" button removed from here */}
         </div>
-        {/* --- END: Updated Filter Bar --- */}
 
         {/* Main content area for the list */}
         <div className="popup-content">
           {isLoading ? (
-            // 1. Show skeleton while loading
             <NotificationsListSkeleton />
           ) : notifications.length === 0 ? (
-            // 2. Show empty message if not loading and no notifications
             <div className="notification-message">
               {currentFilter === 'unread' ? "You're all caught up!" : "No notifications yet."}
             </div>
           ) : (
-            // 3. Show the list
             <ul className="notification-list">
               {displayedNotifications.map(notification => (
                 <li
@@ -281,7 +257,7 @@ export default function NotificationsPopup({
                     <span className="notification-timestamp">{formatTimestamp(notification.createdAt)}</span>
                   </div>
 
-                  {/* --- UPDATED: 3-Dot Menu Logic --- */}
+                  {/* 3-Dot Menu Logic*/}
                   <div className="notification-item-right">
                     <button
                       className="notification-options-btn"
@@ -317,7 +293,6 @@ export default function NotificationsPopup({
                      </div>
                     )}
                    </div>
-                  {/* --- END: 3-Dot Menu Logic --- */}
                 </li>
               ))}
             </ul>

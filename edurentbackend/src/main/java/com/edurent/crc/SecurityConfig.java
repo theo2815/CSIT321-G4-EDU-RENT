@@ -17,7 +17,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -39,13 +38,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // 1. Disable CSRF (Not needed for JWT)
+            // Disable CSRF for simplicity in this example
             .csrf(csrf -> csrf.disable())
             
-            // 2. Use our custom CORS Configuration Bean
+            // Enable CORS with dedicated bean
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            // [NEW] Debug why access is denied
+            // Debug for logging auth errors
             .exceptionHandling(e -> e
                 .authenticationEntryPoint((request, response, authException) -> {
                     System.out.println("⚠️ SECURITY BLOCK (401): " + authException.getMessage());
@@ -83,7 +82,6 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Explicitly allow your Frontend URL (Better than "*" for credentials)
         configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000")); 
         
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));

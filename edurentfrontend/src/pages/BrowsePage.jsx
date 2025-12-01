@@ -1,25 +1,24 @@
-import React from 'react'; // No more useState, useEffect, useCallback
+import React from 'react'; 
 import { Link, useNavigate } from 'react-router-dom';
 
-// --- Import All Hooks ---
+// Import custom hooks that handle logic separately to keep this component clean
 import useAuth from '../hooks/useAuth';
 import usePageData from '../hooks/usePageData';
 import useSearch from '../hooks/useSearch';
 import usePageLogic from '../hooks/usePageLogic';
-import useFilteredListings from '../hooks/useFilteredListings'; // New hook for filtering
+import useFilteredListings from '../hooks/useFilteredListings'; 
 import useLikes from '../hooks/useLikes';
 
-// --- Import Components ---
+// Import UI components
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
-// ProductDetailModal and Skeleton are now handled internally by usePageLogic
 
-// --- Import CSS ---
+// Import styles
 import '../static/BrowsePage.css';
-import '../static/DashboardPage.css'; // For shared grid and card styles
+import '../static/DashboardPage.css'; 
 
-// --- SVG Icon Component ---
+// Simple SVG icon for the search bar
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -28,59 +27,55 @@ const Icons = {
   ),
 };
 
-// --- Main Page Component ---
 export default function BrowsePage() {
   const navigate = useNavigate();
 
-  // 1. Authentication Hook: Manages user data, login status, and auth errors.
+  // Check who is currently logged in and get their details
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
 
-  // 2. Page Data Hook: Fetches all listings and categories once the user is authenticated.
+  // Load the latest listings and categories from the server
   const { allListings, categories, isLoadingData, dataError, refetchData } = usePageData(!!userData);
 
-  // 3. Search Hook: Manages search query state and filters the 'allListings' list.
+  // Filter the available listings based on what the user types in the search bar
   const { searchQuery, handleSearch, filteredListings } = useSearch(
     allListings,
-    ['title', 'description', 'category.name'] // Keys to search
+    ['title', 'description', 'category.name'] 
   );
   
-  // 4. Likes Hook: Manages all like-related state and logic.
-  const likesHook = useLikes();
-  const { 
-    likedListingIds, 
-    likingInProgress, 
-    isLoadingLikes, 
-    likeError, 
-    handleLikeToggle,
-    refetchLikes
-  } = likesHook;
+  // Handle the logic for liking and unliking items
+  const likesHook = useLikes();
+  const { 
+    likedListingIds, 
+    likingInProgress, 
+    isLoadingLikes, 
+    likeError, 
+    handleLikeToggle,
+    refetchLikes
+  } = likesHook;
 
-  // 5. Page Logic Hook: Manages modals and notifications.
-  // It receives 'likesHook' to pass all like data to the modal.
-  const { 
-    openModal,
-    handleNotificationClick, 
-    ModalComponent
-  } = usePageLogic(userData, likesHook); // <-- Pass the whole likesHook in
+  // Manage UI interactions like opening modals and handling notifications
+  const { 
+    openModal,
+    handleNotificationClick, 
+    ModalComponent
+  } = usePageLogic(userData, likesHook);
 
-  // 6. Filtering Hooks: Takes the searched list and creates type-specific lists.
+  // Separate the search results into 'For Sale' and 'For Rent' lists for display
   const saleListings = useFilteredListings(filteredListings, 'sale');
   const rentListings = useFilteredListings(filteredListings, 'rent');
 
-  // --- All component state (useState) and logic functions are now in the hooks ---
-
-  // Combines loading states from all relevant hooks.
+  // Check if any part of the page is still loading
   const isPageLoading = isLoadingAuth || isLoadingData || isLoadingLikes;
   
-  // Combines error states from all relevant hooks.
+  // Check if any part of the page encountered an error
   const pageError = authError || dataError || likeError;
 
-  // Retries fetching data for any hook that failed.
+  // Try to reload the specific part that failed
   const handleRetry = () => {
     if (authError) retryAuth();
     if (dataError) refetchData();
     if (likeError) refetchLikes();
-    // Fallback
+    
     if (!authError && !dataError && !likeError) {
       retryAuth();
       refetchData();
@@ -88,8 +83,7 @@ export default function BrowsePage() {
     }
   };
 
-  // --- Loading State ---
-  // (Using the skeleton layout from your original 'isLoading' block)
+  // Show a skeleton loader while we wait for the data to arrive
   if (isPageLoading) {
     return (
         <div className="profile-page">
@@ -109,63 +103,59 @@ export default function BrowsePage() {
     );
   }
 
-  // --- Error State ---
-  // (Using the error layout from your original 'error' block and adding a retry button)
+  // Display an error message if something went wrong, with a button to try again
   if (pageError) {
        return (
          <div className="profile-page">
              <Header userName={userName} onLogout={logout} searchQuery="" onSearchChange={()=>{}} />
              <div style={{ padding: '2rem', textAlign: 'center' }}>
                <div style={{color: 'red', marginBottom: '1rem'}}>Error: {pageError}</div>
-               {/* This button will retry the specific part that failed */}
                <button className="error-retry-btn" onClick={handleRetry}>Try Again</button>
              </div>
          </div>
        );
   }
 
-  // --- Main Page Render ---
   return (
     <div className="profile-page">
       <Header
-        userName={userName}                     // From useAuth
+        userName={userName}                     
         profilePictureUrl={userData?.profilePictureUrl}
-        onLogout={logout}                     // From useAuth
-        searchQuery={searchQuery}             // From useSearch
-        onSearchChange={handleSearch}         // From useSearch
-        onNotificationClick={handleNotificationClick} // From usePageLogic
+        onLogout={logout}                     
+        searchQuery={searchQuery}             
+        onSearchChange={handleSearch}         
+        onNotificationClick={handleNotificationClick} 
       />
 
       <main className="browse-page-container">
-        {/* Search Bar */}
+        {/* Main Search Bar */}
         <div className="browse-search-bar">
            <span className="browse-search-icon"><Icons.Search /></span>
            <input
              type="text"
              className="browse-search-input"
              placeholder="Search for textbooks, electronics, and more..."
-             value={searchQuery}             // From useSearch
-             onChange={handleSearch}         // From useSearch
+             value={searchQuery}             
+             onChange={handleSearch}         
              aria-label="Search all listings"
            />
         </div>
 
-        {/* For Sale Section */}
+        {/* Section: Items For Sale */}
         <section className="browse-section">
           <h2 className="browse-section-title">For Sale</h2>
-          {/* 'saleListings' now comes from useFilteredListings */}
           {saleListings.length > 0 ? (
             <div className="listing-grid">
               {saleListings.map(listing => (
                 <ListingCard
                   key={listing.listingId}
                   listing={listing}
-                  onClick={openModal}                   // From usePageLogic
-                  isLiked={likedListingIds.has(listing.listingId)} // From usePageLogic
-                  onLikeClick={handleLikeToggle}        // From usePageLogic
-                  isOwner={userData?.userId === listing.user?.userId} // Prop from original code
-                  currentUserId={userData?.userId}      // From useAuth
-                  isLiking={likingInProgress.has(listing.listingId)} // From usePageLogic
+                  onClick={openModal}                   
+                  isLiked={likedListingIds.has(listing.listingId)} 
+                  onLikeClick={handleLikeToggle}        
+                  isOwner={userData?.userId === listing.user?.userId} 
+                  currentUserId={userData?.userId}      
+                  isLiking={likingInProgress.has(listing.listingId)} 
                 />
               ))}
             </div>
@@ -174,22 +164,21 @@ export default function BrowsePage() {
           )}
         </section>
 
-        {/* For Rent Section */}
+        {/* Section: Items For Rent */}
         <section className="browse-section">
           <h2 className="browse-section-title">For Rent</h2>
-          {/* 'rentListings' now comes from useFilteredListings */}
            {rentListings.length > 0 ? (
             <div className="listing-grid">
               {rentListings.map(listing => (
                 <ListingCard
                   key={listing.listingId}
                   listing={listing}
-                  onClick={openModal}                   // From usePageLogic
-                  isLiked={likedListingIds.has(listing.listingId)} // From usePageLogic
-                  onLikeClick={handleLikeToggle}        // From usePageLogic
-                  isOwner={userData?.userId === listing.user?.userId} // Prop from original code
-                  currentUserId={userData?.userId}      // From useAuth
-                  isLiking={likingInProgress.has(listing.listingId)} // From usePageLogic
+                  onClick={openModal}                   
+                  isLiked={likedListingIds.has(listing.listingId)} 
+                  onLikeClick={handleLikeToggle}        
+                  isOwner={userData?.userId === listing.user?.userId} 
+                  currentUserId={userData?.userId}      
+                  isLiking={likingInProgress.has(listing.listingId)} 
                 />
               ))}
             </div>
@@ -198,7 +187,7 @@ export default function BrowsePage() {
           )}
         </section>
 
-        {/* Call to Action Card */}
+        {/* Call to Action for new sellers */}
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
@@ -208,7 +197,7 @@ export default function BrowsePage() {
         </section>
       </main>
 
-      {/* Modal rendering is now handled by this single component from usePageLogic */}
+      {/* Renders the detail modal when an item is clicked */}
       <ModalComponent />
     </div>
   );

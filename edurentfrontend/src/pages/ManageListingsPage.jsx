@@ -24,7 +24,7 @@ import '../static/ManageListingsPage.css';
 import '../static/ProfilePage.css'; 
 import '../static/DashboardPage.css';
 
-// --- Skeleton Component for Loading State ---
+// Placeholder layout shown while the page data is loading
 function ManageListingsSkeleton() {
   return (
     <div className="manage-listings-page">
@@ -72,29 +72,28 @@ function ManageListingsSkeleton() {
   );
 }
 
-// --- Main Component ---
 export default function ManageListingsPage() {
   const navigate = useNavigate();
 
-  // User & Data State
+  // Data State
   const [userName, setUserName] = useState('');
   const [userData, setUserData] = useState(null);
   const [allListings, setAllListings] = useState([]); 
   const [filteredListings, setFilteredListings] = useState([]); 
   const [categories, setCategories] = useState([]); 
   
-  // UI State
+  // UI & Selection State
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showBulkBar, setShowBulkBar] = useState(false);
   const [bulkActionMessage, setBulkActionMessage] = useState('');
   const [selectedItems, setSelectedItems] = useState(new Set()); 
 
-  // Modal States
-  const [isModalOpen, setIsModalOpen] = useState(false); // Product Detail Modal
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false); 
   const [selectedListing, setSelectedListing] = useState(null);
   
-  const [isMarkSoldModalOpen, setIsMarkSoldModalOpen] = useState(false); // Mark Sold Modal
+  const [isMarkSoldModalOpen, setIsMarkSoldModalOpen] = useState(false); 
   const [listingToMarkSold, setListingToMarkSold] = useState(null);
 
   // Interaction State (Likes & Notifications)
@@ -102,14 +101,14 @@ export default function ManageListingsPage() {
   const [likingInProgress, setLikingInProgress] = useState(new Set());
   const [isNotificationLoading, setIsNotificationLoading] = useState(false); 
 
-  // Filter & Sort State
+  // Filters State
   const [filterCategory, setFilterCategory] = useState('All Categories');
   const [sortOrder, setSortOrder] = useState('recent');
   const [filterDate, setFilterDate] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('available');
 
-  // --- 1. Data Fetching ---
+  // Load the user's profile and their listings when the page mounts
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -122,7 +121,7 @@ export default function ManageListingsPage() {
 
         if (!userId) throw new Error("Could not find user ID.");
 
-        // Fetch listings and categories simultaneously
+        // Fetch listings and categories at the same time
         const [listingsRes, catRes] = await Promise.all([
             getUserListings(userId),
             getCategories()
@@ -130,7 +129,7 @@ export default function ManageListingsPage() {
 
         setAllListings(listingsRes.data || []);
         
-        // Add "All" option to categories
+        // Add a default "All" option to the category list
         setCategories([{ categoryId: 'all', name: 'All Categories' }, ...(catRes.data || [])]);
 
       } catch (err) {
@@ -144,11 +143,11 @@ export default function ManageListingsPage() {
     fetchData();
   }, [navigate]);
 
-  // --- 2. Filtering & Sorting Logic ---
+  // Re-run filters whenever the user inputs change or the data updates
   useEffect(() => {
     let result = [...allListings];
 
-    // Status Filter
+    // Filter by Item Status (Active, Inactive, etc)
     if (filterStatus !== 'all') {
       if (filterStatus === 'others') {
         result = result.filter(item => 
@@ -160,12 +159,12 @@ export default function ManageListingsPage() {
       }
     }
 
-    // Category Filter
+    // Filter by Category
     if (filterCategory !== 'All Categories') {
       result = result.filter(item => item.category?.name === filterCategory); 
     }
 
-    // Date Filter
+    // Filter by Date
     const now = new Date(); 
     if (filterDate === 'last7') {
       const sevenDaysAgo = new Date(new Date().setDate(now.getDate() - 7));
@@ -175,7 +174,7 @@ export default function ManageListingsPage() {
        result = result.filter(item => new Date(item.createdAt) >= thirtyDaysAgo); 
     }
 
-    // Search Query
+    // Filter by Search Query
     if (searchQuery.trim() !== '') {
       const lowerQuery = searchQuery.toLowerCase();
       result = result.filter(item =>
@@ -184,7 +183,7 @@ export default function ManageListingsPage() {
       );
     }
 
-    // Sorting
+    // Sort the results
     result.sort((a, b) => {
       const dateA = new Date(a.createdAt);
       const dateB = new Date(b.createdAt);
@@ -193,7 +192,7 @@ export default function ManageListingsPage() {
 
     setFilteredListings(result);
 
-    // Sync selected items with current filter results
+    // Keep the selection set in sync (remove IDs that are no longer visible)
     setSelectedItems(prevSelected => {
         const currentFilteredIds = new Set(result.map(item => item.listingId));
         const newSelected = new Set();
@@ -206,7 +205,7 @@ export default function ManageListingsPage() {
   }, [allListings, filterCategory, sortOrder, filterDate, searchQuery, filterStatus]);
 
 
-  // --- 3. Selection Handlers ---
+  // Checkbox logic for selecting rows
   const handleSelectAll = (event) => {
     if (event.target.checked) {
       const allFilteredIds = new Set(filteredListings.map(item => item.listingId));
@@ -227,28 +226,27 @@ export default function ManageListingsPage() {
 
   const isAllSelected = filteredListings.length > 0 && selectedItems.size === filteredListings.length;
 
-  // Toggle Bulk Actions Bar
+  // Show the bulk actions bar only when items are selected
   useEffect(() => {
     setShowBulkBar(selectedItems.size > 0);
   }, [selectedItems]);
 
 
-  // --- 4. Action Handlers ---
+  // --- Item Actions ---
 
-  // Edit Navigation
   const handleEdit = (itemId) => {
     setBulkActionMessage("");
     navigate(`/edit-listing/${itemId}`);
   };
 
-  // Open Mark Sold Modal (Single Item)
+  // Trigger the "Mark Sold" modal for a specific item
   const handleOpenMarkSold = (e, listing) => {
-    e.stopPropagation(); // Prevent row click
+    e.stopPropagation(); 
     setListingToMarkSold(listing);
     setIsMarkSoldModalOpen(true);
   };
 
-  // Callback: Update state after successful Mark Sold
+  // Update the list locally after an item is successfully marked sold
   const handleMarkSoldSuccess = () => {
     if (listingToMarkSold) {
         setAllListings(prev => prev.map(item => 
@@ -261,7 +259,7 @@ export default function ManageListingsPage() {
     setIsMarkSoldModalOpen(false);
   };
 
-  // Single Delete
+  // Delete a single item
   const handleDelete = async (itemId) => {
     setBulkActionMessage("");
     if (window.confirm(`Are you sure you want to delete listing ID ${itemId}?`)) {
@@ -279,7 +277,7 @@ export default function ManageListingsPage() {
     }
   };
 
-  // Bulk Mark as Sold
+  // Bulk Action: Mark multiple items as sold
   const handleBulkMarkSold = async () => {
     setBulkActionMessage("");
     const numToUpdate = selectedItems.size;
@@ -309,7 +307,7 @@ export default function ManageListingsPage() {
     }
   };
 
-  // Bulk Delete
+  // Bulk Action: Delete multiple items
   const handleBulkDelete = async () => {
     setBulkActionMessage("");
     const numToDelete = selectedItems.size;
@@ -332,7 +330,7 @@ export default function ManageListingsPage() {
     }
   };
 
-  // Helper: Calculate Status Counts
+  // Calculate counts for the filter tabs
   const counts = allListings.reduce((acc, item) => {
        const status = item.status?.toLowerCase() || 'other';
        if (status === 'active' || status === 'available') acc.active++;
@@ -343,7 +341,7 @@ export default function ManageListingsPage() {
 
   const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/login'); };
 
-  // Notification Handler
+  // Handle clicks on notifications
   const handleNotificationClick = async (notification) => {
     const urlParts = notification.linkUrl?.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
@@ -379,7 +377,7 @@ export default function ManageListingsPage() {
     setIsModalOpen(false);
   };
 
-  // Like Toggle
+  // Handle liking/unliking functionality
   const handleLikeToggle = async (listingId) => {
     if (likingInProgress.has(listingId)) return;
     setLikingInProgress(prev => new Set(prev).add(listingId));
@@ -412,7 +410,6 @@ export default function ManageListingsPage() {
     }
   };
 
-  // --- Render ---
   if (isLoading) {
       return (
           <div className="profile-page">
@@ -439,7 +436,7 @@ export default function ManageListingsPage() {
         onNotificationClick={handleNotificationClick}
       />
 
-      {/* Bulk Actions Bar */}
+      {/* Bulk Actions Toolbar */}
       {showBulkBar && (
         <div className="bulk-actions-bar" role="region" aria-label="Bulk actions">
           <span>{selectedItems.size} selected</span>
@@ -461,6 +458,7 @@ export default function ManageListingsPage() {
         </div>
       )}
 
+      {/* Feedback Snackbar */}
       {bulkActionMessage && (
         <div className="snackbar" role="status">{bulkActionMessage}</div>
       )}
@@ -506,7 +504,7 @@ export default function ManageListingsPage() {
           </div>
         </div>
 
-        {/* Listings Data Grid */}
+        {/* Listings Data Table */}
         <div className="listings-card-container">
           <div className="listings-card-header">
             <div className="select-all-container">
@@ -520,7 +518,7 @@ export default function ManageListingsPage() {
               <label htmlFor="select-all" style={{fontWeight: 500}}>Select All</label>
             </div>
             
-            {/* Filter Tabs/Counts */}
+            {/* Status Filter Tabs */}
             <div className="listing-counts">
               <button
                   className={`listing-count-item ${filterStatus === 'available' ? 'active' : ''}`}
@@ -572,7 +570,7 @@ export default function ManageListingsPage() {
                     const isSold = item.status?.toLowerCase() === 'sold';
                     const statusClass = item.status?.toLowerCase() || 'other';
                     
-                    // Helper to display friendly status text
+                    // Format status text for display
                     const statusText = item.status?.toLowerCase() === 'available' ? 'Active' : 
                                        item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
                                        item.status?.toLowerCase() === 'sold' ? 'Sold' : 
@@ -611,7 +609,7 @@ export default function ManageListingsPage() {
                         <td onClick={(e) => e.stopPropagation()}>
                           <div className="listing-actions">
                              
-                             {/* Mark Sold Button: Only visible if item is not currently sold */}
+                             {/* Only show "Mark Sold" if the item is not already sold */}
                              {!isSold && (
                                  <button
                                    className="btn btn-small"
@@ -632,7 +630,7 @@ export default function ManageListingsPage() {
                                   className="btn btn-small btn-outline"
                                   onClick={(e) => handleEdit(e, item.listingId)}
                                >
-                                 Edit
+                                  Edit
                                </button>
                              )}
                              <button
@@ -672,7 +670,7 @@ export default function ManageListingsPage() {
         </div>
       </main>
 
-       {/* --- Modals Section --- */}
+       {/* Modals */}
        
        {/* 1. Product Detail Modal */}
        {isModalOpen && selectedListing && (

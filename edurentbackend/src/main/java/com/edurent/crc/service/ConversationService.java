@@ -38,14 +38,12 @@ public class ConversationService {
     @Autowired
     private MessageRepository messageRepository;
 
-    // --- MERGED: Get Conversations (Not Deleted + With Last Message + Archived Status) ---
+    // 1. Get Conversations for User
     public List<ConversationEntity> getConversationsForUser(Long userId) {
-        // 1. Fetch participant records where isDeleted is FALSE
         List<ConversationParticipantEntity> participants = participantRepository.findById_UserIdAndIsDeletedFalse(userId);
 
         List<ConversationEntity> conversations = new ArrayList<>();
 
-        // 2. Loop through to populate Transient data
         for (ConversationParticipantEntity p : participants) {
             ConversationEntity conv = p.getConversation();
 
@@ -55,7 +53,6 @@ public class ConversationService {
                 conv.setLastMessageContent(lastMsg.getContent());
                 conv.setLastMessageTimestamp(lastMsg.getSentAt());
 
-                // NEW: Populate Unread Status
                 boolean isUnread = !Boolean.TRUE.equals(lastMsg.getRead()) 
                                    && !lastMsg.getSender().getUserId().equals(userId);
                 conv.setIsUnread(isUnread);
@@ -71,6 +68,7 @@ public class ConversationService {
     }
     
 
+    // 2. Start Conversation
     @Transactional
     public ConversationEntity startConversation(Long listingId, Long starterId, Long receiverId) {
         // 1. Check if conversation already exists
@@ -107,6 +105,7 @@ public class ConversationService {
                 .orElse(savedConversation);
     }
 
+    // 3. Delete Conversation for User (Soft Delete)
     @Transactional
     public void deleteConversationForUser(Long conversationId, Long userId) {
         ConversationParticipantIdEntity id = new ConversationParticipantIdEntity(conversationId, userId);
@@ -117,6 +116,8 @@ public class ConversationService {
         participantRepository.save(participant);
     }
 
+
+    // 4. Toggle Archive Conversation for User
     @Transactional
     public void toggleArchiveConversationForUser(Long conversationId, Long userId) {
         ConversationParticipantIdEntity id = new ConversationParticipantIdEntity(conversationId, userId);

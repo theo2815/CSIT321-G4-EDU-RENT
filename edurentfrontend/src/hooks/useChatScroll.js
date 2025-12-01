@@ -1,4 +1,4 @@
-// src/hooks/useChatScroll.js
+// This hooks manages chat scroll behavior, including auto-scrolling and "New Message" button visibility
 import { useRef, useState, useEffect } from 'react';
 
 export default function useChatScroll(messages) {
@@ -41,7 +41,6 @@ export default function useChatScroll(messages) {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     
-    // Consider "near bottom" if within 100px
     isNearBottomRef.current = distanceFromBottom < 100;
     
     if (isNearBottomRef.current) {
