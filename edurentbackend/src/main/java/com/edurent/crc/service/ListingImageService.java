@@ -1,7 +1,7 @@
 package com.edurent.crc.service;
 
-import com.edurent.crc.entity.ListingEntity; // Updated
-import com.edurent.crc.entity.ListingImageEntity; // Updated
+import com.edurent.crc.entity.ListingEntity; 
+import com.edurent.crc.entity.ListingImageEntity; 
 import com.edurent.crc.repository.ListingImageRepository;
 import com.edurent.crc.repository.ListingRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,17 +17,14 @@ public class ListingImageService {
     @Autowired
     private ListingRepository listingRepository;
 
-    public List<ListingImageEntity> getImagesForListing(Long listingId) { // Updated
+    public List<ListingImageEntity> getImagesForListing(Long listingId) { 
         return listingImageRepository.findByListingId(listingId);
     }
 
-    public ListingImageEntity addImageToListing(ListingImageEntity image, Long listingId) { // Updated
-        ListingEntity listing = listingRepository.findById(listingId) // Updated
+    public ListingImageEntity addImageToListing(ListingImageEntity image, Long listingId) {
+        ListingEntity listing = listingRepository.findById(listingId) 
                 .orElseThrow(() -> new RuntimeException("Listing not found with id: " + listingId));
         
-        // TODO: Add logic to upload image to a cloud storage (like Supabase Storage)
-        // and set the 'imageUrl' property. For now, we assume it's passed in.
-
         image.setListing(listing);
         return listingImageRepository.save(image);
     }

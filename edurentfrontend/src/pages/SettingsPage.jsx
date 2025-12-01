@@ -1,26 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
-// --- Custom Hooks ---
-import useAuth from '../hooks/useAuth'; // Provides authentication state and retryAuth
-import useLikes from '../hooks/useLikes'; // Manages liking logic
-import usePageLogic from '../hooks/usePageLogic'; // Manages shared page logic (Modals, Notifications)
+// Custom hooks for managing auth state, likes, and global UI logic
+import useAuth from '../hooks/useAuth'; 
+import useLikes from '../hooks/useLikes'; 
+import usePageLogic from '../hooks/usePageLogic'; 
 
-// --- Components ---
+// Components
 import Header from '../components/Header';
 import defaultAvatar from '../assets/default-avatar.png';
 
-// --- API & Services ---
+// API & Services
 import { 
   getCurrentUser, 
   updateUserProfile 
 } from '../services/apiService';
 import { supabase } from '../supabaseClient';
 
-// --- Styles ---
+// Styles
 import '../static/SettingsPage.css';
 
-// --- SKELETON LOADER ---
+// A loading skeleton to keep the UI stable while fetching user data
 function SettingsSkeleton() {
   return (
     <div className="settings-skeleton-container">
@@ -41,47 +41,40 @@ function SettingsSkeleton() {
 
 // --- SUB-COMPONENTS (FORMS) ---
 
-/**
- * Form for editing public and private profile details.
- * Includes image upload preview and loading states.
- */
+// Handles editing public profile info and uploading a new avatar
 function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto, uploading }) {
-  // Helper to determine the correct image source
-const getProfileSrc = () => {
-    // 1. If user just uploaded a new photo, show that immediately
+  
+  // Logic to decide which image to display: the new upload, the existing one, or a default
+  const getProfileSrc = () => {
+    // 1. Show the newly uploaded preview if available
     if (profileData.profilePictureUrl) return profileData.profilePictureUrl;
     
-    // 2. If user has an existing photo
+    // 2. Show the existing photo from the database
     if (userData?.profilePictureUrl) {
-        // If it's an absolute URL (from Supabase), use it as is
+        // Check if it's already a full URL (Supabase) or needs the backend host (Local)
         if (userData.profilePictureUrl.startsWith('http')) {
             return userData.profilePictureUrl;
         }
-        // If it's a relative path (from local uploads), prepend backend URL
         return `http://localhost:8080${userData.profilePictureUrl}`;
     }
     
-    // 3. Fallback
+    // 3. Fallback to default
     return defaultAvatar;
-};
+  };
+
     return (
         <section className="settings-card">
             <h2 className="settings-card-title">Edit Profile</h2>
             <div className="profile-photo-section">
                 <div className="profile-photo-container">
-                  {/* Display the new image immediately if profileData has it, otherwise fallback to userData */}
                   <img
-                    src={
-                      profileData.profilePictureUrl 
-                      || (userData?.profilePictureUrl ? `http://localhost:8080${userData.profilePictureUrl}` : null) 
-                      || (userData?.profilePictureUrl && userData.profilePictureUrl.startsWith('http') ? userData.profilePictureUrl : defaultAvatar)
-                    }
+                    src={getProfileSrc()} 
                     alt="Profile"
                     className="profile-photo-placeholder"
                     style={{ objectFit: 'cover' }}
                   />
                   
-                  {/* Loading Overlay */}
+                  {/* Show a spinner overlay while the image uploads */}
                   {uploading && (
                     <div style={{ 
                         position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', 
@@ -153,10 +146,7 @@ const getProfileSrc = () => {
     );
 }
 
-/**
- * Form for changing user password.
- * Currently simulates an API call.
- */
+// Allows the user to change their password
 function ChangePasswordForm() {
     const [passwords, setPasswords] = useState({
         currentPassword: '',
@@ -175,7 +165,6 @@ function ChangePasswordForm() {
         e.preventDefault();
         setMessage({ type: '', content: '' });
 
-        // Basic Validation
         if (passwords.newPassword !== passwords.confirmPassword) {
             setMessage({ type: 'error', content: 'New passwords do not match.' });
             return;
@@ -187,9 +176,9 @@ function ChangePasswordForm() {
 
         setLoading(true);
         
-        // TODO: Implement actual API call to backend endpoint (e.g., /api/user/change-password)
+        // TO DO: Connect this to the actual backend API endpoint (e.g., /api/user/change-password)
+        // Currently, this simulates a network request.
         try {
-           // Simulate network delay
            await new Promise(resolve => setTimeout(resolve, 1000)); 
            setMessage({ type: 'success', content: 'Password changed successfully! (Placeholder)' });
            setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -233,9 +222,7 @@ function ChangePasswordForm() {
     );
 }
 
-/**
- * Form for toggling notification preferences.
- */
+// Manages notification preferences
 function NotificationSettingsForm() {
     const [notifications, setNotifications] = useState({
         all: true,
@@ -248,7 +235,7 @@ function NotificationSettingsForm() {
         setNotifications(prev => {
             const newState = { ...prev, [key]: !prev[key] };
             
-            // Logic: If 'all' is toggled, update sub-items. If sub-items toggle, check if 'all' should change.
+            // Logic to sync "All notifications" switch with sub-switches
             if (key === 'all') {
                 const allValue = newState.all;
                 return { all: allValue, likes: allValue, messages: allValue, email: allValue };
@@ -257,7 +244,8 @@ function NotificationSettingsForm() {
                 return { ...newState, all: othersOn };
             }
         });
-        // TODO: Add API call here to persist notification settings (e.g., /api/user/settings/notifications)
+        
+        // TO DO: Send API call to save these preferences to the database
         console.log(`Notification setting changed: ${key}`, !notifications[key]);
     };
 
@@ -298,16 +286,14 @@ function NotificationSettingsForm() {
     );
 }
 
-/**
- * Form for theme selection (Light/Dark).
- */
+// Allows switching between Light and Dark mode
 function ThemeSettingsForm() {
     const [selectedTheme, setSelectedTheme] = useState('light');
 
     const handleThemeSelect = (theme) => {
         setSelectedTheme(theme);
-        // TODO: Save theme preference to LocalStorage or Database
-        // TODO: Apply class to document.body to actually switch theme
+        // TO DO: Implement the actual theme switching logic (e.g., toggle CSS classes on body)
+        // TO DO: Save user preference to LocalStorage
         console.log("Theme selected:", theme);
         alert(`Theme set to ${theme}! (Visuals not implemented yet)`);
     };
@@ -344,14 +330,14 @@ function ThemeSettingsForm() {
 
 // --- MAIN PAGE COMPONENT ---
 export default function SettingsPage() {
-  const { retryAuth } = useAuth(); // Hook to update global auth state after profile changes
+  const { retryAuth } = useAuth(); // Used to refresh global user data after an update
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // --- Profile Form State ---
+  // Local state for the edit profile form
   const [profileData, setProfileData] = useState({
     fullName: '',
     address: '',
@@ -362,20 +348,17 @@ export default function SettingsPage() {
     profilePictureUrl: '',
   });
 
-  // --- File Upload State ---
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
 
-  // --- Modal & Notification Logic (via Custom Hooks) ---
+  // Connect shared logic for notifications
   const likesHook = useLikes();
   const { 
-    openModal, 
     handleNotificationClick, 
-    ModalComponent, // This component handles the rendering of modals
-    isModalOpen // Extracted in case specific logic needs it
+    ModalComponent, 
   } = usePageLogic(userData, likesHook);
 
-  // --- Routing: Determine Active Tab ---
+  // Determine which tab is active based on the URL path
   const activeSetting = (() => {
       if (location.pathname.includes('/password')) return 'change-password';
       if (location.pathname.includes('/notifications')) return 'notification';
@@ -383,7 +366,7 @@ export default function SettingsPage() {
       return 'edit-profile';
   })();
 
-  // --- Effect: Fetch User Data ---
+  // Fetch current user details when the page loads
   useEffect(() => {
     const fetchUserData = async () => {
       setIsLoading(true);
@@ -393,7 +376,7 @@ export default function SettingsPage() {
         const fetchedUser = response.data;
         setUserData(fetchedUser);
         
-        // Populate form data
+        // Fill the form with existing data
         setProfileData({
           fullName: fetchedUser.fullName || '',
           address: fetchedUser.address || '',
@@ -416,22 +399,21 @@ export default function SettingsPage() {
     fetchUserData();
   }, [navigate]);
 
-  // --- Handlers ---
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileData(prevData => ({ ...prevData, [name]: value }));
   };
 
-  // Upload Logic: Uploads to Supabase 'profile-images' bucket
+  // Handles uploading the new avatar image to Supabase storage
   const handleUploadPhoto = async (file) => {
     if (!file || !userData?.userId) return;
     setUploading(true);
     try {
       const ext = file.name.split('.').pop();
-      // Path format: userId/timestamp.ext
+      // Create a unique path for the user's image
       const path = `${userData.userId}/${Date.now()}.${ext}`;
 
-      // TODO: Ensure a bucket named 'profile-images' exists in your Supabase project
+      // TO DO: Ensure the 'profile-images' bucket exists in Supabase and has public read access
       const { error: uploadError } = await supabase.storage
         .from('profile-images') 
         .upload(path, file, {
@@ -448,7 +430,7 @@ export default function SettingsPage() {
       const publicUrl = data.publicUrl;
       console.log("New Profile Pic URL:", publicUrl);
 
-      // Update local preview immediately
+      // Update the preview immediately
       setProfileData(prev => ({ ...prev, profilePictureUrl: publicUrl }));
       
     } catch (err) {
@@ -467,16 +449,16 @@ export default function SettingsPage() {
         address: profileData.address,
         bio: profileData.bio,
         phoneNumber: profileData.phoneNumber,
-        profilePictureUrl: profileData.profilePictureUrl // New URL from Supabase
+        profilePictureUrl: profileData.profilePictureUrl 
       };
 
-      // 1. Update Backend
+      // 1. Send update to the backend
       const res = await updateUserProfile(payload);
       
-      // 2. Update Local State
+      // 2. Update local component state
       setUserData(res.data);
 
-      // 3. Refresh Global Auth Context (Header update)
+      // 3. Refresh global auth state so the Header updates immediately
       await retryAuth();
 
       alert('Profile updated successfully!');
@@ -491,28 +473,26 @@ export default function SettingsPage() {
     navigate('/login');
   };
 
-  // --- Render ---
   if (isLoading) {
      return (
-        <div className="profile-page">
-           <Header userName="" onLogout={handleLogout} />
-           <SettingsSkeleton />
-        </div>
+       <div className="profile-page">
+          <Header userName="" onLogout={handleLogout} />
+          <SettingsSkeleton />
+       </div>
      );
   }
 
    if (error) {
      return (
-        <div className="profile-page">
-           <Header userName="" onLogout={handleLogout} />
-           <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
-        </div>
+       <div className="profile-page">
+          <Header userName="" onLogout={handleLogout} />
+          <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
+       </div>
      );
   }
 
   return (
     <div className="profile-page">
-      {/* Header with Notification Handler passed from hook */}
       <Header userName={userData?.fullName?.split(' ')[0]} 
         profilePictureUrl={userData?.profilePictureUrl}
         onLogout={handleLogout}
@@ -540,7 +520,7 @@ export default function SettingsPage() {
           </nav>
         </aside>
 
-        {/* Dynamic Content Area */}
+        {/* Main Content Area switches based on the active route */}
         <main className="settings-content">
           {activeSetting === 'edit-profile' && (
             <EditProfileForm
@@ -558,10 +538,10 @@ export default function SettingsPage() {
         </main>
       </div>
 
-      {/* Shared Modals Logic (Rendered via Hook Component) */}
+      {/* Hidden container for shared modal logic */}
       <ModalComponent />
 
-      {/* Hidden File Input for Avatar Upload */}
+      {/* Invisible input used for uploading profile pictures */}
       <input
         type="file"
         accept="image/*"
@@ -570,7 +550,6 @@ export default function SettingsPage() {
             if (e.target.files && e.target.files[0]) {
                 handleUploadPhoto(e.target.files[0]);
             }
-            // Reset value to allow re-selection of the same file
             e.target.value = '';
         }}
         style={{ display: 'none' }}

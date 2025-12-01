@@ -1,13 +1,13 @@
 package com.edurent.crc.service;
 
 import java.util.HashMap;
-import java.util.List; // Updated
+import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import org.springframework.beans.factory.annotation.Autowired; // Updated
-import org.springframework.messaging.simp.SimpMessagingTemplate; // Updated
+import org.springframework.beans.factory.annotation.Autowired; 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
@@ -42,7 +42,7 @@ public class MessageService {
     @Autowired
     private SimpMessagingTemplate messagingTemplate; 
 
-    // [UPDATED] Added pagination logic
+    // 1. Get Messages for Conversation with Pagination
     public List<MessageEntity> getMessagesForConversation(Long conversationId, int page, int size) {
         // 1. Fetch newest messages first (descending order)
         Pageable pageable = PageRequest.of(page, size, Sort.by("sentAt").descending());
@@ -57,6 +57,7 @@ public class MessageService {
         return messages;
     }
 
+    // 2. Send Message with Real-Time Broadcasting
     @Transactional
     public MessageEntity sendMessage(MessageEntity message, Long conversationId, Long senderId) {
         ConversationEntity conversation = conversationRepository.findById(conversationId)
@@ -76,7 +77,6 @@ public class MessageService {
                     updated = true;
                 }
                 
-                // 2. (Optional) Unarchive if archived, so it pops to the top
                 if (participant.getIsArchived()) {
                     participant.setIsArchived(false);
                     updated = true;
@@ -121,17 +121,15 @@ public class MessageService {
         return savedMessage;
     }
 
-    // --- NEW: Mark as Read Logic ---
+    // 3. Mark Conversation as Read
     @Transactional
     public void markConversationAsRead(Long conversationId, Long currentUserId) {
-        // Marks all messages in this conversation as read where the sender is NOT the current user
         messageRepository.markMessagesAsRead(conversationId, currentUserId);
     }
 
-    // --- NEW: Mark as Unread Logic ---
+    // 4. Mark Conversation as Unread
     @Transactional
     public void markConversationAsUnread(Long conversationId, Long currentUserId) {
-        // We only mark the *last* received message as unread to trigger the flag
         messageRepository.markLastMessageAsUnread(conversationId, currentUserId);
     }
 }

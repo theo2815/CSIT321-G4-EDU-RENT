@@ -15,21 +15,23 @@ import com.edurent.crc.entity.MessageEntity;
 @Repository
 public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
 
+    // Method to find messages by conversation ID with pagination
     @Query("SELECT m FROM MessageEntity m WHERE m.conversation.conversationId = :conversationId")
     Page<MessageEntity> findByConversationId(@Param("conversationId") Long conversationId, Pageable pageable);
 
+    // Method to find messages by sender ID
     @Query("SELECT m FROM MessageEntity m WHERE m.sender.userId = :senderId")
     List<MessageEntity> findBySenderId(@Param("senderId") Long senderId);
 
+    // Method to find the latest message in a conversation
     MessageEntity findFirstByConversation_ConversationIdOrderBySentAtDesc(Long conversationId);
 
-    // --- NEW: Mark messages as read ---
+    // Method to mark messages as read in a conversation for a user
     @Modifying
     @Query("UPDATE MessageEntity m SET m.isRead = true WHERE m.conversation.conversationId = :conversationId AND m.sender.userId != :userId")
     void markMessagesAsRead(@Param("conversationId") Long conversationId, @Param("userId") Long userId);
 
-    // --- NEW: Mark messages as UNREAD ---
-    // This marks the *latest* message received by the user as unread to trigger the indicator
+    // Method to mark the last message as unread in a conversation for a user
     @Modifying
     @Query("UPDATE MessageEntity m SET m.isRead = false WHERE m.messageId = (SELECT MAX(m2.messageId) FROM MessageEntity m2 WHERE m2.conversation.conversationId = :conversationId AND m2.sender.userId != :userId)")
     void markLastMessageAsUnread(@Param("conversationId") Long conversationId, @Param("userId") Long userId);

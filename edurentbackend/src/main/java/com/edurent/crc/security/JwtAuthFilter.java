@@ -16,10 +16,10 @@ import com.edurent.crc.repository.UserRepository;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
-import jakarta.servlet.FilterChain; // Import Logger
-import jakarta.servlet.ServletException; // Import LoggerFactory
-import jakarta.servlet.http.HttpServletRequest; // Ensure UserEntity is imported
-import jakarta.servlet.http.HttpServletResponse; // Import specific exceptions
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -31,6 +31,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
 
+    // Main filter method
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -54,64 +55,55 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         jwt = authHeader.substring(7);
-        log.debug("Extracted JWT: {}", jwt); // Use DEBUG for potentially sensitive info
+        log.debug("Extracted JWT: {}", jwt);
 
         try {
             userEmail = jwtService.extractUsername(jwt);
             log.info("Extracted email from JWT: {}", userEmail);
 
-            // --- ADDED: Check for expiration explicitly here ---
             if (jwtService.isTokenExpired(jwt)) {
                 log.warn("JWT token is expired for email: {}", userEmail);
-                // Let the validation fail later, or send 401 immediately
-                // response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                // response.getWriter().write("JWT Token Expired");
-                // return;
             }
-            // ---------------------------------------------------
 
-        } catch (ExpiredJwtException eje) { // Catch specific expiration exception
+        } catch (ExpiredJwtException eje) {
              log.warn("JWT token is expired: {}", eje.getMessage());
              response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
              response.getWriter().write("JWT Token Expired");
              return;
-        } catch (JwtException | IllegalArgumentException e) { // Catch other JWT errors
+        } catch (JwtException | IllegalArgumentException e) {
             log.error("Error processing JWT: {}", e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("Invalid JWT Token");
             return;
-        } catch (Exception e) { // Catch unexpected errors
-             log.error("Unexpected error during JWT email extraction: {}", e.getMessage(), e); // Log stack trace
+        } catch (Exception e) {
+             log.error("Unexpected error during JWT email extraction: {}", e.getMessage(), e);
              response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
              response.getWriter().write("Internal server error during token processing");
              return;
         }
 
 
+        // Check if the user is already authenticated
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             log.info("User {} is not yet authenticated, attempting to load.", userEmail);
 
-            // --- ADDED: Log user loading ---
             UserEntity user = null;
             try {
                 user = this.userRepository.findByEmail(userEmail)
-                    .orElse(null); // Keep orElse(null) for now
+                    .orElse(null);
 
                 if (user == null) {
                     log.warn("User not found in database for email: {}", userEmail);
                 } else {
                      log.info("User found in database: ID={}, Email={}", user.getUserId(), user.getEmail());
-                     // --- ADDED: Log authorities ---
                      log.debug("User authorities: {}", user.getAuthorities());
                 }
             } catch (Exception e) {
                  log.error("Error loading user from database for email {}: {}", userEmail, e.getMessage(), e);
-                 // Decide how to handle DB error - maybe let filter chain continue and rely on later checks, or return 500
             }
-            // -----------------------------
 
 
-            // --- ADDED: Log token validation step ---
+            // Check if the token is valid
             boolean isTokenValid = false;
             if (user != null) {
                  try {
@@ -119,12 +111,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                      log.info("JWT token validation result for user {}: {}", userEmail, isTokenValid);
                  } catch (Exception e) {
                      log.error("Error during JWT validation for user {}: {}", userEmail, e.getMessage(), e);
-                     isTokenValid = false; // Treat error as invalid
+                     isTokenValid = false;
                  }
             }
-            // ------------------------------------
 
-            if (isTokenValid) { // Use the variable
+            // If valid, set authentication in context
+            if (isTokenValid) {
                 log.info("Proceeding to set Authentication context for user: {}", userEmail);
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         user,
@@ -142,7 +134,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
              else { log.info("User {} already authenticated, filter passes through.", userEmail); }
         }
 
+        // Continue the filter chain
         filterChain.doFilter(request, response);
-        log.debug("JwtAuthFilter finished processing for: {}", request.getRequestURI()); // Log end
+        log.debug("JwtAuthFilter finished processing for: {}", request.getRequestURI());
     }
 }

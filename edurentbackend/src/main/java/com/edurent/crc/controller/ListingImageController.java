@@ -1,6 +1,6 @@
 package com.edurent.crc.controller;
 
-import com.edurent.crc.entity.ListingImageEntity; // Updated
+import com.edurent.crc.entity.ListingImageEntity;
 import com.edurent.crc.service.ListingImageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,15 +17,15 @@ public class ListingImageController {
     private ListingImageService listingImageService;
 
     @GetMapping
-    public List<ListingImageEntity> getImagesForListing(@PathVariable Long listingId) { // Updated
+    public List<ListingImageEntity> getImagesForListing(@PathVariable Long listingId) {
         return listingImageService.getImagesForListing(listingId);
     }
 
     @PostMapping
-    public ResponseEntity<ListingImageEntity> addImage(@RequestBody ListingImageEntity image, // Updated
+    public ResponseEntity<ListingImageEntity> addImage(@RequestBody ListingImageEntity image,
                                                  @PathVariable Long listingId) {
         try {
-            ListingImageEntity newImage = listingImageService.addImageToListing(image, listingId); // Updated
+            ListingImageEntity newImage = listingImageService.addImageToListing(image, listingId);
             return new ResponseEntity<>(newImage, HttpStatus.CREATED);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(null);

@@ -1,3 +1,4 @@
+// This Component displays a modal to review images in a larger view with navigation
 import React, { useState } from 'react';
 import '../static/ProductDetailModal.css'; 
 

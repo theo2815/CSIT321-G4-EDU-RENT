@@ -71,8 +71,6 @@ public class ReviewService {
     // --- NEW HELPER: Delete Image from Supabase ---
     private void deleteFileFromSupabase(String imageUrl) {
         try {
-            // URL format: .../public/review-images/filename
-            // We split by the bucket name to get the filename
             String[] parts = imageUrl.split("/" + reviewBucket + "/");
             if (parts.length < 2) return; 
             

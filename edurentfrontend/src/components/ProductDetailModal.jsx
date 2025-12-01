@@ -11,9 +11,7 @@ import '../static/ProfilePage.css';
 import '../static/DashboardPage.css';
 import defaultAvatar from '../assets/default-avatar.png'; 
 
-/**
- * Helper to normalize seller data and prevent crashes if API response is partial.
- */
+// Helper to extract seller info safely
 const getSellerInfo = (listingUser) => {
   const defaultUser = { userId: null, fullName: 'Seller Unknown', profilePictureUrl: null, school: { name: 'N/A' } };
   const user = listingUser || defaultUser;
@@ -34,11 +32,11 @@ export default function ProductDetailModal({
   onLikeClick, 
   isLiking, 
   sellerRatingInitialData,
-  initialContext // Received from usePageLogic to avoid fetch delays
+  initialContext 
 }) {
   const navigate = useNavigate();
   
-  // --- UI State ---
+  // Modal state
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [showMarkSoldModal, setShowMarkSoldModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false); 
@@ -46,16 +44,17 @@ export default function ProductDetailModal({
   // Safety check
   if (!listing) return null;
 
-  // --- Data Parsing ---
+  // Listing status and ownership
   const isSold = listing.status === 'Sold';
   const isOwner = currentUserId === listing?.user?.userId;
   const seller = getSellerInfo(listing.user);
 
+  // basic listing info
   const priceDisplay = `₱${(listing.price || 0).toFixed(2)}`;
   const isRent = listing.listingType?.toUpperCase().includes('RENT');
   const typeText = isRent ? 'Want to rent the item?' : 'Want to buy the item?';
 
-  // --- Like Logic (Optimistic UI) ---
+  // Like count logic
   const serverLikeCount = listing.likes ? listing.likes.length : 0;
   const wasLikedInitial = useMemo(() => {
     if (!listing.likes || !currentUserId) return false;
@@ -67,7 +66,7 @@ export default function ProductDetailModal({
   else if (!isLiked && wasLikedInitial) displayLikeCount--;
   displayLikeCount = Math.max(0, displayLikeCount);
 
-  // --- Image Handling ---
+  // Image Handling
   const rawImages = listing.listingImages || listing.images || [];
   const images = Array.isArray(rawImages) ? rawImages.map(img => img.imageUrl) : [];
 
@@ -85,7 +84,7 @@ export default function ProductDetailModal({
       return path.startsWith('http') ? path : `http://localhost:8080${path}`;
   };
 
-  // --- Context Logic (Derived from Props) ---
+  // Context Logic (Derived from Props)
   // 1. Seller Logic: How many chats exist for this item?
   const chatCount = initialContext?.chatCount || 0;
 
@@ -96,11 +95,10 @@ export default function ProductDetailModal({
   const isBuyerOfSoldItem = isSold && existingChat && existingChat.transactionId;
 
   // 4. Review Logic: Has this transaction been reviewed?
-  // Note: Ensure your backend populates 'hasReviewed' on the conversation object
   const hasAlreadyReviewed = existingChat?.hasReviewed;
 
-  // --- Event Handlers ---
 
+  // Event Handlers
   const handlePrevImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1); };
   const handleNextImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1); };
   const handleOverlayClick = (e) => { if (e.target === e.currentTarget) onClose(); };
@@ -115,11 +113,7 @@ export default function ProductDetailModal({
     onClose();
   };
 
-  /**
-   * Handles the review button click.
-   * If already reviewed -> Go to seller profile to see it.
-   * If not reviewed -> Open the review form.
-   */
+  // Review Button Handler
   const handleReviewClick = () => {
     if (hasAlreadyReviewed) {
         navigate(`/profile/${seller.id}`); 
@@ -175,7 +169,7 @@ export default function ProductDetailModal({
     <div className="modal-overlay visible" onClick={handleOverlayClick} role="dialog" aria-modal="true">
       <div className="product-modal-content">
 
-        {/* --- Left Column: Images --- */}
+        {/* Left Column: Images*/}
         <section className="product-image-section">
           <img
             src={getFullImageUrl(currentImageUrl)}
@@ -191,7 +185,7 @@ export default function ProductDetailModal({
           )}
         </section>
 
-        {/* --- Right Column: Details --- */}
+        {/*Right Column: Details*/}
         <section className="product-details-section">
           <button onClick={onClose} className="product-modal-close-btn" aria-label="Close modal">&times;</button>
 
@@ -254,7 +248,7 @@ export default function ProductDetailModal({
             </div>
           </div>
 
-          {/* --- Seller Info & Actions --- */}
+          {/* Seller Info & Actions */}
           <div className="seller-info-section">
             
             {/* 1. OWNER VIEW (User owns this listing) */}

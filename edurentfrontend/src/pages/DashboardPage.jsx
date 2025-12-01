@@ -1,23 +1,22 @@
-import React, { useEffect } from 'react'; // React, and useEffect (no more useState/useCallback)
+import React, { useEffect } from 'react'; 
 import { Link, useNavigate } from 'react-router-dom';
 
-// --- Import Hooks ---
+// Import our custom hooks to keep the logic organized
 import useAuth from '../hooks/useAuth';
-import usePageLogic from '../hooks/usePageLogic';   // Manages Likes, Modals, Notifications
-import usePageData from '../hooks/usePageData';     // Manages Listings & Categories
-import useSearch from '../hooks/useSearch';       // Manages Search
+import usePageLogic from '../hooks/usePageLogic';   
+import usePageData from '../hooks/usePageData';     
+import useSearch from '../hooks/useSearch';       
 import useLikes from '../hooks/useLikes';
 
-// --- Import Components ---
+// Import UI components
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton'; 
 import Header from '../components/Header';
 
-// --- Import CSS ---
+// Import styles
 import '../static/DashboardPage.css';
 
-// --- Page-Specific Sub-Component: LoadingSkeleton ---
-// This component shows a placeholder while data is loading.
+// Shows a placeholder layout while data is loading so the page doesn't feel empty
 function LoadingSkeleton() {
   return (
     <div className="dashboard-body">
@@ -42,8 +41,7 @@ function LoadingSkeleton() {
   );
 }
 
-// --- Page-Specific Sub-Component: ErrorBoundary ---
-// This component displays a helpful message if an error occurs.
+// Displays a friendly error message and a retry button if something breaks
 function ErrorBoundary({ error, onRetry }) {
   return (
     <div className="error-container">
@@ -56,8 +54,7 @@ function ErrorBoundary({ error, onRetry }) {
   );
 }
 
-// --- Page-Specific Sub-Component: CategoryCardComponent ---
-// This component renders a single category card.
+// A simple clickable card for a single category
 function CategoryCardComponent({ category }) {
   return (
     <Link to={`/category/${category.categoryId}`} style={{ textDecoration: 'none' }}> 
@@ -70,63 +67,59 @@ function CategoryCardComponent({ category }) {
   );
 }
 
-// --- Main Page Component: DashboardPage ---
 export default function DashboardPage() {
   
-  // 1. Authentication Hook: Manages user data and login status.
+  // Check who is logged in and get their profile info
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
   
-  // 2. Page Data Hook: Fetches listings and categories when the user is logged in (!!userData).
+  // Fetch the main content (listings and categories) from the server
   const { allListings, categories, isLoadingData, dataError, refetchData } = usePageData(!!userData);
   
-  // 3. Search Hook: Handles search state and filters the 'allListings' list.
+  // Handle the search bar logic to filter the listings
   const { searchQuery, handleSearch, filteredListings } = useSearch(
     allListings,
-    ['title', 'description', 'category.name'] // Keys to search against
+    ['title', 'description', 'category.name'] 
   );
 
-  // 4. Likes Hook: Manages all like-related state and logic.
-  const likesHook = useLikes();
-  const { 
-    likedListingIds, 
-    likingInProgress, 
-    isLoadingLikes, 
-    likeError, 
-    handleLikeToggle,
-    refetchLikes
-  } = likesHook;
+  // Manage the 'like' heart button logic
+  const likesHook = useLikes();
+  const { 
+    likedListingIds, 
+    likingInProgress, 
+    isLoadingLikes, 
+    likeError, 
+    handleLikeToggle,
+    refetchLikes
+  } = likesHook;
 
-  // 5. Page Logic Hook: Manages modals and notifications.
-  // It receives 'likesHook' to pass all like data to the modal.
-  const { 
-    openModal,
-    handleNotificationClick, 
-    ModalComponent
-  } = usePageLogic(userData, likesHook); // <-- Pass the whole likesHook in
+  // Handle UI interactions like opening the item detail modal
+  const { 
+    openModal,
+    handleNotificationClick, 
+    ModalComponent
+  } = usePageLogic(userData, likesHook); 
   
-  const navigate = useNavigate(); // Standard React Router hook for navigation
+  const navigate = useNavigate(); 
 
-  // --- All component state (useState) and logic functions are now in the hooks ---
-
-  // New retry handler that can refetch data from any hook that failed.
+  // If something fails, this function tries to reload everything
   const handleRetry = () => {
     if (authError) retryAuth();
     if (dataError) refetchData();
     if (likeError) refetchLikes();
     
-    // Fallback if no specific error is set
+    // If we don't know exactly what failed, just try everything
     if (!authError && !dataError && !likeError) {
-       retryAuth();   // Try all again
+       retryAuth();   
        refetchData();
        refetchLikes();
     }
   };
 
-  // Aggregate loading and error states from all hooks.
+  // Check if we are still loading or if there's an error
   const isPageLoading = isLoadingAuth || isLoadingData || isLoadingLikes;
   const pageError = authError || dataError || likeError;
 
-  // Render loading skeleton state
+  // Show the skeleton loader while we wait for data
   if (isPageLoading) {
     return (
       <div className="dashboard-page">
@@ -141,7 +134,7 @@ export default function DashboardPage() {
     );
   }
 
-  // Render error boundary state
+  // Show the error screen if something went wrong
   if (pageError) {
     return (
       <div className="dashboard-page">
@@ -158,20 +151,19 @@ export default function DashboardPage() {
     );
   }
 
-  // Render main dashboard content
   return (
     <div className="dashboard-page">   
       <Header 
-        userName={userName}                 // From useAuth
+        userName={userName}                 
         profilePictureUrl={userData?.profilePictureUrl}
-        searchQuery={searchQuery}         // From useSearch
-        onSearchChange={handleSearch}     // From useSearch
-        onLogout={logout}                 // From useAuth
-        onNotificationClick={handleNotificationClick} // From usePageLogic
+        searchQuery={searchQuery}         
+        onSearchChange={handleSearch}     
+        onLogout={logout}                 
+        onNotificationClick={handleNotificationClick} 
       />
 
       <main className="dashboard-body">
-        {/* Hero Card */}
+        {/* Welcome Banner */}
         <section className="content-card hero-card">
           <div className="hero-left">
             <h1 className="hero-title">Your Campus Marketplace for Students</h1>
@@ -185,10 +177,10 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Categories Section */}
+        {/* Categories List */}
         <section>
           <h2 className="section-title">Explore by Category</h2>
-           {categories.length > 0 ? ( // Data from usePageData
+           {categories.length > 0 ? ( 
              <div className="category-grid">
                {categories.slice(0, 5).map(category => (
                  <CategoryCardComponent key={category.categoryId} category={category} />
@@ -199,21 +191,20 @@ export default function DashboardPage() {
            )}
         </section>
 
-        {/* Featured Items Section */}
+        {/* Featured Items (Top 3) */}
         <section>
           <h2 className="section-title">🌟 Featured Items</h2>
-          {/* Data is now from 'filteredListings' (from useSearch) */}
           {filteredListings.length > 0 ? (
             <div className="listing-grid">
               {filteredListings.slice(0, 3).map(listing => (
                 <ListingCard 
                   key={listing.listingId} 
                   listing={listing} 
-                  onClick={openModal}                   // From usePageLogic
-                  isLiked={likedListingIds.has(listing.listingId)} // From usePageLogic
-                  onLikeClick={handleLikeToggle}        // From usePageLogic
-                  currentUserId={userData?.userId}      // From useAuth
-                  isLiking={likingInProgress.has(listing.listingId)} // From usePageLogic
+                  onClick={openModal}                   
+                  isLiked={likedListingIds.has(listing.listingId)} 
+                  onLikeClick={handleLikeToggle}        
+                  currentUserId={userData?.userId}      
+                  isLiking={likingInProgress.has(listing.listingId)} 
                 />
               ))}
             </div>
@@ -226,26 +217,25 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* All Listings Section */}
+        {/* All Available Items */}
         <section>
           <h2 className="section-title">📦 All Listings</h2>
-          {/* Data is now from 'filteredListings' (from useSearch) */}
           {filteredListings.length > 0 ? (
             <div className="listing-grid">
               {filteredListings.map(listing => (
                 <ListingCard 
                   key={listing.listingId} 
                   listing={listing} 
-                  onClick={openModal}                   // From usePageLogic
-                  isLiked={likedListingIds.has(listing.listingId)} // From usePageLogic
-                  onLikeClick={handleLikeToggle}        // From usePageLogic
-                  currentUserId={userData?.userId}      // From useAuth
-                  isLiking={likingInProgress.has(listing.listingId)} // From usePageLogic
+                  onClick={openModal}                   
+                  isLiked={likedListingIds.has(listing.listingId)} 
+                  onLikeClick={handleLikeToggle}        
+                  currentUserId={userData?.userId}      
+                  isLiking={likingInProgress.has(listing.listingId)} 
                 />
               ))}
             </div>
           ) : (
-            // This empty state smartly checks if a search is active
+            // Show this if the search returns no results
             <div className="empty-state">
               <div className="empty-state-icon">🔍</div>
               <div className="empty-state-title">No Listings Found</div>
@@ -254,7 +244,7 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Call to Action Card */}
+        {/* Call to Action for new sellers */}
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
@@ -264,7 +254,7 @@ export default function DashboardPage() {
         </section>
       </main>
 
-      {/* Render the Modal component provided by usePageLogic */}
+      {/* Renders the item detail modal when needed */}
       <ModalComponent />
       
     </div>

@@ -35,7 +35,7 @@ public class ListingService {
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private ListingImageRepository listingImageRepository;
 
-    // --- Inject Supabase Config ---
+    // Inject Supabase Config
     @Value("${supabase.url}")
     private String supabaseUrl;
 
@@ -44,7 +44,6 @@ public class ListingService {
 
     @Value("${supabase.bucket}")
     private String bucketName;
-    // -----------------------------
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -69,11 +68,8 @@ public class ListingService {
     // --- Helper: Delete from Supabase ---
     private void deleteFileFromSupabase(String imageUrl) {
         try {
-            // Extract filename from URL. 
-            // URL format: .../public/bucketName/filename
-            // We need just 'filename' to delete
             String[] parts = imageUrl.split("/" + bucketName + "/");
-            if (parts.length < 2) return; // Invalid URL format
+            if (parts.length < 2) return;
             
             String fileName = parts[1];
             String storageUrl = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + fileName;
@@ -91,6 +87,7 @@ public class ListingService {
     }
 
 
+    // --- MAIN METHODS ---
     @Transactional
     public ListingEntity createListingWithImages(ListingEntity listing, Long userId, Long categoryId, List<MultipartFile> images) throws IOException {
         UserEntity user = userRepository.findById(userId)
@@ -116,12 +113,11 @@ public class ListingService {
                     String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
                     String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
 
-                    // Upload!
                     String publicUrl = uploadFileToSupabase(imageFile, uniqueFilename);
 
                     ListingImageEntity listingImage = new ListingImageEntity();
                     listingImage.setListing(savedListing);
-                    listingImage.setImageUrl(publicUrl); // Store the full Supabase URL
+                    listingImage.setImageUrl(publicUrl);
                     listingImage.setCoverPhoto(isFirstImage);
                     listingImageRepository.save(listingImage);
 
@@ -189,7 +185,6 @@ public class ListingService {
                     String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
                     String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
 
-                    // Upload!
                     String publicUrl = uploadFileToSupabase(imageFile, uniqueFilename);
 
                     ListingImageEntity listingImage = new ListingImageEntity();
@@ -250,8 +245,8 @@ public class ListingService {
         }
         listingRepository.delete(existingListing);
     }
-    // ----------------------------------------------------
 
+    // --- NEW METHOD: Update Listing Status ---
     @Transactional
     public void updateListingStatus(Long listingId, String newStatus, Long currentUserId) {
         ListingEntity listing = listingRepository.findById(listingId)
@@ -265,8 +260,8 @@ public class ListingService {
         listingRepository.save(listing);
     }
 
+    // --- OLD METHODS FOR REFERENCE ---
     public ListingEntity createListing(ListingEntity listing, Long userId, Long categoryId) {
-        // Basic create method (kept for compatibility if used elsewhere, but createListingWithImages is preferred)
         UserEntity user = userRepository.findById(userId).orElseThrow();
         CategoryEntity category = categoryRepository.findById(categoryId).orElseThrow();
         listing.setUser(user);
@@ -276,8 +271,6 @@ public class ListingService {
     }
     
     public void deleteListing(Long id) {
-         // Deprecated method, redirecting or logging error
-         // Ideally remove if not used
          listingRepository.deleteById(id);
     }
 }

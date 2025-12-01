@@ -1,30 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// --- Import Hooks ---
+// Custom hooks for auth and global UI logic
 import useAuth from '../hooks/useAuth';
 import usePageLogic from '../hooks/usePageLogic';
 
-// --- Import Components ---
+// Components
 import Header from '../components/Header';
-// ProductDetailModal and Skeleton are now handled by usePageLogic
 
-// --- Import API Functions ---
+// API services
 import { 
   getCategories, 
   getSchools, 
   createListing 
 } from '../services/apiService';
 
-// Import CSS
+// Styles
 import '../static/ListItemPage.css';
-import '../static/SettingsPage.css';  // For toggle styles
+import '../static/SettingsPage.css';
 
-// --- Page-Specific Skeleton Component ---
+// A placeholder component to display while the form data is loading
 function ListItemSkeleton() {
   return (
     <div className="skeleton-list-item-container">
-      {/* Skeleton Left Column */}
+      {/* Left Column: Photo placeholders */}
       <section className="skeleton-photos-section">
         <div className="skeleton skeleton-photo-upload-box"></div>
         <div className="skeleton skeleton-photo-note"></div>
@@ -35,7 +34,7 @@ function ListItemSkeleton() {
         </div>
       </section>
 
-      {/* Skeleton Right Column */}
+      {/* Right Column: Input placeholders */}
       <section className="skeleton-details-section">
         <div className="skeleton skeleton-form-label"></div>
         <div className="skeleton skeleton-form-input"></div>
@@ -65,30 +64,24 @@ const CONDITION_OPTIONS = ['Brand New', 'Like New', 'Lightly Used', 'Well Used',
 
 export default function ListItemPage() {
   
-  // --- 1. Use Hooks ---
-  // Gets user data, auth status, and logout function.
+  // Get the current user session
   const { userData, userName, isLoadingAuth, authError, logout } = useAuth();
   
-  // Gets modal component and notification click handler.
-  // We pass 'null' for likesHook since this page doesn't need it,
-  // but usePageLogic can still handle notifications.
+  // Initialize notification handling (we don't need 'likes' on this page, so we pass null)
   const { 
     handleNotificationClick, 
     ModalComponent
   } = usePageLogic(userData, null);
-  // --------------------
 
-  // --- 2. Local Page State ---
-  // This state is for data needed to populate the form.
+  // Local state for dropdown data
   const [categories, setCategories] = useState([]);
   const [schools, setSchools] = useState([]);
-  const [isLoadingData, setIsLoadingData] = useState(true); // Loading for categories/schools
-  const [error, setError] = useState(null); // Page-specific errors (e.g., submission fail)
+  const [isLoadingData, setIsLoadingData] = useState(true); 
+  const [error, setError] = useState(null); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  // --- 3. Form-Specific State ---
-  // This state manages the form inputs.
+  // Form input state
   const [photos, setPhotos] = useState([]); 
   const [selectedCategory, setSelectedCategory] = useState('');
   const [title, setTitle] = useState('');
@@ -100,17 +93,17 @@ export default function ListItemPage() {
   const [meetupPlace, setMeetupPlace] = useState('');
   const [allowDelivery, setAllowDelivery] = useState(false);
   const [deliveryOption, setDeliveryOption] = useState('');
+  
+  // Ref to programmatically click the hidden file input
   const fileInputRef = useRef(null); 
   
-  // --- 4. Fetch Initial Form Data ---
-  // Runs once the user is authenticated.
+  // Load categories and schools when the user logs in
   useEffect(() => {
     if (userData) { 
       const fetchData = async () => {
         setIsLoadingData(true);
         setError(null);
         try {
-          // Fetch data needed to populate the form dropdowns
           const categoriesPromise = getCategories();
           const schoolsPromise = getSchools(); 
 
@@ -131,23 +124,26 @@ export default function ListItemPage() {
       };
       fetchData();
     }
-  }, [userData]); // Re-run if userData becomes available
+  }, [userData]); 
 
-  // --- 5. Form Handlers ---
+  // --- Photo Handling ---
 
-  // Triggers the hidden file input
+  // Triggered when files are selected via the dialog
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
     addPhotos(files);
+    // Reset input so the same file can be selected again if needed
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  // Adds new files to the photos state with previews
+  // Convert files to preview URLs and add them to state
   const addPhotos = (newFiles) => {
     const availableSlots = 10 - photos.length;
     const filesToAdd = newFiles.slice(0, availableSlots);
+    
+    // Create local object URLs for immediate preview
     const newPhotoPreviews = filesToAdd.map(file => ({
         file: file, 
         previewUrl: URL.createObjectURL(file)
@@ -155,14 +151,14 @@ export default function ListItemPage() {
     setPhotos(prevPhotos => [...prevPhotos, ...newPhotoPreviews]);
   };
 
-  // Removes a photo from the preview list
+  // Remove a photo from the list
   const removePhoto = (indexToRemove) => {
-    // TODO: Revoke object URL to prevent memory leaks
+    // TODO: Ideally, we should revoke the object URL here to avoid memory leaks
     // URL.revokeObjectURL(photos[indexToRemove].previewUrl);
     setPhotos(prevPhotos => prevPhotos.filter((_, index) => index !== indexToRemove));
   };
 
-  // Drag-and-drop photo handlers
+  // UI feedback for drag-and-drop interactions
   const handleDragOver = (event) => { 
     event.preventDefault(); 
     event.currentTarget.classList.add('dragging');
@@ -177,7 +173,7 @@ export default function ListItemPage() {
     addPhotos(files);
   };
 
-  // Resets the entire form to its default state
+  // Helper to reset the form fields
   const handleClearDetails = () => {
     setPhotos([]);
     setSelectedCategory('');
@@ -190,14 +186,14 @@ export default function ListItemPage() {
     setMeetupPlace('');
     setAllowDelivery(false);
     setDeliveryOption('');
-    // TODO: Revoke all object URLs
   };
 
-  // Handles the final form submission
+  // 
+  // Submit the listing to the backend
   const handleListNow = async (e) => { 
     e.preventDefault();
     
-    // --- Validation ---
+    // Basic validation
     if (photos.length === 0 || !selectedCategory || !title || !condition || !description || !price) {
         alert("Please fill in all required fields and add at least one photo.");
         return;
@@ -214,7 +210,7 @@ export default function ListItemPage() {
     setIsSubmitting(true);
     setError(null);
 
-    // --- Prepare FormData ---
+    // We use FormData to handle file uploads alongside text data
     const listingData = new FormData();
     photos.forEach(photo => {
         if (photo.file instanceof File) {
@@ -223,14 +219,16 @@ export default function ListItemPage() {
              console.warn("Skipping invalid photo data:", photo);
         }
     });
+    
     listingData.append('categoryId', selectedCategory);
     listingData.append('title', title);
-    // 'schoolId' is no longer needed; backend gets it from the user token.
+    // Note: 'schoolId' is handled by the backend using the user's token
     listingData.append('condition', condition);
     listingData.append('description', description);
     listingData.append('listingType', option === 'rent' ? 'For Rent' : 'For Sale');
     listingData.append('price', price);
     listingData.append('allowMeetup', allowMeetup);
+    
     if (allowMeetup) listingData.append('meetupLocation', meetupPlace);
     listingData.append('allowDelivery', allowDelivery);
     if (allowDelivery) listingData.append('deliveryOptions', deliveryOption);
@@ -238,12 +236,11 @@ export default function ListItemPage() {
     console.log("Submitting FormData..."); 
     
     try {
-      // --- Call API Service ---
       const response = await createListing(listingData);
       console.log("Listing created successfully:", response.data);
       alert("Item listed successfully!"); 
-      handleClearDetails(); // Clear the form
-      navigate('/profile'); // Navigate after success
+      handleClearDetails(); 
+      navigate('/profile'); 
 
     } catch (err) {
       console.error("Failed to list item:", err);
@@ -255,11 +252,8 @@ export default function ListItemPage() {
     }
   };
 
-  // --- 6. Render Logic ---
-  
-  // Combine loading states from auth and local data fetching
+  // Combine loading states for a smooth UI experience
   const isPageLoading = isLoadingAuth || isLoadingData;
-  // Combine error states from auth and local page errors
   const pageError = authError || error;
 
   if (isPageLoading) {
@@ -279,26 +273,24 @@ export default function ListItemPage() {
          <Header userName={userName} onLogout={logout} />
          <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>
            Error: {pageError}
-           {/* You can add a retry button here if needed */}
          </div>
        </div>
      );
   }
 
-  // --- Main Page Render ---
   return (
     <div className="profile-page"> 
       <Header 
-        userName={userName}                 // From useAuth
+        userName={userName}                 
         profilePictureUrl={userData?.profilePictureUrl}
-        onLogout={logout}                 // From useAuth
-        onNotificationClick={handleNotificationClick} // From usePageLogic
+        onLogout={logout}                 
+        onNotificationClick={handleNotificationClick} 
       />
 
       <form onSubmit={handleListNow}>
         <div className="list-item-page-container">
 
-          {/* Left Column: Photos */}
+          {/* Left Column: Photo Uploads */}
           <section className="photos-section">
             <input
               type="file"
@@ -322,7 +314,7 @@ export default function ListItemPage() {
             </div>
             <div className="photo-upload-note">(Up to 10 photos)</div>
 
-            {/* Image Previews */}
+            {/* Photo Previews */}
             {photos.length > 0 && (
               <div className="image-preview-grid">
                   {photos.map((photo, index) => (
@@ -342,9 +334,9 @@ export default function ListItemPage() {
             )}
           </section>
 
-          {/* Right Column: Details */}
+          {/* Right Column: Item Details */}
           <section className="details-section">
-            {/* Category */}
+            
             <div className="form-field-group">
               <label htmlFor="category" className="form-label">Category</label>
               <select
@@ -353,14 +345,12 @@ export default function ListItemPage() {
                 className="form-input"
               >
                 <option value="" disabled>Select category</option>
-                {/* Use 'categories' state from API */}
                 {categories.map((cat) => (
                   <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
                 ))}
               </select>
             </div>
 
-            {/* Item Title */}
             <div className="form-field-group">
               <label htmlFor="title" className="form-label">Item Title</label>
               <input
@@ -370,9 +360,8 @@ export default function ListItemPage() {
               />
             </div>
 
-            {/* School field is removed, as it's handled by the backend */}
+            {/* Note: School selection is removed because it's inferred from the user's account */}
 
-            {/* Condition */}
             <div className="form-field-group">
               <label className="form-label">Condition</label>
               <div className="condition-buttons">
@@ -388,7 +377,6 @@ export default function ListItemPage() {
               </div>
             </div>
 
-            {/* Description */}
             <div className="form-field-group">
               <label htmlFor="description" className="form-label">Description</label>
               <textarea
@@ -398,7 +386,6 @@ export default function ListItemPage() {
               />
             </div>
 
-            {/* Option (Sale/Rent) */}
             <div className="form-field-group">
               <label className="form-label">Option</label>
               <div className="option-toggle">
@@ -430,10 +417,10 @@ export default function ListItemPage() {
               </div>
             </div>
 
-            {/* Deal Method */}
             <div className="form-field-group">
               <label className="form-label">Deal Method</label>
-              {/* Meet-up */}
+              
+              {/* Meet-up Toggle */}
               <div className="deal-method-toggle">
                 <span className="notification-label">Meet-up</span>
                 <label className="toggle-switch">
@@ -450,7 +437,8 @@ export default function ListItemPage() {
                   />
                 </div>
               )}
-              {/* Delivery */}
+
+              {/* Delivery Toggle */}
               <div className="deal-method-toggle" style={{marginTop: '1rem'}}>
                  <span className="notification-label">Delivery</span>
                  <label className="toggle-switch">
@@ -469,7 +457,6 @@ export default function ListItemPage() {
               )}
             </div>
 
-            {/* Action Buttons */}
             <div className="action-buttons">
               <button 
                 type="button" 
@@ -492,9 +479,7 @@ export default function ListItemPage() {
         </div>
       </form>
       
-      {/* This renders the modal. It will only appear if 
-        usePageLogic's 'openModal' function is called (e.g., by a notification).
-      */}
+      {/* Modal rendered by usePageLogic */}
       <ModalComponent />
       
     </div>

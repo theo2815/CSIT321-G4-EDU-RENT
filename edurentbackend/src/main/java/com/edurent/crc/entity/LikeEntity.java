@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 public class LikeEntity {
 
     @EmbeddedId
-    private LikeIdEntity id = new LikeIdEntity(); // Updated to use LikeIdEntity
+    private LikeIdEntity id = new LikeIdEntity(); 
 
     // --- Relationships ---
     @ManyToOne(fetch = FetchType.LAZY)

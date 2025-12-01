@@ -3,12 +3,12 @@ import axios from 'axios';
 // Backend URL
 const API_URL = 'http://localhost:8080/api/v1';
 
-// Create an Axios instance
+// Create an Axios instance to handle all API requests
 const apiClient = axios.create({
   baseURL: API_URL,
 });
 
-// --- Function to get the stored token ---
+// Retrieves the JWT token from local storage to authenticate requests
 const getAuthToken = () => {
   const storedData = localStorage.getItem('eduRentUserData');
   if (storedData) {
@@ -16,13 +16,13 @@ const getAuthToken = () => {
       return JSON.parse(storedData).token;
     } catch (e) {
       console.error("Error parsing stored user data", e);
-      localStorage.removeItem('eduRentUserData'); // Clear corrupted data
+      localStorage.removeItem('eduRentUserData'); 
     }
   }
   return null;
 };
 
-// --- Add interceptor to automatically add token to requests ---
+// Automatically attaches the authorization header to every outgoing request if a user is logged in
 apiClient.interceptors.request.use(
   (config) => {
     const token = getAuthToken();
@@ -32,13 +32,13 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
-    // This will catch errors *before* the request is sent
     console.error("Axios request interceptor error:", error);
     return Promise.reject(error);
   }
 );
 
-// --- Auth ---
+// --- Authentication ---
+
 export const registerUser = async (userData) => {
   try {
     const registerData = {
@@ -68,7 +68,9 @@ export const loginUser = async (credentials) => {
   }
 };
 
-// --- User ---
+// --- User Profile ---
+
+// Fetches the profile details of the currently logged-in user
 export const getCurrentUser = async () => {
   try {
     const response = await apiClient.get(`/users/me`);
@@ -79,20 +81,29 @@ export const getCurrentUser = async () => {
   }
 };
 
-// --- User Specific Data ---
+// Retrieves all listings created by a specific user
 export const getUserListings = (userId) => {
-  // Calls GET /api/v1/listings/user/{userId}
-  // Token added by interceptor
   return apiClient.get(`/listings/user/${userId}`);
 };
 
+// Gets all reviews received by a specific user
 export const getUserReviews = (userId) => {
-  // Calls GET /api/v1/reviews/user/{userId}
-  // Token added by interceptor
   return apiClient.get(`/reviews/user/${userId}`);
 };
 
-// --- School ---
+// Updates the current user's profile information
+export const updateUserProfile = async (payload) => {
+  try {
+    const response = await apiClient.put(`/users/me`, payload);
+    return response;
+  } catch (error) {
+    console.error("Error during updateUserProfile API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+// --- Schools & Categories ---
+
 export const getSchools = async () => {
   try {
     const response = await apiClient.get(`/schools`);
@@ -103,31 +114,6 @@ export const getSchools = async () => {
   }
 };
 
-// --- Listings ---
-export const getListings = async () => {
-  try {
-    const response = await apiClient.get(`/listings`);
-    return response;
-  } catch (error) {
-    console.error("Error during getListings API call:", error.response || error.message);
-    throw error;
-  }
-};
-
-// --- NEW FUNCTION (with try/catch) ---
-export const getListingsByCategoryId = async (categoryId) => {
-  try {
-    // Calls GET /api/v1/listings/category/{categoryId}
-    const response = await apiClient.get(`/listings/category/${categoryId}`);
-    return response;
-  } catch (error) {
-    console.error(`Error during getListingsByCategoryId(${categoryId}) API call:`, error.response || error.message);
-    throw error;
-  }
-};
-// --------------------------------------
-
-// --- Categories ---
 export const getCategories = async () => {
   try {
     const response = await apiClient.get(`/categories`);
@@ -138,7 +124,6 @@ export const getCategories = async () => {
   }
 };
 
-// --- ADDED FUNCTION (for CategoryPage.jsx) ---
 export const getCategoryById = async (id) => {
   try {
     const response = await apiClient.get(`/categories/${id}`);
@@ -148,9 +133,29 @@ export const getCategoryById = async (id) => {
     throw error;
   }
 };
-// ------------------------------------------
 
-// --- Other User functions ---
+// --- Listings Management ---
+
+export const getListings = async () => {
+  try {
+    const response = await apiClient.get(`/listings`);
+    return response;
+  } catch (error) {
+    console.error("Error during getListings API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+export const getListingsByCategoryId = async (categoryId) => {
+  try {
+    const response = await apiClient.get(`/listings/category/${categoryId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during getListingsByCategoryId(${categoryId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+
 export const getUsers = async () => {
   try {
     const response = await apiClient.get(`/users`);
@@ -161,13 +166,12 @@ export const getUsers = async () => {
   }
 };
 
-// --- Add function for creating listings ---
+// Creates a new listing. Supports file uploads via FormData.
 export const createListing = async (listingData) => {
     try {
-      // listingData should be a FormData object if including images
       const response = await apiClient.post(`/listings`, listingData, {
           headers: {
-              // 'Content-Type': 'multipart/form-data', // Usually not needed
+              // 'Content-Type': 'multipart/form-data', // Browser sets this automatically
           }
       });
       return response;
@@ -177,46 +181,57 @@ export const createListing = async (listingData) => {
     }
 };
 
-
-// --- NEW: Function to get a single listing (for edit page) ---
+// Fetches details for a single listing (used for edit pages and modals)
 export const getListingById = async (listingId) => {
-  try {
-      const response = await apiClient.get(`/listings/${listingId}`);
-      return response;
-  } catch (error) {
-      console.error(`Error during getListingById(${listingId}) API call:`, error.response || error.message);
-      throw error;
-  }
+  try {
+      const response = await apiClient.get(`/listings/${listingId}`);
+      return response;
+  } catch (error) {
+      console.error(`Error during getListingById(${listingId}) API call:`, error.response || error.message);
+      throw error;
+  }
 };
 
-// --- NEW: Function to update a listing (for edit page) ---
-// Note: FormData is used to support changing images
+// Updates an existing listing, including text fields and images
 export const updateListing = async (listingId, listingData) => {
-    try {
-        const response = await apiClient.put(`/listings/${listingId}`, listingData, {
-           headers: {
-             // 'Content-Type': 'multipart/form-data', // Let browser set
-           }
-        });
-        return response;
-    } catch (error) {
-        console.error(`Error during updateListing(${listingId}) API call:`, error.response || error.message);
-        throw error;
-    }
+    try {
+        const response = await apiClient.put(`/listings/${listingId}`, listingData, {
+           headers: {
+             // 'Content-Type': 'multipart/form-data', 
+           }
+        });
+        return response;
+    } catch (error) {
+        console.error(`Error during updateListing(${listingId}) API call:`, error.response || error.message);
+        throw error;
+    }
 };
 
-// --- NEW: Function to delete a listing ---
+// Permanently removes a listing
 export const deleteListing = async (listingId) => {
-    try {
-        const response = await apiClient.delete(`/listings/${listingId}`);
-        return response;
-    } catch (error) {
-        console.error(`Error during deleteListing(${listingId}) API call:`, error.response || error.message);
-        throw error;
-    }
+    try {
+        const response = await apiClient.delete(`/listings/${listingId}`);
+        return response;
+    } catch (error) {
+        console.error(`Error during deleteListing(${listingId}) API call:`, error.response || error.message);
+        throw error;
+    }
 };
 
+// Changes the status of a listing (e.g., to 'Sold' or 'Inactive')
+export const updateListingStatus = async (listingId, status) => {
+  try {
+    const response = await apiClient.put(`/listings/${listingId}/status`, null, {
+      params: { status }
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error updating status for listing ${listingId}:`, error);
+    throw error;
+  }
+};
 
+// --- Likes / Favorites ---
 
 export const getLikedListings = async () => {
     try {
@@ -247,17 +262,16 @@ export const unlikeListing = async (listingId) => {
         throw error;
     }
 };
-// --- End NEW Functions ---
 
-// --- NEW: Notification Functions ---
+// --- Notifications ---
+
+// Fetches notifications for the user, optionally filtering for unread ones
 export const getMyNotifications = async (unreadOnly = false) => {
   try {
     const params = {};
     if (unreadOnly) {
       params.unread = true;
     }
-    // Calls GET /api/v1/notifications/my-notifications
-    // Token is added by the interceptor
     const response = await apiClient.get('/notifications/my-notifications', { params });
     return response;
   } catch (error) {
@@ -268,22 +282,16 @@ export const getMyNotifications = async (unreadOnly = false) => {
 
 export const markNotificationAsRead = async (notificationId) => {
   try {
-    // Calls PUT /api/v1/notifications/{notificationId}/read
-    // Token is added by the interceptor
     const response = await apiClient.put(`/notifications/${notificationId}/read`);
     return response;
   } catch (error) {
     console.error(`Error during markNotificationAsRead(${notificationId}) API call:`, error.response || error.message);
     throw error;
   }
-
-
 };
 
-// --- NEW: Mark All as Read ---
 export const markAllNotificationsAsRead = async () => {
   try {
-    // Calls PUT /api/v1/notifications/read-all
     const response = await apiClient.put('/notifications/read-all');
     return response;
   } catch (error) {
@@ -292,10 +300,8 @@ export const markAllNotificationsAsRead = async () => {
   }
 };
 
-// --- NEW: Delete Notification ---
 export const deleteNotification = async (notificationId) => {
   try {
-    // Calls DELETE /api/v1/notifications/{notificationId}
     const response = await apiClient.delete(`/notifications/${notificationId}`);
     return response;
   } catch (error) {
@@ -303,12 +309,9 @@ export const deleteNotification = async (notificationId) => {
     throw error;
   }
 };
-// --- End NEW Functions ---
 
-// --- NEW: Mark as Unread ---
 export const markNotificationAsUnread = async (notificationId) => {
   try {
-    // Calls PUT /api/v1/notifications/{notificationId}/unread
     const response = await apiClient.put(`/notifications/${notificationId}/unread`);
     return response;
   } catch (error) {
@@ -317,9 +320,9 @@ export const markNotificationAsUnread = async (notificationId) => {
   }
 };
 
+// --- Chat & Conversations ---
 
-// --- Chat / Conversations ---
-
+// Initiates a new chat regarding a specific listing
 export const startConversation = async (listingId, starterId, receiverId) => {
   try {
     const response = await apiClient.post('/conversations', null, {
@@ -346,6 +349,7 @@ export const getConversationsForUser = async (userId) => {
   }
 };
 
+// Fetches message history for a specific conversation with pagination
 export const getMessages = async (conversationId, page = 0, size = 20) => {
   try {
     const response = await apiClient.get(`/conversations/${conversationId}/messages`, {
@@ -373,11 +377,8 @@ export const sendMessage = async (content, conversationId, senderId, attachmentU
   }
 };
 
-// --- NEW: Delete & Archive Conversations ---
-
 export const deleteConversation = async (conversationId) => {
   try {
-    // DELETE /api/v1/conversations/{conversationId}
     const response = await apiClient.delete(`/conversations/${conversationId}`);
     return response;
   } catch (error) {
@@ -386,9 +387,9 @@ export const deleteConversation = async (conversationId) => {
   }
 };
 
+// Archives a conversation so it doesn't appear in the main list
 export const archiveConversation = async (conversationId) => {
   try {
-    // PUT /api/v1/conversations/{conversationId}/archive
     const response = await apiClient.put(`/conversations/${conversationId}/archive`);
     return response;
   } catch (error) {
@@ -396,12 +397,9 @@ export const archiveConversation = async (conversationId) => {
     throw error;
   }
 };
-// -------------------------------------------
 
-// --- NEW: Mark Conversation as Read ---
 export const markConversationAsRead = async (conversationId) => {
   try {
-    // PUT /api/v1/conversations/{conversationId}/read
     const response = await apiClient.put(`/conversations/${conversationId}/read`);
     return response;
   } catch (error) {
@@ -409,12 +407,9 @@ export const markConversationAsRead = async (conversationId) => {
     throw error;
   }
 };
-// -------------------------------------------
 
-// --- NEW: Mark Conversation as Unread ---
 export const markConversationAsUnread = async (conversationId) => {
   try {
-    // PUT /api/v1/conversations/{conversationId}/unread
     const response = await apiClient.put(`/conversations/${conversationId}/unread`);
     return response;
   } catch (error) {
@@ -423,6 +418,7 @@ export const markConversationAsUnread = async (conversationId) => {
   }
 };
 
+// Uploads an image file to be sent as a message attachment
 export const uploadMessageImage = async (conversationId, file) => {
   try {
     const formData = new FormData();
@@ -439,19 +435,9 @@ export const uploadMessageImage = async (conversationId, file) => {
   }
 };
 
-// --- Update current user profile ---
-export const updateUserProfile = async (payload) => {
-  try {
-    // payload: { fullName?, address?, bio?, phoneNumber?, profilePictureUrl? }
-    const response = await apiClient.put(`/users/me`, payload);
-    return response;
-  } catch (error) {
-    console.error("Error during updateUserProfile API call:", error.response || error.message);
-    throw error;
-  }
-};
+// --- Transactions & Reviews ---
 
-// --- Transactions ---
+// Records a transaction when an item is sold/rented
 export const createTransaction = async (transactionData) => {
   try {
     const { listingId, buyerId, ...body } = transactionData;
@@ -469,12 +455,7 @@ export const createTransaction = async (transactionData) => {
   }
 };
 
-// --- Reviews ---
-
-/**
- * Creates a new review for a specific transaction.
- * Payload: { rating, comment, transactionId, reviewerId }
- */
+// Creates a new review for a specific transaction, including ratings and images
 export const createReview = async (reviewData) => {
   try {
     const formData = new FormData();
@@ -501,16 +482,13 @@ export const createReview = async (reviewData) => {
   }
 };
 
-/**
- * Fetches a review associated with a specific transaction.
- * Useful for checking if a review already exists or displaying it.
- */
+// Checks if a review already exists for a specific transaction
 export const getReviewByTransaction = async (transactionId) => {
   try {
     const response = await apiClient.get(`/reviews/transaction/${transactionId}`);
     return response;
   } catch (error) {
-    // It's okay if 404 (no review yet), but we log real errors
+    // 404 is valid if no review exists yet
     if (error.response && error.response.status !== 404) {
         console.error(`Error fetching review for transaction ${transactionId}:`, error);
     }
@@ -534,7 +512,6 @@ export const updateReview = async (reviewId, data) => {
       data.newImages.forEach(file => formData.append('newImages', file));
     }
 
-    // Notice we use PUT with FormData now
     const response = await apiClient.put(`/reviews/${reviewId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
@@ -551,22 +528,6 @@ export const deleteReview = async (reviewId) => {
     return response;
   } catch (error) {
     console.error(`Error deleting review ${reviewId}:`, error);
-    throw error;
-  }
-};
-
-
-
-// --- NEW: Update Listing Status ---
-export const updateListingStatus = async (listingId, status) => {
-  try {
-    // Calls PUT /api/v1/listings/{listingId}/status?status={status}
-    const response = await apiClient.put(`/listings/${listingId}/status`, null, {
-      params: { status }
-    });
-    return response;
-  } catch (error) {
-    console.error(`Error updating status for listing ${listingId}:`, error);
     throw error;
   }
 };

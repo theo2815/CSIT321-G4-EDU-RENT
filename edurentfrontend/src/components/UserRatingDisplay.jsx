@@ -1,7 +1,8 @@
+// This component displays the average rating and review count for a user.
 import React, { useState, useEffect } from 'react';
 import { getUserReviews } from '../services/apiService';
 
-// Added initialData prop
+// initialData prop
 export default function UserRatingDisplay({ userId, align = 'left', initialData = null }) {
   // If initialData is provided, use it and set loading to false immediately
   const [stats, setStats] = useState({ 
@@ -11,7 +12,6 @@ export default function UserRatingDisplay({ userId, align = 'left', initialData 
   });
 
   useEffect(() => {
-    // If we already have data, or no userId, don't fetch
     if (!userId || initialData) return;
 
     let isMounted = true;
@@ -39,7 +39,6 @@ export default function UserRatingDisplay({ userId, align = 'left', initialData 
 
 
   if (stats.loading) {
-    // Optional: Render a tiny spinner or nothing while loading
     return null; 
   }
 

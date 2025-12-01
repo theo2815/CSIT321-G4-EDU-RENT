@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
-// Real-time communication libraries
+// Libraries for real-time chat functionality
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 
-// Custom Hooks
+// Custom hooks to manage complex logic outside the view
 import usePageLogic from '../hooks/usePageLogic';
 import useChatScroll from '../hooks/useChatScroll';
 
-// Components
+// UI Components
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard'; 
 import ReviewModal from '../components/ReviewModal'; 
 import UserRatingDisplay from '../components/UserRatingDisplay';
 
-// API Services
+// API functions for handling data
 import { 
   getCurrentUser, 
   getMessages,                
@@ -30,14 +30,14 @@ import {
   markConversationAsUnread,
   uploadMessageImage,
   getUserReviews,
-  getListingById // Added missing import based on usage
+  getListingById 
 } from '../services/apiService';
 
-// Styles and Assets
+// Styles
 import '../static/MessagesPage.css';
 import defaultAvatar from '../assets/default-avatar.png';
 
-// --- Icon Components (Kept as is) ---
+// Simple SVG icons used throughout the chat interface
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -71,7 +71,7 @@ const Icons = {
   )
 };
 
-// --- Skeleton Loaders (Kept as is) ---
+// Visual placeholders for when data is loading
 function ChatWindowSkeleton() {
   return (
     <div className="chat-skeleton-loader">
@@ -109,7 +109,7 @@ function MessagesSkeleton() {
   );
 }
 
-// Helper: Time Formatting
+// Helper to format timestamps (e.g., "10:30 AM")
 const formatMessageTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -117,17 +117,16 @@ const formatMessageTime = (dateString) => {
 };
 
 export default function MessagesPage() {
-  // --- Core Data State ---
+  // Store user details and the list of active conversations
   const [userData, setUserData] = useState(null);
   const [userName, setUserName] = useState('');
   const [conversations, setConversations] = useState([]);
   
-  // filteredConversations is now calculated via useMemo instead of state+effect
-  
+  // Track the currently open chat and its messages
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]); 
   
-  // --- UI/Search State ---
+  // UI controls for filtering and searching the conversation list
   const [searchQuery, setSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Messages');
@@ -137,32 +136,31 @@ export default function MessagesPage() {
   const location = useLocation(); 
   const navigate = useNavigate();
 
-  // --- Visibility Controls ---
+  // Visibility toggles for mobile views and menus
   const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
   const [activeListMenuId, setActiveListMenuId] = useState(null);
   const [isChatVisible, setIsChatVisible] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
-  // --- Async Loading State ---
+  // Loading and Error states
   const [isLoading, setIsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false); 
   const [error, setError] = useState(null);
 
-  // --- DOM Refs ---
+  // References for direct DOM manipulation (scrolling, file inputs)
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   
-  // --- WebSocket Refs ---
+  // WebSocket references to manage the connection
   const stompClientRef = useRef(null);
   const conversationSubscriptionRef = useRef(null);
 
-  // --- Pagination State ---
+  // Pagination state for infinite scrolling
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   
-  // --- 1. IMPLEMENTED CUSTOM SCROLL HOOK ---
-  // This hook handles chatContentRef, showScrollBtn, scrollToBottom logic
+  // Custom hook to manage auto-scrolling to the newest message
   const { 
     chatContentRef, 
     showScrollBtn, 
@@ -170,15 +168,15 @@ export default function MessagesPage() {
     handleScroll: onScrollInternal 
   } = useChatScroll(messages);
 
-  // Wrapper to handle both infinite scroll AND the custom hook logic
+  // Combine our custom scroll logic with infinite loading logic
   const handleScroll = (e) => {
-      onScrollInternal(e); // Let the hook check if we are near bottom
+      onScrollInternal(e); // Check if we are near the bottom
       handleInfiniteScroll(e); // Check if we need to load old messages
   };
   
   const [chatUserRating, setChatUserRating] = useState(null);
 
-  // --- Likes State & Logic ---
+  // Handle liking items directly from the chat view
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   const [likingInProgress, setLikingInProgress] = useState(new Set());
 
@@ -214,14 +212,14 @@ export default function MessagesPage() {
     handleLikeToggle
   };
 
-  // --- Shared Page Logic Hook ---
+  // Manage global UI logic like modals and notifications
   const { 
     openModal, 
     handleNotificationClick, 
     ModalComponent 
   } = usePageLogic(userData, likesHook);
 
-  // Helper: Date Labels
+  // Helper to display friendly date labels (Today, Yesterday, etc.)
   const getDateLabel = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
@@ -235,7 +233,7 @@ export default function MessagesPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // --- Deep Linking Effect ---
+  // Check if we navigated here from a specific product page (Deep Linking)
   useEffect(() => {
       if (location.state?.filterByListingId) {
           const targetId = location.state.filterByListingId;
@@ -250,8 +248,7 @@ export default function MessagesPage() {
       navigate(location.pathname, { replace: true, state: {} });
   };
 
-  // --- 2. OPTIMIZATION: useMemo for Filtering ---
-  // Replaces the useState/useEffect combo for filteredConversations
+  // Efficiently filter the conversation list based on search terms or tabs
   const filteredConversations = useMemo(() => {
     if (!userData) return [];
     let result = conversations;
@@ -282,7 +279,7 @@ export default function MessagesPage() {
     return result;
   }, [activeFilter, searchQuery, conversations, userData, listingFilterId]);
 
-  // --- Image Upload Handler ---
+  // Upload an image attachment
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file || !selectedConversation) return;
@@ -310,7 +307,7 @@ export default function MessagesPage() {
     }
   };
 
-  // --- Data Fetching ---
+  // Load the user's profile, active chats, and likes when the page opens
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -436,7 +433,7 @@ export default function MessagesPage() {
   // Initial Fetch
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // --- WebSocket Connection ---
+  // Connect to the real-time server to receive new messages instantly
   useEffect(() => {
     if (userData) {
       const socket = new SockJS('http://localhost:8080/ws');
@@ -471,7 +468,7 @@ export default function MessagesPage() {
     }
   }, [userData, fetchData]);
 
-  // --- Conversation Selection ---
+  // Load the message history when the user clicks on a conversation
   const handleSelectConversation = async (conversation) => {
     if (activeListMenuId) return; 
     setIsMessagesLoading(true);
@@ -488,7 +485,7 @@ export default function MessagesPage() {
       c.id === conversation.id ? { ...c, isUnread: false } : c
     ));
 
-    // WebSocket subscription for specific chat
+    // WebSocket subscription for this specific chat
     if (stompClientRef.current && stompClientRef.current.connected) {
         if (conversationSubscriptionRef.current) conversationSubscriptionRef.current.unsubscribe();
         conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${conversation.id}`, (message) => {
@@ -533,7 +530,7 @@ export default function MessagesPage() {
 
   const handleSearchChange = (e) => setSearchQuery(e.target.value);
 
-  // --- Sidebar Menu Actions ---
+  // --- Sidebar Actions (Delete, Archive, Mark Read) ---
   const handleListMenuToggle = (e, convId) => { e.stopPropagation(); setActiveListMenuId(prev => prev === convId ? null : convId); };
   
   const handleArchiveListAction = async (e, conv) => {
@@ -569,6 +566,7 @@ export default function MessagesPage() {
     if (textareaRef.current) { textareaRef.current.style.height = 'auto'; textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`; }
   };
 
+  // Send message, update UI optimistically, then call API
   const handleSendMessage = async () => {
       if (!newMessage.trim() || !selectedConversation || !userData) return;
       const textToSend = newMessage;
@@ -596,7 +594,7 @@ export default function MessagesPage() {
       try { await sendMessage(textToSend, selectedConversation.id, userData.userId); } catch (error) { console.error("Failed to send", error); alert("Failed."); }
   };
 
-  // --- Infinite Scroll Handler ---
+  // Load older messages when the user scrolls to the top
   const handleInfiniteScroll = async (e) => {
     const { scrollTop } = e.currentTarget;
     
@@ -649,7 +647,6 @@ export default function MessagesPage() {
       }
   };
 
-  // --- Main Render ---
   if (isLoading) {
       return <div className="profile-page"><Header userName="" onLogout={handleLogout} /><MessagesSkeleton /></div>;
   }
@@ -670,7 +667,7 @@ export default function MessagesPage() {
 
       <div className="messages-page-container">
         
-        {/* --- Sidebar: Conversation List --- */}
+        {/* Sidebar: Conversation List */}
         <aside className={`conversations-sidebar ${isChatVisible ? 'mobile-hidden' : ''}`}>
           <div className="conversations-header">
             
@@ -960,9 +957,7 @@ export default function MessagesPage() {
         </main>
       </div>
       
-      {/* --- Modals Section --- */}
-
-      {/* Shared Modal Component */}
+      {/* Shared Modals */}
       <ModalComponent />
 
       {/* Review Modal */}

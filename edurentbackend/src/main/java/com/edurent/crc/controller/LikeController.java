@@ -1,6 +1,6 @@
 package com.edurent.crc.controller;
 
-import java.util.List; // Updated
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -27,6 +27,7 @@ public class LikeController {
     @Autowired
     private LikeService likeService;
 
+    // Get Liked Listings for Current User
     @GetMapping("/my-likes")
     public ResponseEntity<List<ListingEntity>> getMyLikedListings(Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
@@ -34,6 +35,7 @@ public class LikeController {
         return ResponseEntity.ok(likedListings);
     }
 
+    // Like a Listing
     @PostMapping("/{listingId}")
     public ResponseEntity<LikeEntity> likeListing(
             @PathVariable Long listingId,
@@ -49,6 +51,7 @@ public class LikeController {
         }
     }
 
+    //  Unlike a Listing
     @DeleteMapping("/{listingId}")
     public ResponseEntity<Void> unlikeListing(
             @PathVariable Long listingId,

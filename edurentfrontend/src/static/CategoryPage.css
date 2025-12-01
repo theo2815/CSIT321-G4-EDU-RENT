@@ -1,4 +1,3 @@
-/* src/static/CategoryPage.css */
 
 .category-page-container {
   padding: 1.5rem 2rem; /* Padding below header */
@@ -18,7 +17,7 @@
   font-size: 1.75rem; /* Title size */
   font-weight: 700;
   color: var(--text-color);
-  /* Optional: Add icon styles if needed */
+  /* Later if we will Add icon styles if needed */
   /* display: flex; */
   /* align-items: center; */
   /* gap: 0.5rem; */

@@ -19,18 +19,15 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
 
-    // !!! IMPORTANT !!!
-    // REPLACE THIS with your own 32-byte (64-character hex) secret key.
-    // You can generate one here: https://www.allkeysgenerator.com/Random/Security-Key-Generator.aspx (use 256-bit)
+    // Secret key for signing the JWT (Base64 encoded)
     private static final String SECRET_KEY = "2cfa00c56ea9fdf997275b9c3e846b3147c890895084b5814960d50c0d570fec";
     
     // Token validity (e.g., 24 hours)
     private static final long JWT_TOKEN_VALIDITY = 1000 * 60 * 60 * 24;
 
-    // 1. Generate Token for a user
+    // 1. Generate token for user
     public String generateToken(UserEntity user) {
         Map<String, Object> claims = new HashMap<>();
-        // You can add more claims here (e.g., roles)
         claims.put("userId", user.getUserId());
         claims.put("fullName", user.getFullName());
         
@@ -41,7 +38,7 @@ public class JwtService {
     private String createToken(Map<String, Object> claims, String subject) {
         return Jwts.builder()
                 .setClaims(claims)
-                .setSubject(subject) // The "subject" is the user's email (unique identifier)
+                .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + JWT_TOKEN_VALIDITY))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

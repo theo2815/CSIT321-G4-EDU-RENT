@@ -1,3 +1,4 @@
+// This Component provides a modal for creating or editing reviews, including image uploads
 import React, { useState, useRef, useEffect } from 'react';
 import { createReview, updateReview } from '../services/apiService';
 import '../static/ProductDetailModal.css';
@@ -16,12 +17,12 @@ export default function ReviewModal({
   onSuccess, 
   initialReview = null // If provided, the modal operates in "Edit Mode"
 }) {
-  // --- Form State ---
+  // Form State
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- Image Management State ---
+  // Image Management State
   // existingImages: Images currently saved in the database (for Edit Mode)
   const [existingImages, setExistingImages] = useState([]); 
   // imagesToDelete: IDs of existing images the user wants to remove during an edit
@@ -32,34 +33,30 @@ export default function ReviewModal({
   const fileInputRef = useRef(null);
   const isEditMode = !!initialReview;
 
-  // --- Initialization Effect ---
+  // Initialization Effect
   // If editing, populate the form with the review's existing data
   useEffect(() => {
     if (initialReview) {
       setRating(initialReview.rating);
       setComment(initialReview.comment);
       // Load existing images from the review object
-      // Assumes structure: [{ id: 1, url: '/path/img.jpg' }, ...]
       setExistingImages(initialReview.reviewImages || []);
     }
   }, [initialReview]);
 
-  // --- Image Handlers ---
-
+  // Image Handlers
   // Handle selection of NEW files from the file input
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
     
-    // --- FIX: Filter out duplicates based on name and size ---
     const uniqueFiles = files.filter(newFile => {
-        // Check if this file is already in the 'newImages' array
         const isDuplicate = newImages.some(
             existing => existing.name === newFile.name && existing.size === newFile.size
         );
         return !isDuplicate;
     });
 
-    if (uniqueFiles.length === 0) return; // All selected files were duplicates
+    if (uniqueFiles.length === 0) return;
 
     // Limit check
     const currentCount = existingImages.length + newImages.length;
@@ -70,31 +67,26 @@ export default function ReviewModal({
     
     setNewImages(prev => [...prev, ...uniqueFiles]);
     
-    // Reset the input so you can re-select a file if you deleted it and want it back
     if (fileInputRef.current) {
         fileInputRef.current.value = '';
     }
   };
 
-  // Remove a newly selected file (that hasn't been uploaded yet)
   const removeNewImage = (index) => {
     setNewImages(prev => prev.filter((_, i) => i !== index));
   };
-
-  // Remove an existing image (previously uploaded)
-  // This visually removes it and adds its ID to a list to be sent to the backend for deletion
   const removeExistingImage = (imageId) => {
     setImagesToDelete(prev => [...prev, imageId]); 
     setExistingImages(prev => prev.filter(img => img.id !== imageId)); 
   };
 
-  // --- Submission Handler ---
+  // Submission Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
       if (isEditMode) {
-        // --- UPDATE FLOW ---
+        // UPDATE FLOW
         // Send updated text, IDs of images to delete, and new files to upload
         await updateReview(initialReview.id, { 
             rating, 
@@ -104,7 +96,7 @@ export default function ReviewModal({
         });
         alert('Review updated successfully!');
       } else {
-        // --- CREATE FLOW ---
+        // CREATE FLOW
         // Create a fresh review with rating, comment, and new files
         await createReview({
           rating,

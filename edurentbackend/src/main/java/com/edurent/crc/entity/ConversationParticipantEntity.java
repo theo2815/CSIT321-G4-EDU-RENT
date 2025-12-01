@@ -46,14 +46,14 @@ public class ConversationParticipantEntity {
     public ConversationParticipantEntity() {
     }
     
-    // All-arg constructor (for ConversationParticipantService)
+    // All-arg constructor 
     public ConversationParticipantEntity(ConversationParticipantIdEntity id, ConversationEntity conversation, UserEntity user) {
         this.id = id;
         this.conversation = conversation;
         this.user = user;
     }
 
-    // Getters and Setters (Fixes ConversationService error)
+    // Getters and Setters 
     public ConversationParticipantIdEntity getId() {
         return id;
     }

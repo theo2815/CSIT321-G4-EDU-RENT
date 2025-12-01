@@ -1,19 +1,13 @@
+// This hooks provides live-search functionality over a list of items
 import { useState, useMemo } from 'react';
 
-/**
- * A helper function to safely get a nested property value
- * (e.g., 'category.name') from an object.
- */
+// Helper to get nested values from an object using dot notation
 function getDeepValue(obj, path) {
   if (!path) return undefined;
   return path.split('.').reduce((acc, key) => (acc && acc[key] ? acc[key] : undefined), obj);
 }
 
-/**
- * A reusable hook for live-searching a list of objects.
- * @param {Array} masterList - The original, unfiltered list.
- * @param {Array<string>} filterKeys - Keys to search against (e.g., ['title', 'category.name']).
- */
+// Main hook function
 export default function useSearch(masterList = [], filterKeys = []) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -29,18 +23,17 @@ export default function useSearch(masterList = [], filterKeys = []) {
     }
     
     return masterList.filter(item => {
-      // Check if *any* of the keys match the search query
       return filterKeys.some(key => {
         const value = getDeepValue(item, key);
         return value && String(value).toLowerCase().includes(searchQuery);
       });
     });
-  }, [masterList, filterKeys, searchQuery]); // Re-filter only when these change
+  }, [masterList, filterKeys, searchQuery]); 
 
   // 3. Return state and handler
   return {
-    searchQuery,        // The current search string
-    handleSearch,       // The onChange handler for your input
-    filteredListings    // The new, filtered list to display
+    searchQuery,        
+    handleSearch,      
+    filteredListings  
   };
 }

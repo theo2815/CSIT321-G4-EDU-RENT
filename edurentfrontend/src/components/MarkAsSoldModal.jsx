@@ -1,3 +1,5 @@
+// This component is a modal to mark a listing as sold by selecting a buyer from existing conversations
+
 import React, { useState, useEffect } from 'react';
 import { getConversationsForUser, createTransaction } from '../services/apiService';
 import defaultAvatar from '../assets/default-avatar.png';

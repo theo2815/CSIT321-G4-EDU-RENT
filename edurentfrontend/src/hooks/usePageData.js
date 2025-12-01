@@ -1,11 +1,8 @@
+// This hooks fetches and manages page data including listings and categories, handling loading and error states
 import { useState, useEffect, useCallback } from 'react';
 import { getListings, getCategories } from '../services/apiService';
 
-/**
- * Fetches the main data for a page (listings & categories)
- * when the user is authenticated.
- * @param {boolean} isUserAuthenticated - Pass in !!userData
- */
+
 export default function usePageData(isUserAuthenticated) {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataError, setDataError] = useState(null);
@@ -30,14 +27,13 @@ export default function usePageData(isUserAuthenticated) {
 
     } catch (err) {
       console.error("Failed to fetch page data:", err);
-      // Let the component handle auth-related errors
       if (err.message !== "No authentication token found." && err.response?.status !== 403 && err.response?.status !== 401) {
         setDataError("Could not load page data. Please try again.");
       }
     } finally {
       setIsLoadingData(false);
     }
-  }, []); // This function is stable
+  }, []); 
 
   // Fetch data only after user is authenticated
   useEffect(() => {
@@ -48,10 +44,10 @@ export default function usePageData(isUserAuthenticated) {
   }, [isUserAuthenticated, fetchData]);
 
   return {
-    allListings,    // The master list of listings
-    categories,     // The list of categories
-    isLoadingData,  // Is this data loading?
-    dataError,      // Was there an error fetching this data?
-    refetchData: fetchData // Function to manually refetch
+    allListings,    
+    categories,     
+    isLoadingData,  
+    dataError,     
+    refetchData: fetchData 
   };
 }

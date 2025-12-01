@@ -38,7 +38,7 @@ public class CategoryEntity {
     public CategoryEntity() {
     }
 
-    // Getters and Setters (Fixes CategoryService error)
+    // Getters and Setters
     public Long getCategoryId() {
         return categoryId;
     }

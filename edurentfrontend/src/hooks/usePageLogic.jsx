@@ -1,3 +1,4 @@
+// This hooks manages page logic for listing modals, including like functionality and pre-fetching context data
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useLikes from './useLikes';
@@ -5,17 +6,6 @@ import { getListingById, getUserReviews, getConversationsForUser } from '../serv
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 
-/**
- * Custom hook to manage page-level logic for listings, modals, and interactions.
- * * Capabilities:
- * 1. Manages "Like" functionality (toggle, status).
- * 2. Manages Product Detail Modal state (open/close, loading).
- * 3. Pre-fetches necessary context (Listing details, Seller Reviews, Conversation history)
- * to prevent data "pop-in" or loading spinners inside the modal itself.
- *
- * @param {object} userData - The logged-in user's data object.
- * @param {object} likeData - Optional. If provided, overrides internal like logic (useful for ProfilePage).
- */
 export default function usePageLogic(userData, likeData = null) {
   const navigate = useNavigate();
 
@@ -41,10 +31,7 @@ export default function usePageLogic(userData, likeData = null) {
   } = likeData || internalLikes;
 
   // --- 2. Modal Handlers ---
-
-  /**
-   * Resets all modal-related state to ensure a clean slate when reopening.
-   */
+  // Closes the modal and clears state
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setSelectedListing(null);
@@ -52,11 +39,7 @@ export default function usePageLogic(userData, likeData = null) {
     setModalContext(null);
   }, []);
 
-  /**
-   * Primary handler to open a listing.
-   * Performs parallel data fetching to gather all context (Item, Seller Rating, Chat History)
-   * before displaying the modal to the user.
-   */
+  // Fetches listing details and pre-calculates context before opening the modal
   const handleOpenListing = useCallback(async (listingId) => {
     if (!listingId) return;
 
@@ -67,11 +50,6 @@ export default function usePageLogic(userData, likeData = null) {
       // Prepare parallel requests for efficiency
       const promises = [getListingById(listingId)];
 
-      // If the user is logged in, fetch their conversation history.
-      // This context allows the modal to immediately know if:
-      // a) The user is the seller (viewing their own item).
-      // b) The user is a buyer who has already chatted about this item.
-      // c) The user is the specific buyer who bought this sold item.
       if (userData?.userId) {
         promises.push(getConversationsForUser(userData.userId));
       }
@@ -90,23 +68,18 @@ export default function usePageLogic(userData, likeData = null) {
         };
 
         if (conversationsRes?.data) {
-          // Filter user's conversations to find those linked to this specific listing
           const related = conversationsRes.data.filter(c => 
             c.listing && c.listing.listingId === listing.listingId
           );
 
           context.relatedConversations = related;
-          context.chatCount = related.length; // Useful for sellers (total inquiries)
-          // If a chat exists, grab the most recent one (usually index 0)
+          context.chatCount = related.length;
           context.existingChat = related.length > 0 ? related[0] : null; 
         }
 
         setModalContext(context);
-        // -------------------------------------
 
-        // --- Fetch Seller Reviews ---
-        // We fetch this silently (async) but wait for it here to prevent layout shift.
-        // A failure here is non-critical and won't stop the modal from opening.
+       // Fetch seller rating data for display in the modal 
         const sellerId = listing.user?.userId;
         if (sellerId) {
             try {
@@ -135,10 +108,7 @@ export default function usePageLogic(userData, likeData = null) {
     }
   }, [closeModal, userData]);
 
-  /**
-   * Wrapper for click events on listing cards.
-   * Ensures the listing object is valid before attempting to fetch details.
-   */
+  // Opens the modal for a given listing object
   const openModal = useCallback((listing) => {
     if (listing && listing.listingId) {
         handleOpenListing(listing.listingId);
@@ -147,10 +117,7 @@ export default function usePageLogic(userData, likeData = null) {
     }
   }, [handleOpenListing]);
 
-  /**
-   * Handler for incoming notifications.
-   * Parses the notification URL to extract the listing ID and open the modal.
-   */
+  // Handles notification clicks by extracting listing ID and opening the modal
   const handleNotificationClick = useCallback(async (notification) => {
     const urlParts = notification.linkUrl?.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
@@ -164,10 +131,7 @@ export default function usePageLogic(userData, likeData = null) {
 
   // --- 3. Render Helper ---
   
-  /**
-   * Returns the Modal component ready to be rendered by the parent.
-   * Passes all accumulated state, including the new 'initialContext'.
-   */
+  // Memoized modal component to avoid unnecessary re-renders
   const ModalComponent = useCallback(() => (
     <>
       {isModalOpen && selectedListing && (
@@ -199,7 +163,6 @@ export default function usePageLogic(userData, likeData = null) {
       modalContext
   ]);
 
-  // --- Return Values ---
   return {
     // Expose like logic properties only if using internal hook (prevents prop collision)
     ...(likeData ? {} : {

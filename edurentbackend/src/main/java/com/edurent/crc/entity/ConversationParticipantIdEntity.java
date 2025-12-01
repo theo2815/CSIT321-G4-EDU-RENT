@@ -5,7 +5,7 @@ import java.io.Serializable;
 import java.util.Objects;
 
 @Embeddable
-public class ConversationParticipantIdEntity implements Serializable { // Renamed
+public class ConversationParticipantIdEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

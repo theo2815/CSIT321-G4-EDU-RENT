@@ -57,7 +57,7 @@ public class ConversationEntity {
     private boolean isArchivedForCurrentUser;
     // -------------------------------------------------
 
-    // [NEW] Transient field for unread status
+    // --- NEW: Transient field for unread status ---
     @Transient
     private boolean isUnread;
 

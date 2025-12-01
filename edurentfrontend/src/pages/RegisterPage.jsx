@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { getSchools, registerUser } from '../services/apiService';
 import { Link, useNavigate } from 'react-router-dom';
 
-// Import your new, shared CSS file
+// Import the centralized authentication styles
 import '../static/Auth.css'; 
-// You can now DELETE RegisterPage.css (and you already deleted LoginPage.css)
 
-// Import your logo
 import eduRentLogo from '../assets/edurentlogo.png'; 
 
 export default function RegisterPage() {
@@ -22,9 +20,10 @@ export default function RegisterPage() {
   });
   const [message, setMessage] = useState({ type: '', content: '' });
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false); // Added loading state
+  const [loading, setLoading] = useState(false); 
   const navigate = useNavigate();
 
+  // Load the list of schools when the page opens so the user can select theirs
   useEffect(() => {
     const fetchSchools = async () => {
       try {
@@ -50,7 +49,8 @@ export default function RegisterPage() {
     e.preventDefault();
     setMessage({ type: '', content: '' });
 
-    // --- Validation (keep as is) ---
+    // TO DO: Add comprehensive validation here (e.g., check email format, password strength)
+    // Currently only checks if passwords match and a school is selected.
     if (formData.passwordHash !== confirmPassword) {
       setMessage({ type: 'error', content: 'Passwords do not match!' });
       return;
@@ -59,70 +59,57 @@ export default function RegisterPage() {
       setMessage({ type: 'error', content: 'Please select your school.' });
       return;
     }
-    // --- End Validation ---
 
-    setLoading(true); // Start loading
+    setLoading(true); 
 
-    // --- Prepare data for API ---
-    // Make sure the object keys match what apiService.js expects
+    // Prepare the data structure expected by the backend API
     const registrationData = {
-        ...formData, // Spread existing form data (fullName, studentIdNumber, email, etc.)
-        schoolId: selectedSchoolId // Add schoolId here
-        // Note: apiService will handle renaming passwordHash to password
+        ...formData, 
+        schoolId: selectedSchoolId 
     };
-    // ---------------------------
 
     try {
-      // --- Call API Service ---
-      // Pass the combined data object
+      // Send registration request
       const response = await registerUser(registrationData);
-      // ------------------------
 
-      // --- Handle Success ---
-      // Assuming backend returns { token: '...', message: '...' }
       const { token, message: successMessage } = response.data;
 
       if (!token) {
-        // Handle case where backend succeeds but sends no token (unlikely but safe)
         throw new Error(successMessage || 'Registration successful, but no token received.');
       }
 
       console.log('Registration successful, token received:', token);
 
-      // --- SAVE TOKEN to localStorage ---
-      // We store the token and maybe email for the next step (login/fetching user)
+      // Save the session token immediately so the user doesn't have to log in again
       const userDataToStore = {
         token: token,
-        email: formData.email // Store email for potential future use
+        email: formData.email 
       };
       localStorage.setItem('eduRentUserData', JSON.stringify(userDataToStore));
-      // ---------------------------------
 
       setMessage({ type: 'success', content: successMessage || 'Registration successful! Redirecting to login...' });
       setTimeout(() => {
-        navigate('/login'); // Redirect to login after successful registration
+        navigate('/login'); 
       }, 2000);
-      // --- End Success Handling ---
 
     } catch (error) {
-      // --- Handle Errors ---
       console.error('Registration failed:', error);
-      // Get specific error message from backend response if available
-      const errorMessage = error.response?.data?.message || // Message from AuthResponse DTO
-                           error.message || // General Axios or network error message
-                           'Registration failed. Please try again.'; // Fallback
+      
+      // Extract the error message from the API response or use a default one
+      const errorMessage = error.response?.data?.message || 
+                           error.message || 
+                           'Registration failed. Please try again.'; 
       setMessage({ type: 'error', content: errorMessage });
-      // ----------------------
 
     } finally {
-      setLoading(false); // Stop loading regardless of success/error
+      setLoading(false); 
     }
   };
 
   return (
     <div className="auth-container">
       
-      {/* --- Left Column (Branding) --- */}
+      {/* Left Side: Branding */}
       <div className="auth-branding-panel">
         <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
         <p className="auth-tagline">
@@ -130,7 +117,7 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      {/* --- Right Column (Form) --- */}
+      {/* Right Side: Registration Form */}
       <div className="auth-form-panel">
         <div className="auth-form-container">
           <h2 className="auth-title">
@@ -156,7 +143,7 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* School Selection */}
+            {/* School Dropdown */}
             <div>
               <label htmlFor="school" className="auth-label">
                 School Institution
@@ -167,7 +154,7 @@ export default function RegisterPage() {
                 required
                 value={selectedSchoolId}
                 onChange={(e) => setSelectedSchoolId(e.target.value)}
-                className="auth-input" // The .auth-input class styles selects too
+                className="auth-input" 
                 disabled={loading}
               >
                 <option value="" disabled>Select your school</option>
@@ -196,7 +183,7 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* School Email */}
+            {/* Email Address */}
             <div>
               <label htmlFor="email" className="auth-label">
                 School Institution Email
@@ -255,7 +242,7 @@ export default function RegisterPage() {
               </label>
               <input
                 id="password"
-                name="passwordHash" // Kept your original name for state
+                name="passwordHash" 
                 type="password"
                 required
                 value={formData.passwordHash}
@@ -282,7 +269,7 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* --- Message Display --- */}
+            {/* Status Message Display */}
             {message.content && (
               <div
                 className={`auth-message ${
@@ -307,7 +294,7 @@ export default function RegisterPage() {
             </div>
           </form>
 
-          {/* Login Redirect */}
+          {/* Login Link */}
           <div className="auth-redirect-link">
             Already have an account?{' '}
             <Link to="/login" className="auth-link">

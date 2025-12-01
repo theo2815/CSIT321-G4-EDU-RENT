@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../supabaseClient'; // Import supabase client
+import { supabase } from '../supabaseClient'; 
 
 // Import shared styles
-import '../static/Auth.css'; // The ONLY CSS file needed
+import '../static/Auth.css'; 
 
-// Import your logo
 import eduRentLogo from '../assets/edurentlogo.png'; 
 
 export default function EnterOtpPage() {
-  const [otp, setOtp] = useState(''); // We'll treat the token as an "OTP"
+  const [otp, setOtp] = useState(''); 
   const [message, setMessage] = useState({ type: '', content: '' });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const email = location.state?.email; // Get email passed from previous page
+  
+  // Retrieve the email passed from the previous "Forgot Password" screen
+  const email = location.state?.email; 
 
-  // Resend functionality (this logic is good)
+  // Helper function to send the email again if the user didn't receive it
   const handleResend = async () => {
       setMessage({ type: '', content: 'Resending instructions...' });
       setLoading(true);
@@ -34,10 +35,11 @@ export default function EnterOtpPage() {
       }
   };
 
-  const handleSubmit = (e) => { // No async needed for simulation
+  const handleSubmit = (e) => { 
     e.preventDefault();
     setMessage({ type: '', content: '' });
 
+    // basic validation to ensure we have the necessary data
     if (!email) {
         setMessage({ type: 'error', content: 'Session error. Please start the forgot password process again.' });
         return;
@@ -49,27 +51,21 @@ export default function EnterOtpPage() {
 
     setLoading(true);
 
-    // ---
-    // Your simulation logic
-    // ---
+    // --- TO DO: Connect this to the backend API to verify the token properly ---
+    // Currently, this simulates a success and redirects.
     setMessage({ type: 'success', content: 'Code accepted! Redirecting to reset password...' });
       
+    // Small delay to let the user read the success message
     setTimeout(() => {
-      // We navigate away, so no need to set loading to false.
-      // The component will unmount.
       navigate('/reset-password', { state: { email, token: otp } });
     }, 1500);
-
-    // The bug was here: `setLoading(false)` was running immediately.
-    // By removing it, the button stays in its "loading" state until
-    // the navigation happens, which is the correct user experience.
   };
 
 
   return (
     <div className="auth-container">
       
-      {/* --- Left Column (Branding) --- */}
+      {/* Left Side: Branding and Logo */}
       <div className="auth-branding-panel">
         <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
         <p className="auth-tagline">
@@ -77,7 +73,7 @@ export default function EnterOtpPage() {
         </p>
       </div>
 
-      {/* --- Right Column (Form) --- */}
+      {/* Right Side: Input Form */}
       <div className="auth-form-panel">
         <div className="auth-form-container">
 
@@ -89,7 +85,7 @@ export default function EnterOtpPage() {
 
           <form className="auth-form" onSubmit={handleSubmit}>
             
-            {/* OTP Field */}
+            {/* Input field for the token */}
             <div>
               <label htmlFor="otp" className="auth-label">
                 Code / Token from Email
@@ -97,7 +93,7 @@ export default function EnterOtpPage() {
               <input
                 id="otp"
                 name="otp"
-                type="text" // Supabase token is long
+                type="text" 
                 required
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
@@ -107,7 +103,7 @@ export default function EnterOtpPage() {
               />
             </div>
 
-            {/* --- Message Display --- */}
+            {/* Success or Error feedback message */}
             {message.content && (
               <div
                 className={`auth-message ${
@@ -120,7 +116,7 @@ export default function EnterOtpPage() {
               </div>
             )}
 
-            {/* Button */}
+            {/* Submit Button */}
             <div>
               <button
                 type="submit"
@@ -132,7 +128,7 @@ export default function EnterOtpPage() {
             </div>
           </form>
 
-          {/* Resend & Back to Login Links */}
+          {/* Links to resend the code or go back to login */}
           <div className="auth-redirect-link">
             Didn't get a code?{' '}
             <button
@@ -140,7 +136,7 @@ export default function EnterOtpPage() {
               onClick={handleResend}
               disabled={loading}
               className="auth-link"
-              // Inline styles to make the button look like a link
+              // Inline styles to make the button look like a text link
               style={{ 
                 background: 'none', 
                 border: 'none', 

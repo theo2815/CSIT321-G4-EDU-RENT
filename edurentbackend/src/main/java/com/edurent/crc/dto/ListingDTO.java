@@ -4,7 +4,7 @@ public class ListingDTO {
     private Long listingId;
     private String title;
     private Double price;
-    private String imageUrl; // Just the cover photo URL
+    private String imageUrl;
     private UserDTO owner;
 
     // Constructors, Getters, Setters
