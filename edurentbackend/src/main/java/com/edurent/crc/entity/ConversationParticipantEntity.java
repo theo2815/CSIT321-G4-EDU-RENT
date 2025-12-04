@@ -1,5 +1,6 @@
 package com.edurent.crc.entity;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -34,13 +35,16 @@ public class ConversationParticipantEntity {
     @JsonIgnoreProperties({"conversationParticipants", "messagesSent", "listings", "transactionsAsBuyer", "transactionsAsSeller", "reviewsGiven", "reviewsReceived", "likes", "notifications", "School", "hibernateLazyInitializer", "handler"})
     private UserEntity user;
 
-    // --- NEW FLAGS ---
+    // FLAGS
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
 
     @Column(name = "is_archived", nullable = false)
     private boolean isArchived = false;
-    // ----------------
+
+    // --- NEW FIELD: Tracks when the user deleted the chat to hide history ---
+    @Column(name = "last_deleted_at")
+    private LocalDateTime lastDeletedAt;
 
     // Constructors
     public ConversationParticipantEntity() {
@@ -93,6 +97,15 @@ public class ConversationParticipantEntity {
     public void setIsArchived(boolean isArchived) { 
         this.isArchived = isArchived; 
     }
+
+    public LocalDateTime getLastDeletedAt() { 
+        return lastDeletedAt; 
+    }
+
+    public void setLastDeletedAt(LocalDateTime lastDeletedAt) { 
+        this.lastDeletedAt = lastDeletedAt; 
+    }
+
     // -------------------------------
 
     // equals, hashCode, toString (use id)

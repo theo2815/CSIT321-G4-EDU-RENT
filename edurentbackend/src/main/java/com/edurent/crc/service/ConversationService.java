@@ -1,5 +1,6 @@
 package com.edurent.crc.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +42,6 @@ public class ConversationService {
     // 1. Get Conversations for User
     public List<ConversationEntity> getConversationsForUser(Long userId) {
         List<ConversationParticipantEntity> participants = participantRepository.findById_UserIdAndIsDeletedFalse(userId);
-
         List<ConversationEntity> conversations = new ArrayList<>();
 
         for (ConversationParticipantEntity p : participants) {
@@ -50,12 +50,19 @@ public class ConversationService {
             // A. Populate Last Message Details
             MessageEntity lastMsg = messageRepository.findFirstByConversation_ConversationIdOrderBySentAtDesc(conv.getConversationId());
             if (lastMsg != null) {
-                conv.setLastMessageContent(lastMsg.getContent());
-                conv.setLastMessageTimestamp(lastMsg.getSentAt());
-
-                boolean isUnread = !Boolean.TRUE.equals(lastMsg.getRead()) 
-                                   && !lastMsg.getSender().getUserId().equals(userId);
-                conv.setIsUnread(isUnread);
+                if (p.getLastDeletedAt() == null || lastMsg.getSentAt().isAfter(p.getLastDeletedAt())) {
+                    conv.setLastMessageContent(lastMsg.getContent());
+                    conv.setLastMessageTimestamp(lastMsg.getSentAt());
+                    
+                    boolean isUnread = !Boolean.TRUE.equals(lastMsg.getRead()) 
+                                       && !lastMsg.getSender().getUserId().equals(userId);
+                    conv.setIsUnread(isUnread);
+                } else {
+                    // Chat exists but history is cleared and no new messages
+                    conv.setLastMessageContent("Chat cleared");
+                    conv.setLastMessageTimestamp(p.getLastDeletedAt());
+                    conv.setIsUnread(false);
+                }
             }
 
             // B. Populate Archived Status (For the frontend filter)
@@ -75,7 +82,15 @@ public class ConversationService {
         Optional<ConversationEntity> existing = conversationRepository.findExistingConversation(listingId, starterId, receiverId);
         
         if (existing.isPresent()) {
-            return existing.get(); // Return existing conversation
+            ConversationEntity conv = existing.get();
+            ConversationParticipantIdEntity partId = new ConversationParticipantIdEntity(conv.getConversationId(), starterId);
+            participantRepository.findById(partId).ifPresent(p -> {
+                if (p.getIsDeleted()) {
+                    p.setIsDeleted(false);
+                    participantRepository.save(p);
+                }
+            });
+            return conv; 
         }
 
         // 2. If not, create new one
@@ -112,8 +127,30 @@ public class ConversationService {
         ConversationParticipantEntity participant = participantRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Participant record not found"));
         
-        participant.setIsDeleted(true); // Soft delete
+        // 1. Soft delete for this user
+        participant.setIsDeleted(true);
+        participant.setLastDeletedAt(LocalDateTime.now()); // Mark the timeline
         participantRepository.save(participant);
+
+        // 2. Check if ALL participants have deleted the chat
+        ConversationEntity conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+        
+        boolean allParticipantsDeleted = true;
+        for (ConversationParticipantEntity p : conversation.getParticipants()) {
+            if (p.getId().equals(id)) continue;
+            
+            if (!p.getIsDeleted()) {
+                allParticipantsDeleted = false;
+                break;
+            }
+        }
+
+        // 3. If everyone deleted it, hard delete from database
+        if (allParticipantsDeleted) {
+            System.out.println("All participants deleted conversation " + conversationId + ". Performing hard delete.");
+            conversationRepository.delete(conversation);
+        }
     }
 
 

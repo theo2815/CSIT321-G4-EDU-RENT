@@ -1,17 +1,16 @@
 package com.edurent.crc.controller;
 
-import java.util.List;
-import java.util.stream.Collectors;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,11 +29,11 @@ import com.edurent.crc.entity.ConversationEntity;
 import com.edurent.crc.entity.MessageEntity;
 import com.edurent.crc.entity.TransactionEntity;
 import com.edurent.crc.entity.UserEntity;
+import com.edurent.crc.repository.ReviewRepository;
+import com.edurent.crc.repository.TransactionRepository;
 import com.edurent.crc.service.ConversationService;
 import com.edurent.crc.service.MessageImageService;
 import com.edurent.crc.service.MessageService;
-import com.edurent.crc.repository.TransactionRepository;
-import com.edurent.crc.repository.ReviewRepository;
 
 @RestController
 @RequestMapping("/api/v1/conversations")
@@ -133,14 +132,17 @@ public class ConversationController {
         }
     }
 
-    // --- 3. NEW: Get Messages (With Pagination) ---
+    // --- 3. Updated: Get Messages (With Pagination) ---
     @GetMapping("/{conversationId}/messages")
     public ResponseEntity<List<MessageEntity>> getMessages(
             @PathVariable Long conversationId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication // Inject Authentication
     ) {
-        List<MessageEntity> messages = messageService.getMessagesForConversation(conversationId, page, size);
+        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        // Pass userId to service
+        List<MessageEntity> messages = messageService.getMessagesForConversation(conversationId, currentUser.getUserId(), page, size);
         return ResponseEntity.ok(messages);
     }
 

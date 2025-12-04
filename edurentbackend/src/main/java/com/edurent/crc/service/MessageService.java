@@ -1,28 +1,29 @@
 package com.edurent.crc.service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.ArrayList;
-import java.util.Collections;
 
-import org.springframework.beans.factory.annotation.Autowired; 
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.edurent.crc.entity.ConversationEntity;
+import com.edurent.crc.entity.ConversationParticipantEntity;
+import com.edurent.crc.entity.ConversationParticipantIdEntity;
 import com.edurent.crc.entity.MessageEntity;
 import com.edurent.crc.entity.UserEntity;
+import com.edurent.crc.repository.ConversationParticipantRepository;
 import com.edurent.crc.repository.ConversationRepository;
 import com.edurent.crc.repository.MessageRepository;
 import com.edurent.crc.repository.UserRepository;
-import com.edurent.crc.repository.ConversationParticipantRepository;
-import com.edurent.crc.entity.ConversationParticipantEntity;
 
 @Service
 public class MessageService {
@@ -42,18 +43,30 @@ public class MessageService {
     @Autowired
     private SimpMessagingTemplate messagingTemplate; 
 
-    // 1. Get Messages for Conversation with Pagination
-    public List<MessageEntity> getMessagesForConversation(Long conversationId, int page, int size) {
-        // 1. Fetch newest messages first (descending order)
+    // 1. Get Messages (Updated to filter by deletion history)
+    public List<MessageEntity> getMessagesForConversation(Long conversationId, Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("sentAt").descending());
-        Page<MessageEntity> messagePage = messageRepository.findByConversationId(conversationId, pageable);
         
-        // 2. Convert to mutable list
+        // Find the participant info to check if they cleared history
+        ConversationParticipantIdEntity partId = new ConversationParticipantIdEntity(conversationId, userId);
+        ConversationParticipantEntity participant = participantRepository.findById(partId).orElse(null);
+
+        Page<MessageEntity> messagePage;
+
+        if (participant != null && participant.getLastDeletedAt() != null) {
+            // Only fetch messages sent AFTER the deletion timestamp
+            messagePage = messageRepository.findByConversationIdAndSentAtAfter(
+                conversationId, 
+                participant.getLastDeletedAt(), 
+                pageable
+            );
+        } else {
+            // Fetch full history
+            messagePage = messageRepository.findByConversationId(conversationId, pageable);
+        }
+        
         List<MessageEntity> messages = new ArrayList<>(messagePage.getContent());
-        
-        // 3. Reverse the list to chronological order (ASC) for the UI
         Collections.reverse(messages);
-        
         return messages;
     }
 

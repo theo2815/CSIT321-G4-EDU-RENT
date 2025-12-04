@@ -20,9 +20,10 @@ import {
   getCurrentUser, 
   getMessages,                
   sendMessage,                
-  getConversationsForUser, 
+  getConversationsForUser,
+  startConversation,
   getLikedListings,
-  likeListing,        
+  likeListing,     
   unlikeListing,
   deleteConversation, 
   archiveConversation,
@@ -109,11 +110,59 @@ function MessagesSkeleton() {
   );
 }
 
-// Helper to format timestamps (e.g., "10:30 AM")
-const formatMessageTime = (dateString) => {
+// Updated timestamp formatters to be more user-friendly
+// 1. Sidebar: "15 mins ago", "1 hour ago", "2 days ago", etc.
+const formatRelativeTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+  
+    if (diffInSeconds < 60) return 'Just now';
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes} mins ago`;
+  
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+  
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    return `${diffInWeeks} week${diffInWeeks > 1 ? 's' : ''} ago`;
+};
+  
+// 2. Chat Bubble: "10:30 AM" (New) or "Fri 9:11 PM" / "Nov 18, 2025, 2:11 PM" (Old)
+const formatChatTimestamp = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    
+    // Check if today
+    const isToday = date.getDate() === now.getDate() &&
+                    date.getMonth() === now.getMonth() &&
+                    date.getFullYear() === now.getFullYear();
+    
+    // Time format options
+    const timeOptions = { hour: 'numeric', minute: '2-digit' };
+  
+    if (isToday) {
+        return date.toLocaleTimeString([], timeOptions);
+    }
+  
+    // Check if within the last 6 days (approx "this week")
+    const diffInHours = (now - date) / 1000 / 60 / 60;
+    if (diffInHours < 24 * 6) {
+         // Format: Fri 9:11 PM
+         return date.toLocaleDateString([], { weekday: 'short' }) + ' ' + 
+                date.toLocaleTimeString([], timeOptions);
+    }
+  
+    // Older than a week
+    // Format: Nov 18, 2025, 2:11 PM
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' +
+           date.toLocaleTimeString([], timeOptions);
 };
 
 export default function MessagesPage() {
@@ -293,7 +342,7 @@ export default function MessagesPage() {
           senderId: userData.userId,
           text: '',
           attachmentUrl: imageUrl,
-          timestamp: formatMessageTime(tempTimestamp),
+          timestamp: formatChatTimestamp(tempTimestamp),
           rawDate: tempTimestamp.toISOString()
       };
       setMessages(prev => [...prev, optimisticMsg]);
@@ -376,6 +425,8 @@ export default function MessagesPage() {
       // 3. Handle External Navigation (Start New Chat)
       const passedConv = location.state?.openConversation;
       const passedConvId = location.state?.openConversationId;
+      const initiateChat = location.state?.initiateChat;
+
       if (passedConvId) {
           let targetConv = processedConvs.find(c => c.id === passedConvId);
           if (!targetConv && passedConv) {
@@ -412,6 +463,54 @@ export default function MessagesPage() {
               setIsChatVisible(true);
               window.history.replaceState({}, document.title);
           }
+      }else if (initiateChat && currentUser) {
+          let targetConv = processedConvs.find(c => 
+              c.product?.id === initiateChat.listingId && 
+              c.otherUser?.id === initiateChat.sellerId
+          );
+
+          if (targetConv) {
+              handleSelectConversation(targetConv);
+              setIsChatVisible(true);
+          } else {
+              try {
+                  const newConvRes = await startConversation(
+                      initiateChat.listingId, 
+                      currentUser.userId, 
+                      initiateChat.sellerId
+                  );
+                  
+                  const raw = newConvRes.data;
+                  const img = raw.listing?.images?.[0]?.imageUrl || raw.listing?.imageUrl || null;
+                  
+                  const newUiConv = {
+                      id: raw.conversationId,
+                      otherUser: {
+                          id: initiateChat.sellerId,
+                          name: raw.participants?.find(p => p.user.userId !== currentUser.userId)?.user.fullName || 'User',
+                          avatar: raw.participants?.find(p => p.user.userId !== currentUser.userId)?.user.profilePictureUrl
+                      },
+                      product: {
+                          id: raw.listing.listingId,
+                          title: raw.listing.title,
+                          price: raw.listing.price,
+                          ownerId: raw.listing.user?.userId,
+                          image: img,
+                          iconUrl: img
+                      },
+                      lastMessagePreview: 'Start a conversation',
+                      lastMessageDate: new Date().toISOString(),
+                      isUnread: false
+                  };
+
+                  setConversations(prev => [newUiConv, ...prev]);
+                  handleSelectConversation(newUiConv);
+                  setIsChatVisible(true);
+              } catch (err) {
+                  console.error("Failed to auto-create conversation", err);
+              }
+          }
+          window.history.replaceState({}, document.title);
       }
 
       // 4. Fetch Liked Listings
@@ -493,7 +592,7 @@ export default function MessagesPage() {
             if (payload.senderId === userData.userId) return;
             const newMsg = {
                 id: payload.id, senderId: payload.senderId, text: payload.text,
-                attachmentUrl: payload.attachmentUrl, timestamp: formatMessageTime(payload.timestamp), rawDate: payload.timestamp
+                attachmentUrl: payload.attachmentUrl, timestamp: formatChatTimestamp(payload.timestamp), rawDate: payload.timestamp
             };
             setMessages(prev => [...prev, newMsg]);
             markConversationAsRead(conversation.id);
@@ -509,7 +608,7 @@ export default function MessagesPage() {
 
       const mappedMessages = messagesRes.data.map(msg => ({
           id: msg.messageId, senderId: msg.sender?.userId, text: msg.content,
-          attachmentUrl: msg.attachmentUrl, timestamp: formatMessageTime(msg.sentAt), rawDate: msg.sentAt
+          attachmentUrl: msg.attachmentUrl, timestamp: formatChatTimestamp(msg.sentAt), rawDate: msg.sentAt
       }));
       setMessages(mappedMessages);
       if (messagesRes.data.length < 20) setHasMore(false);
@@ -576,7 +675,7 @@ export default function MessagesPage() {
       
       const optimisticMsg = {
           id: Date.now(), senderId: userData.userId, text: textToSend,
-          timestamp: formatMessageTime(tempTimestamp), rawDate: tempTimestamp.toISOString()
+          timestamp: formatChatTimestamp(tempTimestamp), rawDate: tempTimestamp.toISOString()
       };
       setMessages(prev => [...prev, optimisticMsg]);
       
@@ -608,7 +707,7 @@ export default function MessagesPage() {
         if (newRawMessages.length > 0) {
           const mappedNewMessages = newRawMessages.map(msg => ({
             id: msg.messageId, senderId: msg.sender?.userId, text: msg.content,
-            attachmentUrl: msg.attachmentUrl, timestamp: formatMessageTime(msg.sentAt), rawDate: msg.sentAt
+            attachmentUrl: msg.attachmentUrl, timestamp: formatChatTimestamp(msg.sentAt), rawDate: msg.sentAt
           }));
           setMessages(prev => [...mappedNewMessages, ...prev]);
           setPage(nextPage);
@@ -754,7 +853,8 @@ export default function MessagesPage() {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {formatMessageTime(conv.lastMessageDate)}
+                          {/* CHANGED: Use formatRelativeTime */}
+                          {formatRelativeTime(conv.lastMessageDate)}
                       </span>
                       
                       <div style={{ position: 'relative' }}>
@@ -902,7 +1002,10 @@ export default function MessagesPage() {
                           )}
                           {msg.text && <div>{msg.text}</div>}
                         </div>
-                        <span className="message-timestamp">{msg.timestamp}</span>
+                        {/* CHANGED: Use formatChatTimestamp with msg.rawDate */}
+                        <span className="message-timestamp">
+                            {formatChatTimestamp(msg.rawDate)}
+                        </span>
                       </div>
                     </React.Fragment>
                   );

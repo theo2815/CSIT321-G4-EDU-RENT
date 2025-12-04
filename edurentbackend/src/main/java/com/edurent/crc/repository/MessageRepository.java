@@ -1,5 +1,6 @@
 package com.edurent.crc.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -18,6 +19,9 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     // Method to find messages by conversation ID with pagination
     @Query("SELECT m FROM MessageEntity m WHERE m.conversation.conversationId = :conversationId")
     Page<MessageEntity> findByConversationId(@Param("conversationId") Long conversationId, Pageable pageable);
+
+    @Query("SELECT m FROM MessageEntity m WHERE m.conversation.conversationId = :conversationId AND m.sentAt > :after")
+    Page<MessageEntity> findByConversationIdAndSentAtAfter(@Param("conversationId") Long conversationId, @Param("after") LocalDateTime after, Pageable pageable);
 
     // Method to find messages by sender ID
     @Query("SELECT m FROM MessageEntity m WHERE m.sender.userId = :senderId")

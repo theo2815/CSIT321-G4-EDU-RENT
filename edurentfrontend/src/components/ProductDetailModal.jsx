@@ -146,7 +146,16 @@ export default function ProductDetailModal({
     const sellerId = listing?.user?.userId;
     if (!sellerId) return;
 
-    setIsStartingChat(true);
+    navigate('/messages', { 
+        state: { 
+            initiateChat: {
+                listingId: listing.listingId,
+                sellerId: sellerId
+            }
+        } 
+    });
+    onClose();
+
     try {
         const response = await startConversation(listing.listingId, currentUserId, sellerId);
         const fullConversation = response.data;
@@ -160,8 +169,6 @@ export default function ProductDetailModal({
     } catch (error) {
         console.error("Failed to start conversation:", error);
         alert("Could not start chat. Please try again.");
-    } finally {
-        setIsStartingChat(false);
     }
   };
 
