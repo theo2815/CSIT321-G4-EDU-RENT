@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 // Shared styles for authentication pages
 import '../static/Auth.css'; 
@@ -8,22 +7,26 @@ import '../static/Auth.css';
 import eduRentLogo from '../assets/edurentlogo.png'; 
 
 export default function ResetPasswordPage() {
+  const [searchParams] = useSearchParams();
+  const [token, setToken] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState({ type: '', content: '' });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Detect when Supabase finishes handling the recovery link from the email.
-  // Once the 'PASSWORD_RECOVERY' event fires, the user is temporarily logged in to allow the update.
+  // Get the token from the URL query parameter
   useEffect(() => {
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setMessage({ type: 'info', content: 'You are authenticated. Please enter your new password.' });
-      }
-    });
-  }, []);
-
+    const tokenFromUrl = searchParams.get('token');
+    if (!tokenFromUrl) {
+      setMessage({ 
+        type: 'error', 
+        content: 'Invalid or missing reset token. Please request a new password reset.' 
+      });
+      return;
+    }
+    setToken(tokenFromUrl);
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,7 +38,6 @@ export default function ResetPasswordPage() {
       return;
     }
     
-    // TO DO: Implement stronger password validation here (e.g., require numbers, uppercase letters, or special characters).
     if (password.length < 6) { 
       setMessage({ type: 'error', content: 'Password must be at least 6 characters.' });
       return;
@@ -44,25 +46,40 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      // Send the new password to Supabase to update the user's record
-      const { data, error } = await supabase.auth.updateUser({
-        password: password,
+      // Call your Spring Boot backend API to reset password
+      const response = await fetch('http://localhost:8080/api/v1/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          token, 
+          newPassword: password 
+        }),
       });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      setMessage({ type: 'success', content: 'Password updated successfully! Redirecting to login...' });
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      if (response.ok) {
+        setMessage({ 
+          type: 'success', 
+          content: data.message || 'Password successfully reset! Redirecting to login...' 
+        });
+        
+        // Redirect to login page after success
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      } else {
+        setMessage({ 
+          type: 'error', 
+          content: data.error || 'Failed to reset password. The token may be expired or invalid.' 
+        });
+      }
 
     } catch (error) {
       console.error('Password update error:', error);
-      if (error.message.includes("requires a valid session")) {
-        setMessage({ type: 'error', content: 'Invalid or expired session. Please request a new password reset link.' });
-      } else {
-        setMessage({ type: 'error', content: error.message || 'Failed to update password.' });
-      }
+      setMessage({ type: 'error', content: 'Network error. Please check if the backend server is running.' });
     } finally {
       setLoading(false);
     }

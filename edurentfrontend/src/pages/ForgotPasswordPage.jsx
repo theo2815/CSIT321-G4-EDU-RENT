@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient'; 
 
 // Shared styling for authentication pages
 import '../static/Auth.css'; 
@@ -19,30 +18,33 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      // Trigger the password reset email via Supabase
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        // Ensure this URL is allowed in our Supabase Authentication settings
-        // redirectTo: 'http://localhost:5173/reset-password', 
+      // Call your Spring Boot backend API
+      const response = await fetch('http://localhost:8080/api/v1/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
       });
 
-      if (error) {
-        throw error;
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage({ 
+          type: 'success', 
+          content: data.message || 'If an account with that email exists, a password reset link has been sent to your email.' 
+        });
+        setEmail(''); // Clear the email field
+      } else {
+        setMessage({ 
+          type: 'error', 
+          content: data.error || 'Failed to send reset instructions. Please try again.' 
+        });
       }
-
-      setMessage({ type: 'success', content: 'Password reset instructions sent! Check your email.' });
-      
-      // TO DO: Verify our authentication flow. Supabase defaults to sending a "Magic Link" 
-      // that users click to reset passwords. If we want them to manually enter an OTP code 
-      // on the next screen, we need to ensure our backend is configured for that.
-      // Otherwise, this navigation might confuse users who are waiting for a link.
-      setTimeout(() => {
-        navigate('/enter-otp', { state: { email } }); 
-      }, 2000);
-
 
     } catch (error) {
       console.error('Password reset error:', error);
-      setMessage({ type: 'error', content: error.message || 'Failed to send reset instructions.' });
+      setMessage({ type: 'error', content: 'Network error. Please check if the backend server is running.' });
     } finally {
       setLoading(false);
     }
