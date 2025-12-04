@@ -1,2 +1,0 @@
-Temporary change log for modal wiring:
-- LikesPage.jsx: add ProductDetailModal import and modal wiring

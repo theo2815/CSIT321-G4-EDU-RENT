@@ -317,7 +317,7 @@ export default function ProfilePage() {
       if (!window.confirm("Are you sure you want to delete this review?")) return;
       try {
           await deleteReview(reviewId);
-          window.location.reload(); 
+          onRefresh();
       } catch (error) {
           alert("Failed to delete review.");
       }
@@ -329,7 +329,7 @@ export default function ProfilePage() {
 
   const handleEditSuccess = () => {
       setEditingReview(null);
-      window.location.reload();
+      onRefresh();
   };
 
   // Load the user's profile information, listings, and reviews from the server
@@ -389,7 +389,7 @@ export default function ProfilePage() {
     } else if (loggedInUser) {
         fetchProfileData(loggedInUser.userId);
     }
-  }, [profileId, loggedInUser, fetchProfileData]);
+  }, [profileId, loggedInUser?.userId, fetchProfileData]);
 
   const openProfileModal = () => setIsProfileModalOpen(true);
   const closeProfileModal = () => setIsProfileModalOpen(false);
