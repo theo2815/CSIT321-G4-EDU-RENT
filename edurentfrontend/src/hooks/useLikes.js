@@ -1,31 +1,24 @@
-// This hooks manages liked listings, including fetching, liking, unliking, and state management
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getLikedListings, likeListing, unlikeListing } from '../services/apiService';
 
-// Manages global like state and handles API interactions
 export default function useLikes() {
   
-  // --- State ---
+  // --- State Management ---
 
-  // Set of IDs for efficient O(1) lookup
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   
-  // Tracks items currently being processed to prevent race conditions
   const [likingInProgress, setLikingInProgress] = useState(new Set());
   
-  // Full listing details for the display list
   const [likedListings, setLikedListings] = useState([]);
   
   const [isLoadingLikes, setIsLoadingLikes] = useState(true);
   const [likeError, setLikeError] = useState(null);
 
-  // --- Refs ---
+  // --- Refs (For safety inside async functions) ---
 
-  // Refs allow access to current state inside async callbacks
   const likedIdsRef = useRef(likedListingIds);
   const likingInProgressRef = useRef(likingInProgress);
 
-  // Keep refs synced with state
   useEffect(() => {
     likedIdsRef.current = likedListingIds;
   }, [likedListingIds]);
@@ -36,54 +29,56 @@ export default function useLikes() {
 
   // --- Data Fetching ---
 
-  // Fetches liked items from the API
   const fetchLikes = useCallback(async () => {
+    
+    const token = localStorage.getItem('eduRentUserData');
+    if (!token) {
+        setLikedListingIds(new Set());
+        setLikedListings([]);
+        setIsLoadingLikes(false);
+        return;
+    }
+
     setIsLoadingLikes(true);
     setLikeError(null);
+    
     try {
       const response = await getLikedListings();
       const listings = response.data || [];
       
-      // Create a Set of IDs for fast lookup
       const likedIds = new Set(listings.map(listing => listing.listingId));
       
       setLikedListings(listings);
       setLikedListingIds(likedIds);
     } catch (err) {
-      console.error("Failed to fetch liked listings:", err);
+      console.error("Oops, failed to fetch liked listings:", err);
       setLikeError("Could not load liked items. Please refresh.");
     } finally {
       setIsLoadingLikes(false);
     }
   }, []);
 
-  // Initial fetch on mount
   useEffect(() => {
     fetchLikes();
   }, [fetchLikes]);
 
 
-  // --- Handlers ---
+  // --- Event Handlers ---
 
-  // Toggles like status with race condition protection
   const handleLikeToggle = useCallback(async (listingId) => {
     
-    // Prevent double-clicks/overlapping requests
     if (likingInProgressRef.current.has(listingId)) {
-      console.log("Like action already in progress for item:", listingId);
+      console.log("Hold on, we're already processing this like action:", listingId);
       return;
     }
 
-    // Add to in-progress set
     const newLikingSet = new Set(likingInProgressRef.current).add(listingId);
     likingInProgressRef.current = newLikingSet;
     setLikingInProgress(newLikingSet);
     setLikeError(null);
 
-    // Check current status via ref
     const isCurrentlyLiked = likedIdsRef.current.has(listingId);
 
-    // Optimistic UI update: Toggle state immediately
     setLikedListingIds(prevIds => {
       const newIds = new Set(prevIds);
       if (isCurrentlyLiked) {
@@ -95,26 +90,23 @@ export default function useLikes() {
       return newIds;
     });
     
-    // API Call
     try {
       if (isCurrentlyLiked) {
         await unlikeListing(listingId);
-        console.log(`Unliked item ${listingId}`);
+        console.log(`Successfully unliked item ${listingId}`);
 
-        // Remove from list only after server confirmation
         setLikedListings(prev => prev.filter(item => item.listingId !== listingId));
 
       } else {
         await likeListing(listingId);
-        console.log(`Liked item ${listingId}`);
+        console.log(`Successfully liked item ${listingId}`);
       }
     } catch (err) {
-      // Revert state if API call fails
-      console.error("Failed to toggle like:", err);
+      console.error("Failed to toggle like on server:", err);
       setLikeError("Failed to update like. Please refresh.");
+      
       fetchLikes(); 
     } finally {
-      // Cleanup: Remove from in-progress set
       setLikingInProgress(prevSet => {
         const nextSet = new Set(prevSet);
         nextSet.delete(listingId);
@@ -124,6 +116,7 @@ export default function useLikes() {
     }
   }, [fetchLikes]);
 
+  // Expose the data and functions to the rest of the app
   return {
     likedListingIds,
     likedListings,

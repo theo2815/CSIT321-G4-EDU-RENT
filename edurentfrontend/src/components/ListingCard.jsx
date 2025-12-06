@@ -1,7 +1,8 @@
-// This component displays a single listing card with image, title, price, and like functionality
 import React, { useMemo } from 'react';
+// Import the auth modal hook so we can prompt guests to log in
+import { useAuthModal } from '../context/AuthModalContext';
 
-// Use a built-in base64 image as a backup so we don't have broken image icons
+// Use a built-in base64 image as a backup to prevent broken icons
 const defaultPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3e%3crect width='200' height='200' fill='%23f0f0f0'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='%23aaaaaa'%3eNo Image%3c/text%3e%3c/svg%3e";
 
 export default function ListingCard({ 
@@ -14,7 +15,10 @@ export default function ListingCard({
   variant = 'standard' // 'standard' | 'compact'
 }) { 
   
-  // Navigate to the listing unless a specific handler prevents it
+  // Get the login modal trigger
+  const { openLogin } = useAuthModal();
+
+  // Handle card clicks to navigate to details
   const handleClick = (e) => {
     if (onClick) {
       e.preventDefault();
@@ -22,34 +26,39 @@ export default function ListingCard({
     }
   };
   
-  // Prevent the main card click from firing when the user clicks the "Like" heart
+  // Handle the like button click safely
   const handleLikeClick = (e) => {
-    e.stopPropagation(); 
+    e.stopPropagation(); // Don't trigger the card navigation
+    
+    // If the user isn't logged in, prompt them to sign in first
+    if (!currentUserId) {
+        openLogin();
+        return;
+    }
+
+    // Otherwise, proceed with the like action
     if (onLikeClick) {
       onLikeClick(listing.listingId);
     }
   };
 
-  // Pull out the data we need to display, using safe defaults if something is missing
+  // Extract listing details safely with fallback values
   const categoryName = listing?.category?.name || "Category";
   const listingType = listing?.listingType || "For Sale";
   const title = listing?.title || "No title";
   const description = listing?.description || "";
   const price = listing?.price || 0;
   
-  // Check if the item is already sold
   const isSold = listing?.status === 'Sold';
-
-  // Count the likes currently stored in the listing data
   const serverLikeCount = listing?.likes ? listing.likes.length : 0;
 
-  // Check if the user had already liked this item when the data first loaded
+  // Check if the user liked this in the initial data load
   const wasLikedInitial = useMemo(() => {
     if (!listing?.likes || !currentUserId) return false;
     return listing.likes.some(like => like.id?.userId === currentUserId);
   }, [listing?.likes, currentUserId]);
 
-  // Update the like count immediately for the UI (optimistic update)
+  // Calculate the display count for immediate UI feedback (optimistic update)
   let displayLikeCount = serverLikeCount;
   if (!isSold) {
     if (isLiked && !wasLikedInitial) {
@@ -58,18 +67,15 @@ export default function ListingCard({
       displayLikeCount--;
     }
   }
-  // Ensure we never show a negative number
   displayLikeCount = Math.max(0, displayLikeCount);
 
-  // Figure out which image to show
-  // 1. Try the direct image string.
-  // 2. If missing, look for an array of images.
-  // 3. Prefer the one marked as 'coverPhoto', or just take the first one.
+  // Determine the best image to display
   let coverImageUrl = listing?.image || null;
 
   if (!coverImageUrl) {
       const rawImages = listing?.listingImages || listing?.images || [];
       if (rawImages.length > 0) {
+          // Try to find the cover photo, otherwise grab the first one
           const coverObj = rawImages.find(img => img.coverPhoto) || rawImages[0];
           coverImageUrl = coverObj ? coverObj.imageUrl : null;
       }
@@ -80,10 +86,10 @@ export default function ListingCard({
   const typeClassName = isRent ? 'rent' : 'sale';
   const typeText = isRent ? 'For Rent' : 'For Sale';
   
-  // Disable liking if the current user is the owner
-  const isOwner = currentUserId === listing?.user?.userId || currentUserId === listing?.ownerId;
+  // Check if the current viewer owns this item
+  const isOwner = !!currentUserId && (currentUserId === listing?.user?.userId || currentUserId === listing?.ownerId);
 
-  // Fix image paths to ensure they work on both localhost and production
+  // Ensure image URLs are complete
   const getFullImageUrl = (path) => {
       if (!path) return null;
       return path.startsWith('http') ? path : `http://localhost:8080${path}`;
@@ -91,7 +97,6 @@ export default function ListingCard({
 
   return (
     <div 
-      // Add classes for styling based on if it's compact or sold
       className={`listing-card ${variant === 'compact' ? 'compact' : ''} ${isSold ? 'sold-item' : ''}`} 
       onClick={handleClick} 
       role="button" 
@@ -101,19 +106,19 @@ export default function ListingCard({
 
       <div className="listing-image">
         
-        {/* Overlay badge if the item is sold */}
         {isSold && (
           <div className="sold-badge-overlay">
             <span>SOLD</span>
           </div>
         )}
 
-        {/* Like button (Heart) with count */}
+        {/* Like Badge */}
         {variant !== 'compact' && (
         <div 
             className="like-badge"
             onClick={!isOwner ? handleLikeClick : undefined}
-            title={isOwner ? `${displayLikeCount} likes` : (isLiked ? 'Unlike' : 'Like')}
+            // Update tooltip: Owner gets count, Guest gets Login prompt, User gets Like/Unlike
+            title={isOwner ? `${displayLikeCount} likes` : (!currentUserId ? 'Login to like' : (isLiked ? 'Unlike' : 'Like'))}
             style={{
                 position: 'absolute',
                 top: '8px',
@@ -130,7 +135,6 @@ export default function ListingCard({
                 transition: 'transform 0.2s',
                 border: '1px solid rgba(0,0,0,0.05)'
             }}
-            // Simple hover effect for non-owners
             onMouseEnter={(e) => !isOwner && (e.currentTarget.style.transform = 'scale(1.05)')}
             onMouseLeave={(e) => !isOwner && (e.currentTarget.style.transform = 'scale(1)')}
         >
@@ -144,7 +148,7 @@ export default function ListingCard({
             )}
         </div>
       )}
-        {/* Show the actual image, or the icon if no image exists */}
+        
         {coverImageUrl ? (
           <img 
             src={getFullImageUrl(coverImageUrl)} 
@@ -161,7 +165,6 @@ export default function ListingCard({
         )}
       </div>
 
-      {/* Listing details text */}
       <div className="listing-content">
         {variant !== 'compact' && <div className="listing-category">{categoryName}</div>}
         

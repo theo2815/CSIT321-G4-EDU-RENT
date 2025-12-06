@@ -5,13 +5,16 @@ import MarkAsSoldModal from './MarkAsSoldModal';
 import ReviewModal from './ReviewModal';
 import UserRatingDisplay from './UserRatingDisplay';
 
+// Hook for the Login/Register Modals
+import { useAuthModal } from '../context/AuthModalContext';
+
 // Styles and Assets
 import '../static/ProductDetailModal.css';
 import '../static/ProfilePage.css';
 import '../static/DashboardPage.css';
 import defaultAvatar from '../assets/default-avatar.png'; 
 
-// Helper to extract seller info safely
+// Helper to ensure the UI doesn't crash if user data is incomplete
 const getSellerInfo = (listingUser) => {
   const defaultUser = { userId: null, fullName: 'Seller Unknown', profilePictureUrl: null, school: { name: 'N/A' } };
   const user = listingUser || defaultUser;
@@ -35,27 +38,27 @@ export default function ProductDetailModal({
   initialContext 
 }) {
   const navigate = useNavigate();
-  
-  // Modal state
+  const { openLogin } = useAuthModal(); 
+
+  // Local state for modals and chat loading status
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [showMarkSoldModal, setShowMarkSoldModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false); 
 
-  // Safety check
   if (!listing) return null;
 
-  // Listing status and ownership
+  // Determine the status and ownership of the item
   const isSold = listing.status === 'Sold';
-  const isOwner = currentUserId === listing?.user?.userId;
+  const isOwner = currentUserId && currentUserId === listing?.user?.userId;
   const seller = getSellerInfo(listing.user);
 
-  // basic listing info
   const priceDisplay = `₱${(listing.price || 0).toFixed(2)}`;
-  const isRent = listing.listingType?.toUpperCase().includes('RENT');
-  const typeText = isRent ? 'Want to rent the item?' : 'Want to buy the item?';
-
-  // Like count logic
+  
+  // --- Optimistic Like Count ---
+  // We calculate the like count on the client side to give immediate visual feedback 
+  // to the user while the server processes the request in the background.
   const serverLikeCount = listing.likes ? listing.likes.length : 0;
+  
   const wasLikedInitial = useMemo(() => {
     if (!listing.likes || !currentUserId) return false;
     return listing.likes.some(like => like.id?.userId === currentUserId);
@@ -66,11 +69,11 @@ export default function ProductDetailModal({
   else if (!isLiked && wasLikedInitial) displayLikeCount--;
   displayLikeCount = Math.max(0, displayLikeCount);
 
-  // Image Handling
+  // --- Image Handling ---
   const rawImages = listing.listingImages || listing.images || [];
   const images = Array.isArray(rawImages) ? rawImages.map(img => img.imageUrl) : [];
 
-  // Prioritize Cover Photo, fallback to first image
+  // Default to the cover photo, otherwise fall back to the first image
   const initialImageIndex = Math.max(0, images.findIndex(img => 
       rawImages.find(li => li.imageUrl === img)?.isCoverPhoto 
   ));
@@ -79,32 +82,34 @@ export default function ProductDetailModal({
   const showArrows = images.length > 1;
   const currentImageUrl = images[currentImageIndex] || 'https://via.placeholder.com/400x400?text=No+Image';
 
+  // Ensure image URLs are absolute paths for localhost or production
   const getFullImageUrl = (path) => {
       if (!path) return 'https://via.placeholder.com/400x400?text=No+Image';
       return path.startsWith('http') ? path : `http://localhost:8080${path}`;
   };
 
-  // Context Logic (Derived from Props)
-  // 1. Seller Logic: How many chats exist for this item?
+  // --- Context Logic ---
+  // We check `initialContext` to determine the relationship between the user and this item
+  // (e.g., Are they the buyer? Is there an existing chat? Have they left a review?)
   const chatCount = initialContext?.chatCount || 0;
-
-  // 2. Buyer Logic: Do I have an existing chat?
   const existingChat = initialContext?.existingChat;
-  
-  // 3. Transaction Logic: Did I buy this specific item?
   const isBuyerOfSoldItem = isSold && existingChat && existingChat.transactionId;
-
-  // 4. Review Logic: Has this transaction been reviewed?
   const hasAlreadyReviewed = existingChat?.hasReviewed;
 
+  // --- Handlers ---
 
-  // Event Handlers
   const handlePrevImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1); };
   const handleNextImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1); };
+  
   const handleOverlayClick = (e) => { if (e.target === e.currentTarget) onClose(); };
 
   const handleLikeClick = (e) => {
     e.stopPropagation(); 
+    // Force login if a guest tries to like an item
+    if (!currentUserId) {
+        openLogin();
+        return;
+    }
     if (onLikeClick) onLikeClick(listing.listingId);
   };
 
@@ -113,9 +118,9 @@ export default function ProductDetailModal({
     onClose();
   };
 
-  // Review Button Handler
   const handleReviewClick = () => {
     if (hasAlreadyReviewed) {
+        // If reviewed, redirect to seller profile to view it
         navigate(`/profile/${seller.id}`); 
         onClose();
     } else {
@@ -123,14 +128,14 @@ export default function ProductDetailModal({
     }
   };
 
+  // Handles initiating a new chat or resuming an old one
   const handleChatClick = async () => {
     if (!currentUserId) {
-        alert("Please log in to chat with the seller.");
-        navigate('/login');
+        openLogin();
         return;
     }
 
-    // Case A: Resume existing chat
+    // If chat exists, resume it directly
     if (existingChat) {
         navigate('/messages', { 
             state: { 
@@ -142,10 +147,11 @@ export default function ProductDetailModal({
         return;
     }
 
-    // Case B: Create new chat
+    // Otherwise, create a new chat session
     const sellerId = listing?.user?.userId;
     if (!sellerId) return;
 
+    // Optimistic navigation to make the app feel faster
     navigate('/messages', { 
         state: { 
             initiateChat: {
@@ -159,16 +165,15 @@ export default function ProductDetailModal({
     try {
         const response = await startConversation(listing.listingId, currentUserId, sellerId);
         const fullConversation = response.data;
+        // Update navigation state with the confirmed conversation ID
         navigate('/messages', { 
             state: { 
                 openConversation: fullConversation,
                 openConversationId: fullConversation.conversationId 
             } 
         });
-        onClose();
     } catch (error) {
         console.error("Failed to start conversation:", error);
-        alert("Could not start chat. Please try again.");
     }
   };
 
@@ -176,7 +181,7 @@ export default function ProductDetailModal({
     <div className="modal-overlay visible" onClick={handleOverlayClick} role="dialog" aria-modal="true">
       <div className="product-modal-content">
 
-        {/* Left Column: Images*/}
+        {/* --- Left Column: Image Gallery --- */}
         <section className="product-image-section">
           <img
             src={getFullImageUrl(currentImageUrl)}
@@ -192,7 +197,7 @@ export default function ProductDetailModal({
           )}
         </section>
 
-        {/*Right Column: Details*/}
+        {/* --- Right Column: Item Details --- */}
         <section className="product-details-section">
           <button onClick={onClose} className="product-modal-close-btn" aria-label="Close modal">&times;</button>
 
@@ -215,6 +220,7 @@ export default function ProductDetailModal({
                 )}
               </h2>
               
+              {/* Like Button */}
               <div 
                   onClick={(!isOwner && !isSold) ? handleLikeClick : undefined}
                   style={{ 
@@ -239,10 +245,45 @@ export default function ProductDetailModal({
 
             <p className="product-info-price">{priceDisplay}</p>
             
+            {/* --- Deal Methods (Merged from Modified Code) --- */}
             <div className="product-info-block">
-              <span className="product-info-label">Location:</span>
-              <span className="product-info-value">{listing.meetupLocation || 'N/A'}</span>
+              <span className="product-info-label">Deal Method:</span>
+              <div className="product-info-value">
+                
+                {/* 1. Meet-up Option */}
+                {listing.allowMeetup && (
+                    <div style={{ marginBottom: '0.4rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>📌</span>
+                        <div>
+                            <span style={{ fontWeight: '600', color: 'var(--text-color)' }}>Meet-up</span>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                Location: {listing.meetupLocation || 'Not specified'}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 2. Delivery Option */}
+                {listing.allowDelivery && (
+                    <div style={{ marginBottom: '0.4rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>🚚</span>
+                        <div>
+                            <span style={{ fontWeight: '600', color: 'var(--text-color)' }}>Delivery</span>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                via {listing.deliveryOptions || 'Courier'}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 3. Fallback */}
+                {!listing.allowMeetup && !listing.allowDelivery && (
+                    <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>No deal method specified</span>
+                )}
+              </div>
             </div>
+            {/* --- End Deal Methods --- */}
+
             <div className="product-info-block">
               <span className="product-info-label">Condition:</span>
               <span className="product-info-value">{listing.condition || 'Not specified'}</span>
@@ -255,10 +296,10 @@ export default function ProductDetailModal({
             </div>
           </div>
 
-          {/* Seller Info & Actions */}
+          {/* --- Seller Info & Action Buttons --- */}
           <div className="seller-info-section">
             
-            {/* 1. OWNER VIEW (User owns this listing) */}
+            {/* VIEW 1: I AM THE OWNER */}
             {isOwner ? (
               <>
                 <div className="seller-info-header">
@@ -315,7 +356,7 @@ export default function ProductDetailModal({
               </>
 
             ) : (
-              /* 2. BUYER/VISITOR VIEW */
+              /* VIEW 2: I AM A BUYER / VISITOR */
               <>
                 <div className="seller-info-header">
                   <img
@@ -344,7 +385,7 @@ export default function ProductDetailModal({
                 {/* Buyer Actions */}
                 {isSold ? (
                     isBuyerOfSoldItem ? (
-                        /* Scenario: Sold to THIS current user -> Allow Review or Show Reviewed State */
+                        /* Scenario A: It was sold to ME -> Show Review Options */
                         <>
                             <div className="action-note" style={{ color: '#2ecc71', fontWeight: 'bold' }}>
                                 SOLD TO YOU
@@ -364,13 +405,13 @@ export default function ProductDetailModal({
                             </button>
                         </>
                     ) : (
-                        /* Scenario: Sold to someone else -> Disabled */
+                        /* Scenario B: Sold to someone else -> Show Disabled State */
                         <button className="btn-chat" disabled style={{ backgroundColor: "#e0e0e0", color: "#888", cursor: "not-allowed" }}>
                             This item is already sold
                         </button>
                     )
                 ) : (
-                    /* Scenario: Available -> Allow Chat */
+                    /* Scenario C: Available -> Allow Chat */
                     <button 
                       className="btn-chat" 
                       onClick={handleChatClick} 
@@ -387,7 +428,6 @@ export default function ProductDetailModal({
       </div>
 
       {/* --- Modals --- */}
-      
       {showMarkSoldModal && (
         <MarkAsSoldModal 
           listing={listing}

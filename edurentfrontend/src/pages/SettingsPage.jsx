@@ -470,7 +470,7 @@ export default function SettingsPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('eduRentUserData');
-    navigate('/login');
+    navigate('/dashboard');
   };
 
   if (isLoading) {

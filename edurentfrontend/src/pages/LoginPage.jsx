@@ -91,6 +91,11 @@ export default function LoginPage() {
     }
   };
 
+  // --- NEW HANDLER: Guest Mode ---
+  const handleGuestMode = () => {
+    navigate('/dashboard');
+  };
+
   return (
     <div className="auth-container">
       {/* Left side: Logo and branding */}
@@ -177,6 +182,29 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
+
+          {/* --- NEW: Guest Mode Button --- */}
+          <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+                <span style={{ fontSize: '0.8rem' }}>OR</span>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }}></div>
+            </div>
+
+            <button
+                type="button"
+                onClick={handleGuestMode}
+                className="auth-btn"
+                style={{ 
+                    backgroundColor: 'transparent', 
+                    border: '1px solid var(--border-color)', 
+                    color: 'var(--text-color)',
+                    fontWeight: '600'
+                }}
+            >
+                Continue as Guest
+            </button>
+          </div>
 
           {/* Registration Link */}
           <div className="auth-redirect-link">

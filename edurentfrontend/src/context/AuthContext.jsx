@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     localStorage.removeItem('eduRentUserData');
     setUserData(null);
-    navigate('/login');
+    navigate('/dashboard');
   }, [navigate]);
 
   const fetchUser = useCallback(async () => {

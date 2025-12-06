@@ -339,7 +339,7 @@ export default function ManageListingsPage() {
        return acc;
   }, { active: 0, inactive: 0, others: 0 });
 
-  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/login'); };
+  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/dashboard'); };
 
   // Handle clicks on notifications
   const handleNotificationClick = async (notification) => {

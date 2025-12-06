@@ -60,9 +60,13 @@ public class SecurityConfig {
                 // --- Public Endpoints ---
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/schools/**").permitAll()
-                .requestMatchers("/api/v1/categories/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/uploads/listing-images/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}").permitAll() 
+                .requestMatchers(HttpMethod.GET, "/api/v1/reviews/user/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/reviews/transaction/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/listings/**").permitAll()
                 
                 // This forces a simple path match, bypassing strict MVC matcher issues
                 .requestMatchers("/api/v1/conversations/{id}/messages/upload-image").permitAll()

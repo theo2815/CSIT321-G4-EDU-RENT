@@ -718,7 +718,7 @@ export default function MessagesPage() {
     }
   };
 
-  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/login'); };
+  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/dashboard'); };
   
   const handleArchiveChat = async () => {
       if (!selectedConversation) return;

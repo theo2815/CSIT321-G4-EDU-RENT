@@ -68,7 +68,7 @@ export default function CategoryPage() {
   
   // Fetch the category name and its listings when the page loads
   useEffect(() => {
-    if (!userData || !categoryId) return; 
+    if (!categoryId) return;
 
     const fetchData = async () => {
       setIsLoadingPageData(true);
@@ -116,7 +116,7 @@ export default function CategoryPage() {
     };
     
     fetchData();
-  }, [categoryId, userData]); 
+  }, [categoryId]); 
 
   // Check if any part of the page is loading or has failed
   const isPageLoading = isLoadingAuth || isLoadingPageData || isLoadingLikes;
