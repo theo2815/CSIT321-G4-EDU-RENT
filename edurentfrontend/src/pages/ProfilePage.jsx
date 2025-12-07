@@ -137,15 +137,16 @@ function ErrorDisplay({ error, onRetry }) {
 function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
   const reviewerName = review.reviewer?.fullName || 'Anonymous';
   const reviewerAvatar = getImageUrl(review.reviewer?.profilePictureUrl) || defaultAvatar;
-   
+  const reviewerId = review.reviewer?.userId;
+    
   const listingTitle = review.listing?.title || 'Unknown Item';
-   
+    
   const productCoverImage = review.listing?.imageUrl 
     ? getImageUrl(review.listing.imageUrl) 
     : defaultProductPlaceholder;
 
   const reviewDate = review.createdAt ? new Date(review.createdAt).toLocaleDateString() : 'N/A';
-   
+    
   const reviewImageObjects = review.reviewImages || [];
   const reviewImageUrls = reviewImageObjects.map(img => img.url);
 
@@ -176,7 +177,22 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                       style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} 
                       onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }} 
                     />
-                    <strong className="review-reviewer">{reviewerName}</strong>
+                    <Link 
+                      to={reviewerId ? `/profile/${reviewerId}` : '#'}
+                      className="review-reviewer"
+                      style={{ 
+                          color: 'var(--primary-color)', // Blue color to indicate clickable
+                          textDecoration: 'none',
+                          fontWeight: '700', // Keep it bold
+                          cursor: reviewerId ? 'pointer' : 'default'
+                      }}
+                      onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                      onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                      onClick={(e) => !reviewerId && e.preventDefault()} // Prevent click if no ID
+                    >
+                        {reviewerName}
+                    </Link>
+
                     <span style={{ fontSize: '0.8rem', color: '#6c757d' }}>• {reviewDate}</span>
                 </div>
                 
@@ -190,14 +206,22 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                     {isAuthor && (
                         <div style={{ marginLeft: '0.5rem', display: 'flex', gap: '5px' }}>
                             <button 
-                                onClick={() => onEdit(review)} 
+                                onClick={(e) => { 
+                                    // Prevent default link behavior to stop page refresh
+                                    e.preventDefault(); 
+                                    onEdit(review); 
+                                }}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', color: '#6c757d' }} 
                                 title="Edit"
                             >
                                 ✏️
                             </button>
                             <button 
-                                onClick={() => onDelete(review.id)} 
+                                onClick={(e) => {
+                                    // Prevent default link behavior to stop page refresh
+                                    e.preventDefault(); 
+                                    onDelete(review.id);
+                                }}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', color: '#e53935' }} 
                                 title="Delete"
                             >
@@ -275,64 +299,9 @@ export default function ProfilePage() {
   const [editingReview, setEditingReview] = useState(null);
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
 
-  // Filter listings based on the selected sub-tab (Sale, Rent, Sold)
-  const typeFilteredListings = useMemo(() => {
-    return originalListings.filter(item => {
-      const status = item.status?.toLowerCase() || 'available';
-      const type = item.listingType?.toLowerCase() || '';
-
-      switch (listingFilter) {
-        case 'sold':
-          return status === 'sold';
-        case 'rent':
-          return status !== 'sold' && type.includes('rent');
-        case 'sale':
-          return status !== 'sold' && type.includes('sale');
-        case 'all':
-        default:
-          // 'All' shows everything except Sold items, as Sold has its own tab
-          return status !== 'sold';
-      }
-    });
-  }, [originalListings, listingFilter]);
-
-  // Apply search functionality on top of the filtered list
-  const { searchQuery, handleSearch, filteredListings: displayedListings } = useSearch(
-    typeFilteredListings,
-    ['title', 'description']
-  );
-
-  // Determine if we are viewing our own profile
-  const isMyProfile = !profileId || (loggedInUser && profileUser && String(loggedInUser.userId) === String(profileUser.userId));
-
-  // --- Actions & Handlers ---
-
-  const openReviewImages = (images, index = 0) => {
-      setModalImages(images);
-      setModalInitialIndex(index);
-      setIsImageModalOpen(true);
-  };
-
-  const handleDeleteReview = async (reviewId) => {
-      if (!window.confirm("Are you sure you want to delete this review?")) return;
-      try {
-          await deleteReview(reviewId);
-          onRefresh();
-      } catch (error) {
-          alert("Failed to delete review.");
-      }
-  };
-
-  const handleEditReview = (review) => {
-      setEditingReview(review);
-  };
-
-  const handleEditSuccess = () => {
-      setEditingReview(null);
-      onRefresh();
-  };
-
-  // Load the user's profile information, listings, and reviews from the server
+  // --- Data Fetching Logic ---
+  
+  // 1. Define fetchProfileData first so it is available for dependencies
   const fetchProfileData = useCallback(async (targetId) => {
     setIsLoadingPageData(true);
     setPageDataError(null);
@@ -381,6 +350,70 @@ export default function ProfilePage() {
       setIsLoadingPageData(false);
     }
   }, [profileId, loggedInUser, refetchLikes]); 
+
+  // 2. Define refreshData second, as it depends on fetchProfileData
+  const refreshData = useCallback(() => {
+    const idToFetch = profileId || loggedInUser?.userId;
+    if (idToFetch) {
+        fetchProfileData(idToFetch);
+    }
+  }, [profileId, loggedInUser, fetchProfileData]);
+
+  // --- Search & Filtering Logic ---
+
+  // Filter listings based on the selected sub-tab (Sale, Rent, Sold)
+  const typeFilteredListings = useMemo(() => {
+    return originalListings.filter(item => {
+      const status = item.status?.toLowerCase() || 'available';
+      const type = item.listingType?.toLowerCase() || '';
+
+      switch (listingFilter) {
+        case 'sold': return status === 'sold';
+        case 'rent': return status !== 'sold' && type.includes('rent');
+        case 'sale': return status !== 'sold' && type.includes('sale');
+        case 'all': default: return status !== 'sold';
+      }
+    });
+  }, [originalListings, listingFilter]);
+
+  // Apply search functionality on top of the filtered list
+  const { searchQuery, handleSearch, filteredListings: displayedListings } = useSearch(
+    typeFilteredListings,
+    ['title', 'description']
+  );
+
+  // Determine if we are viewing our own profile
+  const isMyProfile = !profileId || (loggedInUser && profileUser && String(loggedInUser.userId) === String(profileUser.userId));
+
+  // --- Actions & Handlers ---
+
+  const openReviewImages = (images, index = 0) => {
+      setModalImages(images);
+      setModalInitialIndex(index);
+      setIsImageModalOpen(true);
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+      if (!window.confirm("Are you sure you want to delete this review?")) return;
+      try {
+          await deleteReview(reviewId);
+          // Refresh data immediately to show the list without the deleted review
+          refreshData(); 
+      } catch (error) {
+          alert("Failed to delete review.");
+      }
+  };
+
+  const handleEditReview = (review) => {
+      setEditingReview(review);
+      // We don't refresh here to avoid reloading the page while the modal opens
+  };
+
+  const handleEditSuccess = () => {
+      setEditingReview(null);
+      // Refresh data only after the edit is successfully saved
+      refreshData();
+  };
 
   // Trigger data load when the component mounts or the ID changes
   useEffect(() => {

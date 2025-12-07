@@ -1,37 +1,35 @@
 package com.edurent.crc.controller;
 
-import java.util.List; // Updated
+import java.util.HashSet; // Updated
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.Set; 
-import java.util.HashSet;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.security.core.Authentication;
 
 import com.edurent.crc.dto.ListingDTO;
 import com.edurent.crc.dto.ReviewDTO;
+import com.edurent.crc.dto.ReviewImageDTO;
 import com.edurent.crc.dto.UserDTO;
 import com.edurent.crc.entity.ListingImageEntity;
 import com.edurent.crc.entity.ReviewEntity;
-import com.edurent.crc.entity.ReviewImageEntity;
 import com.edurent.crc.entity.TransactionEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.service.ReviewService;
-import com.edurent.crc.dto.ReviewImageDTO;
 
 
 @RestController
@@ -78,13 +76,16 @@ public class ReviewController {
             ));
         }
 
-        TransactionEntity transaction = review.getTransaction();
-        if (transaction != null) {
-            if (transaction.getBuyer().getUserId().equals(review.getReviewer().getUserId())) {
-                dto.setReviewerRole("BUYER");
-            } else {
-                dto.setReviewerRole("SELLER");
-            }
+        try {
+            TransactionEntity transaction = review.getTransaction();
+            if (transaction != null) {
+                if (transaction.getBuyer() != null && review.getReviewer() != null) {
+                    if (transaction.getBuyer().getUserId().equals(review.getReviewer().getUserId())) {
+                        dto.setReviewerRole("BUYER");
+                    } else {
+                        dto.setReviewerRole("SELLER");
+                    }
+                }
             if (transaction.getListing() != null) {
                 ListingDTO listingDto = new ListingDTO();
                 listingDto.setListingId(transaction.getListing().getListingId());
@@ -103,6 +104,10 @@ public class ReviewController {
                 }
                 dto.setListing(listingDto);
             }
+        }
+        } catch (jakarta.persistence.EntityNotFoundException | org.hibernate.ObjectNotFoundException e) {
+            System.err.println("Warning: Review " + review.getReviewId() + " points to a missing transaction.");
+            dto.setReviewerRole("UNKNOWN"); 
         }
         return dto;
     }

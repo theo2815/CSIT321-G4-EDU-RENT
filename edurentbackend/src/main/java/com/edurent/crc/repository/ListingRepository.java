@@ -29,6 +29,9 @@ public interface ListingRepository extends JpaRepository<ListingEntity, Long> {
     List<ListingEntity> findByStatus(String status);
     List<ListingEntity> findByCategory_CategoryIdAndStatus(Long categoryId, String status);
 
+    List<ListingEntity> findByStatusIn(List<String> statuses);
+    List<ListingEntity> findByCategory_CategoryIdAndStatusIn(Long categoryId, List<String> statuses);
+
 
 
 }

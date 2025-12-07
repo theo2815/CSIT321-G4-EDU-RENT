@@ -87,7 +87,7 @@ public class ConversationController {
                 }
                 dto.setListing(listingDto);
 
-                Optional<TransactionEntity> transaction = transactionRepository.findByListingId(entity.getListing().getListingId());
+                Optional<TransactionEntity> transaction = transactionRepository.findLatestByListingId(entity.getListing().getListingId());
                 
                 if (transaction.isPresent()) {
                     TransactionEntity t = transaction.get();

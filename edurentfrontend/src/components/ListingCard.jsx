@@ -1,8 +1,6 @@
 import React, { useMemo } from 'react';
-// Import the auth modal hook so we can prompt guests to log in
 import { useAuthModal } from '../context/AuthModalContext';
 
-// Use a built-in base64 image as a backup to prevent broken icons
 const defaultPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3e%3crect width='200' height='200' fill='%23f0f0f0'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='%23aaaaaa'%3eNo Image%3c/text%3e%3c/svg%3e";
 
 export default function ListingCard({ 
@@ -12,13 +10,11 @@ export default function ListingCard({
   onLikeClick, 
   currentUserId, 
   isLiking,
-  variant = 'standard' // 'standard' | 'compact'
+  variant = 'standard'
 }) { 
   
-  // Get the login modal trigger
   const { openLogin } = useAuthModal();
 
-  // Handle card clicks to navigate to details
   const handleClick = (e) => {
     if (onClick) {
       e.preventDefault();
@@ -26,41 +22,38 @@ export default function ListingCard({
     }
   };
   
-  // Handle the like button click safely
   const handleLikeClick = (e) => {
-    e.stopPropagation(); // Don't trigger the card navigation
-    
-    // If the user isn't logged in, prompt them to sign in first
+    e.stopPropagation(); 
     if (!currentUserId) {
         openLogin();
         return;
     }
-
-    // Otherwise, proceed with the like action
     if (onLikeClick) {
       onLikeClick(listing.listingId);
     }
   };
 
-  // Extract listing details safely with fallback values
   const categoryName = listing?.category?.name || "Category";
   const listingType = listing?.listingType || "For Sale";
   const title = listing?.title || "No title";
   const description = listing?.description || "";
   const price = listing?.price || 0;
   
+  // Status Checks
   const isSold = listing?.status === 'Sold';
+  const isRented = listing?.status === 'Rented';
+  const rentalInfo = listing?.transaction;
+
   const serverLikeCount = listing?.likes ? listing.likes.length : 0;
 
-  // Check if the user liked this in the initial data load
   const wasLikedInitial = useMemo(() => {
     if (!listing?.likes || !currentUserId) return false;
     return listing.likes.some(like => like.id?.userId === currentUserId);
   }, [listing?.likes, currentUserId]);
 
-  // Calculate the display count for immediate UI feedback (optimistic update)
+  // Optimistic UI update for likes (disabled if item is unavailable)
   let displayLikeCount = serverLikeCount;
-  if (!isSold) {
+  if (!isSold && !isRented) {
     if (isLiked && !wasLikedInitial) {
       displayLikeCount++; 
     } else if (!isLiked && wasLikedInitial) {
@@ -69,13 +62,10 @@ export default function ListingCard({
   }
   displayLikeCount = Math.max(0, displayLikeCount);
 
-  // Determine the best image to display
   let coverImageUrl = listing?.image || null;
-
   if (!coverImageUrl) {
       const rawImages = listing?.listingImages || listing?.images || [];
       if (rawImages.length > 0) {
-          // Try to find the cover photo, otherwise grab the first one
           const coverObj = rawImages.find(img => img.coverPhoto) || rawImages[0];
           coverImageUrl = coverObj ? coverObj.imageUrl : null;
       }
@@ -86,18 +76,21 @@ export default function ListingCard({
   const typeClassName = isRent ? 'rent' : 'sale';
   const typeText = isRent ? 'For Rent' : 'For Sale';
   
-  // Check if the current viewer owns this item
   const isOwner = !!currentUserId && (currentUserId === listing?.user?.userId || currentUserId === listing?.ownerId);
 
-  // Ensure image URLs are complete
   const getFullImageUrl = (path) => {
       if (!path) return null;
       return path.startsWith('http') ? path : `http://localhost:8080${path}`;
   };
 
+  const formatDate = (dateString) => {
+     if (!dateString) return '';
+     return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
   return (
     <div 
-      className={`listing-card ${variant === 'compact' ? 'compact' : ''} ${isSold ? 'sold-item' : ''}`} 
+      className={`listing-card ${variant === 'compact' ? 'compact' : ''} ${(isSold || isRented) ? 'sold-item' : ''}`} 
       onClick={handleClick} 
       role="button" 
       tabIndex={0}
@@ -106,19 +99,39 @@ export default function ListingCard({
 
       <div className="listing-image">
         
-        {isSold && (
+        {/* Status Overlay for Sold or Rented */}
+        {(isSold || isRented) && (
           <div className="sold-badge-overlay">
-            <span>SOLD</span>
+            {isSold && <span>SOLD</span>}
+            
+            {isRented && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', transform: 'rotate(-15deg)' }}>
+                    <span style={{ transform: 'none', marginBottom: '4px', borderColor: '#2ecc71', backgroundColor: '#2ecc71' }}>
+                        RENTED
+                    </span>
+                    {rentalInfo && rentalInfo.startDate && rentalInfo.endDate && (
+                        <div style={{ 
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)', 
+                            color: '#fff', 
+                            padding: '2px 8px', 
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            marginTop: '2px'
+                        }}>
+                            {formatDate(rentalInfo.startDate)} - {formatDate(rentalInfo.endDate)}
+                        </div>
+                    )}
+                </div>
+            )}
           </div>
         )}
 
-        {/* Like Badge */}
         {variant !== 'compact' && (
         <div 
             className="like-badge"
             onClick={!isOwner ? handleLikeClick : undefined}
-            // Update tooltip: Owner gets count, Guest gets Login prompt, User gets Like/Unlike
-            title={isOwner ? `${displayLikeCount} likes` : (!currentUserId ? 'Login to like' : (isLiked ? 'Unlike' : 'Like'))}
+            title={isOwner ? `${displayLikeCount} likes` : (!currentUserId ? 'Login to like' : (isSold ? 'Item is sold' : (isRented ? 'Item is rented' : (isLiked ? 'Unlike' : 'Like'))))}
             style={{
                 position: 'absolute',
                 top: '8px',

@@ -1,6 +1,8 @@
 package com.edurent.crc.entity;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -18,7 +20,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
@@ -88,9 +89,9 @@ public class ListingEntity {
     @JsonManagedReference(value = "listing-images")
     private Set<ListingImageEntity> images;
 
-    @OneToOne(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference(value = "listing-transaction")
-    private TransactionEntity transaction;
+    private List<TransactionEntity> transactions = new ArrayList<>();
 
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference(value = "listing-likes")
@@ -242,12 +243,12 @@ public class ListingEntity {
         this.images = images;
     }
 
-    public TransactionEntity getTransaction() {
-        return transaction;
+    public List<TransactionEntity> getTransactions() {
+        return transactions;
     }
 
-    public void setTransaction(TransactionEntity transaction) {
-        this.transaction = transaction;
+    public void setTransactions(List<TransactionEntity> transactions) {
+        this.transactions = transactions;
     }
 
     public Set<LikeEntity> getLikes() {
