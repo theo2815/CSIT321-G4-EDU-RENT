@@ -2,6 +2,7 @@ package com.edurent.crc.controller;
 
 import com.edurent.crc.dto.AuthResponse;
 import com.edurent.crc.dto.ForgotPasswordRequest;
+import com.edurent.crc.dto.ChangePasswordRequest;
 import com.edurent.crc.dto.LoginRequest;
 import com.edurent.crc.dto.RegisterRequest;
 import com.edurent.crc.dto.ResetPasswordRequest;
@@ -52,6 +53,25 @@ public class AuthController {
         } catch (Exception e) {
             // Catches bad credentials or other login issues
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthResponse(null, "Invalid email or password."));
+        }
+    }
+
+    // Change Password for authenticated user
+    @PutMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(@RequestBody ChangePasswordRequest request,
+                                                              org.springframework.security.core.Authentication authentication) {
+        Map<String, String> response = new HashMap<>();
+        try {
+            com.edurent.crc.entity.UserEntity currentUser = (com.edurent.crc.entity.UserEntity) authentication.getPrincipal();
+            userService.changePassword(currentUser, request.getCurrentPassword(), request.getNewPassword());
+            response.put("message", "Password changed successfully.");
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        } catch (Exception e) {
+            response.put("message", "Failed to change password.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 

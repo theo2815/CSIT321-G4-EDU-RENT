@@ -13,7 +13,8 @@ import defaultAvatar from '../assets/default-avatar.png';
 // API & Services
 import { 
   getCurrentUser, 
-  updateUserProfile 
+  updateUserProfile,
+  changePassword,
 } from '../services/apiService';
 import { supabase } from '../supabaseClient';
 
@@ -147,7 +148,7 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
 }
 
 // Allows the user to change their password
-function ChangePasswordForm() {
+function ChangePasswordForm({ userEmail }) {
     const [passwords, setPasswords] = useState({
         currentPassword: '',
         newPassword: '',
@@ -155,10 +156,18 @@ function ChangePasswordForm() {
     });
     const [message, setMessage] = useState({ type: '', content: '' });
     const [loading, setLoading] = useState(false);
+    const [email] = useState(userEmail || '');
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setPasswords(prev => ({ ...prev, [name]: value }));
+    };
+
+    const validateStrength = (pwd) => {
+      // Basic strength rule: min 8 chars with a number
+      const minLen = pwd.length >= 8;
+      const hasNumber = /\d/.test(pwd);
+      return minLen && hasNumber;
     };
 
     const handleSubmit = async (e) => {
@@ -169,23 +178,23 @@ function ChangePasswordForm() {
             setMessage({ type: 'error', content: 'New passwords do not match.' });
             return;
         }
-        if (passwords.newPassword.length < 6) {
-             setMessage({ type: 'error', content: 'New password must be at least 6 characters.' });
+        if (!validateStrength(passwords.newPassword)) {
+             setMessage({ type: 'error', content: 'New password must be at least 8 characters and include a number.' });
              return;
         }
 
         setLoading(true);
-        
-        // TO DO: Connect this to the actual backend API endpoint (e.g., /api/user/change-password)
-        // Currently, this simulates a network request.
         try {
-           await new Promise(resolve => setTimeout(resolve, 1000)); 
-           setMessage({ type: 'success', content: 'Password changed successfully! (Placeholder)' });
-           setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        } catch (error) {
-           setMessage({ type: 'error', content: 'Failed to change password.' });
+          // Delegate to backend: verifies current and updates to new
+          await changePassword(passwords.currentPassword, passwords.newPassword);
+          setMessage({ type: 'success', content: 'Password changed successfully!' });
+          setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (err) {
+          console.error('Password change failed:', err);
+          const serverMsg = err?.response?.data?.message;
+          setMessage({ type: 'error', content: serverMsg || 'Failed to change password.' });
         } finally {
-           setLoading(false);
+          setLoading(false);
         }
     };
 
@@ -201,6 +210,7 @@ function ChangePasswordForm() {
                       <div>
                         <label htmlFor="newPassword" className="form-label">New password</label>
                         <input type="password" id="newPassword" name="newPassword" value={passwords.newPassword} onChange={handleChange} required className="form-input"/>
+                        <div className="form-hint" style={{ marginTop: '0.4rem' }}>Use at least 8 characters and include a number.</div>
                       </div>
                       <div>
                         <label htmlFor="confirmPassword" className="form-label">Confirm password</label>
@@ -532,7 +542,9 @@ export default function SettingsPage() {
                 uploading={uploading}
             />
           )}
-          {activeSetting === 'change-password' && <ChangePasswordForm />}
+          {activeSetting === 'change-password' && (
+            <ChangePasswordForm userEmail={userData?.email} />
+          )}
           {activeSetting === 'notification' && <NotificationSettingsForm />}
           {activeSetting === 'theme' && <ThemeSettingsForm />}
         </main>
