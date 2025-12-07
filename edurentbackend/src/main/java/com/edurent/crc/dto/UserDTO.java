@@ -4,6 +4,7 @@ public class UserDTO {
     private Long userId;
     private String fullName;
     private String profilePictureUrl;
+    private String schoolName;
 
     // Constructors, Getters, Setters
     public UserDTO() {}
@@ -22,4 +23,7 @@ public class UserDTO {
     
     public String getProfilePictureUrl() { return profilePictureUrl; }
     public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
+
+    public String getSchoolName() { return schoolName; }
+    public void setSchoolName(String schoolName) { this.schoolName = schoolName; }
 }

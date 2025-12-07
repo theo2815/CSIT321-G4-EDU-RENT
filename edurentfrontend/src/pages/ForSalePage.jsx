@@ -8,6 +8,7 @@ import useSearch from '../hooks/useSearch';
 import usePageLogic from '../hooks/usePageLogic';
 import useFilteredListings from '../hooks/useFilteredListings'; 
 import useLikes from '../hooks/useLikes';
+import { useAuthModal } from '../context/AuthModalContext';
 
 // Import UI components
 import Header from '../components/Header';
@@ -28,7 +29,8 @@ const Icons = {
 };
 
 export default function ForSalePage() {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
+  const { openLogin } = useAuthModal();
 
   // Get current user details and authentication status
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
@@ -167,7 +169,9 @@ export default function ForSalePage() {
           <p className="cta-subtitle">
             Turn your unused items into cash by listing them on Edu-Rent.
           </p>
-          <Link to="/list-item" className="cta-button">Start Selling Today</Link>
+          <button className="cta-button" onClick={() => userData ? navigate('/list-item') : openLogin('/list-item')}>
+            Start Selling Today
+          </button>
         </section>
       </main>
 

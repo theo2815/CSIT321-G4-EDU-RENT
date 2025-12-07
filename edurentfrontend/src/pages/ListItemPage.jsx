@@ -256,6 +256,8 @@ export default function ListItemPage() {
   const isPageLoading = isLoadingAuth || isLoadingData;
   const pageError = authError || error;
 
+  
+
   if (isPageLoading) {
     return (
         <div className="profile-page"> 

@@ -10,10 +10,14 @@ const AuthModalContext = createContext();
 
 export const AuthModalProvider = ({ children }) => {
   const [view, setView] = useState(null);
-  
   const [data, setData] = useState({});
+  const [pendingRedirect, setPendingRedirect] = useState(null);
 
-  const openLogin = useCallback(() => setView('LOGIN'), []);
+  const openLogin = useCallback((redirectPath = null) => {
+    if (redirectPath) setPendingRedirect(redirectPath);
+    setView('LOGIN');
+  }, []);
+
   const openRegister = useCallback(() => setView('REGISTER'), []);
   const openForgotPassword = useCallback(() => setView('FORGOT'), []);
   
@@ -30,10 +34,11 @@ export const AuthModalProvider = ({ children }) => {
   const closeModal = useCallback(() => {
     setView(null);
     setData({});
+    setPendingRedirect(null);
   }, []);
 
   return (
-    <AuthModalContext.Provider value={{ openLogin, openRegister, openForgotPassword, openOtp, openResetPassword, closeModal }}>
+    <AuthModalContext.Provider value={{ openLogin, openRegister, openForgotPassword, openOtp, openResetPassword, pendingRedirect, closeModal }}>
       {children}
 
       {view === 'LOGIN' && (

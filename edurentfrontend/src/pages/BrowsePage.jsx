@@ -8,6 +8,7 @@ import useSearch from '../hooks/useSearch';
 import usePageLogic from '../hooks/usePageLogic';
 import useFilteredListings from '../hooks/useFilteredListings'; 
 import useLikes from '../hooks/useLikes';
+import { useAuthModal } from '../context/AuthModalContext';
 
 // Import UI components
 import Header from '../components/Header';
@@ -35,6 +36,8 @@ export default function BrowsePage() {
 
   // Load the latest listings and categories from the server
   const { allListings, categories, isLoadingData, dataError, refetchData } = usePageData(!!userData);
+
+  const { openLogin } = useAuthModal();
 
   // Filter the available listings based on what the user types in the search bar
   const { searchQuery, handleSearch, filteredListings } = useSearch(
@@ -193,7 +196,9 @@ export default function BrowsePage() {
           <p className="cta-subtitle">
             Turn your unused items into cash by listing them on Edu-Rent.
           </p>
-          <Link to="/list-item" className="cta-button">Start Selling Today</Link>
+          <button className="cta-button" onClick={() => userData ? navigate('/list-item') : openLogin('/list-item')}>
+            Start Selling Today
+          </button>
         </section>
       </main>
 

@@ -22,6 +22,7 @@ const getSellerInfo = (listingUser) => {
     id: user.userId,
     username: user.fullName || 'Seller Unknown',
     avatarUrl: user.profilePictureUrl || null,
+    school: user.school?.name || 'N/A',
     reviewCount: 'N/A', 
     ratingAvg: 'N/A',   
   };
@@ -315,6 +316,7 @@ export default function ProductDetailModal({
                   />
                   <div className="seller-details">
                     <div className="seller-username">{seller.username} (You)</div>
+                    <div style={{ fontSize: '0.8rem', color: '#6c757d', marginBottom: '2px' }}>{seller.school}</div>
                     <UserRatingDisplay userId={currentUserId} initialData={sellerRatingInitialData} />
                   </div>
                 </div>
@@ -375,6 +377,7 @@ export default function ProductDetailModal({
                             {seller.username}
                         </Link>
                     </div>
+                    <div style={{ fontSize: '0.8rem', color: '#6c757d', marginBottom: '2px' }}>{seller.school}</div>
                       <UserRatingDisplay 
                           userId={seller.id} 
                           initialData={sellerRatingInitialData} 

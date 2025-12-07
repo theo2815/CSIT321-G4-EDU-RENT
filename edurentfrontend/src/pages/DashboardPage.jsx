@@ -7,6 +7,7 @@ import usePageLogic from '../hooks/usePageLogic';
 import usePageData from '../hooks/usePageData';     
 import useSearch from '../hooks/useSearch';       
 import useLikes from '../hooks/useLikes';
+import { useAuthModal } from '../context/AuthModalContext';
 
 // Import UI components
 import ListingCard from '../components/ListingCard';
@@ -74,6 +75,8 @@ export default function DashboardPage() {
   
   // Fetch the main content (listings and categories) from the server
   const { allListings, categories, isLoadingData, dataError, refetchData } = usePageData(!!userData);
+
+  const { openLogin } = useAuthModal();
   
   // Handle the search bar logic to filter the listings
   const { searchQuery, handleSearch, filteredListings } = useSearch(
@@ -250,7 +253,12 @@ export default function DashboardPage() {
           <p className="cta-subtitle">
             Turn your unused items into cash by listing them on Edu-Rent.
           </p>
-          <Link to="/list-item" className="cta-button">Start Selling Today</Link>
+          <button 
+            className="cta-button" 
+            onClick={() => userData ? navigate('/list-item') : openLogin('/list-item')}
+          >
+            Start Selling Today
+          </button>
         </section>
       </main>
 

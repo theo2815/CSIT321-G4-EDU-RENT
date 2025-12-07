@@ -340,7 +340,7 @@ function ThemeSettingsForm() {
 
 // --- MAIN PAGE COMPONENT ---
 export default function SettingsPage() {
-  const { retryAuth } = useAuth(); // Used to refresh global user data after an update
+  const { retryAuth, logout } = useAuth();
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -478,15 +478,11 @@ export default function SettingsPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('eduRentUserData');
-    navigate('/dashboard');
-  };
-
+  
   if (isLoading) {
      return (
        <div className="profile-page">
-          <Header userName="" onLogout={handleLogout} />
+          <Header userName="" onLogout={logout} />
           <SettingsSkeleton />
        </div>
      );
@@ -495,7 +491,7 @@ export default function SettingsPage() {
    if (error) {
      return (
        <div className="profile-page">
-          <Header userName="" onLogout={handleLogout} />
+          <Header userName="" onLogout={logout} />
           <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
        </div>
      );
@@ -505,7 +501,7 @@ export default function SettingsPage() {
     <div className="profile-page">
       <Header userName={userData?.fullName?.split(' ')[0]} 
         profilePictureUrl={userData?.profilePictureUrl}
-        onLogout={handleLogout}
+        onLogout={logout} 
         onNotificationClick={handleNotificationClick} 
       />
 

@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { loginUser } from "../../services/apiService";
 import useAuth from '../../hooks/useAuth';
-import '../../static/Auth.css'; // Reusing your existing auth styles
-import '../../static/ProductDetailModal.css'; // Reusing modal styles
+import { useAuthModal } from '../../context/AuthModalContext'; // Using the modal context to handle redirects
+import '../../static/Auth.css';
+import '../../static/ProductDetailModal.css';
 
-// We pass 'onClose' to close the modal
-// We pass 'onSwitchToRegister' and 'onSwitchToForgot' to handle navigation between modals
 export default function LoginModal({ isOpen, onClose, onSwitchToRegister, onSwitchToForgot }) {
+  const navigate = useNavigate();
+  // Access retryAuth for state updates and pendingRedirect for navigation logic
+  const { retryAuth } = useAuth();
+  const { pendingRedirect } = useAuthModal();
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -14,9 +19,6 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister, onSwit
   const [message, setMessage] = useState({ type: '', content: '' });
   const [loading, setLoading] = useState(false);
   
-  // Access the context function to update global user state immediately after login
-  const { retryAuth } = useAuth();
-
   if (!isOpen) return null;
 
   const handleChange = (e) => {
@@ -45,21 +47,23 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister, onSwit
 
       if (!token) throw new Error('Login failed: No token received.');
 
-      // 1. Save token
+      // Save the session token
       const userDataToStore = { token: token, email: formData.email };
       localStorage.setItem('eduRentUserData', JSON.stringify(userDataToStore));
 
-      // 2. Update global Auth Context
+      // Update global Auth Context
       await retryAuth();
 
-      // 3. Close Modal (User remains on the current page)
+      // Check if there is a pending path to redirect to (e.g. user clicked "Rent" before logging in)
+      if (pendingRedirect) {
+        navigate(pendingRedirect);
+      }
+
       setMessage({ type: 'success', content: successMessage || 'Login successful!' });
       
       // Short delay to show success message before closing
       setTimeout(() => {
         onClose();
-        // Optional: Reload page if necessary, but Context update should handle UI changes
-        // window.location.reload(); 
       }, 1000);
 
     } catch (error) {

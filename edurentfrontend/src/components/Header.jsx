@@ -5,6 +5,7 @@ import NotificationsPopup from './NotificationsPopup';
 
 // Hooks for handling Auth state and the Auth Modals
 import useAuth from '../hooks/useAuth';
+import { useAuthModal } from '../context/AuthModalContext';
 
 // API helpers to talk to the backend
 import { 
@@ -31,7 +32,8 @@ export default function Header({
   onNotificationClick 
 }) {
   // Grab the current user state and modal triggers from our custom hooks
-  const { userData } = useAuth(); 
+  const { userData } = useAuth();
+  const { openLogin } = useAuthModal();
 
   // UI State management
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -154,7 +156,7 @@ export default function Header({
     if (userData) {
       navigate('/list-item');
     } else {
-      openLogin();
+      openLogin('/list-item');
     }
   };
   
@@ -194,6 +196,10 @@ export default function Header({
 
         {/* Right Section: Auth State Dependent */}
         <div className="header-right">
+
+          <button className="sell-button" onClick={handleSellClick} style={{ marginRight: '1rem' }}>
+            Sell
+          </button>
           
           {/* SCENARIO 1: User is Logged In */}
           {userData ? (
@@ -219,10 +225,6 @@ export default function Header({
                   <img src={messengerIcon} alt="Messages" className="header-icon" />
                 </Link>
               </div>
-
-              <button className="sell-button" onClick={handleSellClick}>
-                Sell
-              </button>
 
               {/* Profile Dropdown */}
               <div className="user-dropdown">

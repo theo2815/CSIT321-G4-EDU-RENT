@@ -8,6 +8,7 @@ import Stomp from 'stompjs';
 // Custom hooks to manage complex logic outside the view
 import usePageLogic from '../hooks/usePageLogic';
 import useChatScroll from '../hooks/useChatScroll';
+import useAuth from '../hooks/useAuth'; 
 
 // UI Components
 import Header from '../components/Header';
@@ -184,6 +185,7 @@ export default function MessagesPage() {
   
   const location = useLocation(); 
   const navigate = useNavigate();
+  const { retryAuth, logout } = useAuth();
 
   // Visibility toggles for mobile views and menus
   const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
@@ -385,7 +387,8 @@ export default function MessagesPage() {
           const otherUser = { 
               userId: otherUserObj.userId || otherUserObj.id || 0, 
               fullName: otherUserObj.fullName || otherUserObj.name || 'Unknown User', 
-              profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null 
+              profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null,
+              school: otherUserObj.schoolName || 'N/A'
           };
           
           let productImageUrl = null;
@@ -400,7 +403,8 @@ export default function MessagesPage() {
               otherUser: {
                   id: otherUser.userId,
                   name: otherUser.fullName,
-                  avatar: otherUser.profilePictureUrl
+                  avatar: otherUser.profilePictureUrl,
+                  school: otherUser.school
               },
               product: conv.listing ? {
                   ...conv.listing, 
@@ -718,7 +722,7 @@ export default function MessagesPage() {
     }
   };
 
-  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/dashboard'); };
+
   
   const handleArchiveChat = async () => {
       if (!selectedConversation) return;
@@ -747,10 +751,10 @@ export default function MessagesPage() {
   };
 
   if (isLoading) {
-      return <div className="profile-page"><Header userName="" onLogout={handleLogout} /><MessagesSkeleton /></div>;
+      return <div className="profile-page"><Header userName="" onLogout={logout} /><MessagesSkeleton /></div>;
   }
   if (error) {
-      return <div className="profile-page"><Header userName={userName} onLogout={handleLogout} /><div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div></div>;
+      return <div className="profile-page"><Header userName={userName} onLogout={logout} /><div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div></div>;
   }
 
   const filterOptions = ['All Messages', 'Selling', 'Buying', 'Unread', 'Archived'];
@@ -760,7 +764,7 @@ export default function MessagesPage() {
       {/* Header */}
         <Header userName={userName} 
           profilePictureUrl={userData?.profilePictureUrl}
-          onLogout={handleLogout} 
+          onLogout={logout} 
           onNotificationClick={handleNotificationClick} 
         />
 
@@ -912,10 +916,14 @@ export default function MessagesPage() {
                 <Link 
                   to={`/profile/${selectedConversation.otherUser.id}`} 
                   className="user-name" 
-                  style={{ textDecoration: 'none', color: 'var(--text-color)', cursor: 'pointer', lineHeight: '1.2' }}
+                  style={{ textDecoration: 'none', color: 'var(--primary-color)', cursor: 'pointer', lineHeight: '1.2' }}
                 >
                   {selectedConversation.otherUser.name}
                 </Link>
+
+                <span style={{ fontSize: '0.8rem', color: '#6c757d' }}>
+                  {selectedConversation.otherUser.school}
+                </span>
 
                 <UserRatingDisplay 
                     userId={selectedConversation.otherUser.id} 

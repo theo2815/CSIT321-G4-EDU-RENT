@@ -8,6 +8,7 @@ import useSearch from '../hooks/useSearch';
 import usePageLogic from '../hooks/usePageLogic';
 import useFilteredListings from '../hooks/useFilteredListings'; 
 import useLikes from '../hooks/useLikes';
+import { useAuthModal } from '../context/AuthModalContext';
 
 // Import UI components
 import Header from '../components/Header';
@@ -34,6 +35,9 @@ export default function ForRentPage() {
 
   // Load all listings from the server
   const { allListings, isLoadingData, dataError, refetchData } = usePageData(!!userData);
+
+  const { openLogin } = useAuthModal();
+  const navigate = useNavigate();
   
   // Create a specific list containing only items available for rent
   const rentListings = useFilteredListings(allListings, 'rent');
@@ -166,7 +170,9 @@ export default function ForRentPage() {
            <p className="cta-subtitle">
              Turn your unused items into cash by listing them on Edu-Rent.
            </p>
-           <Link to="/list-item" className="cta-button">Start Selling Today</Link>
+           <button className="cta-button" onClick={() => userData ? navigate('/list-item') : openLogin('/list-item')}>
+             Start Selling Today
+           </button>
         </section>
       </main>
 

@@ -107,10 +107,14 @@ public class ConversationController {
                 }
             }
             
-            List<UserDTO> participants = entity.getParticipants().stream().map(p -> 
-                new UserDTO(p.getUser().getUserId(), p.getUser().getFullName(), p.getUser().getProfilePictureUrl())
-            ).collect(Collectors.toList());
+            List<UserDTO> participants = entity.getParticipants().stream().map(p -> {
+                UserDTO u = new UserDTO(p.getUser().getUserId(), p.getUser().getFullName(), p.getUser().getProfilePictureUrl());
+                u.setSchoolName(p.getUser().getSchool() != null ? p.getUser().getSchool().getName() : "N/A");
+                return u;
+            }).collect(Collectors.toList());
+            
             dto.setParticipants(participants);
+            
             
             return dto;
         }).collect(Collectors.toList());

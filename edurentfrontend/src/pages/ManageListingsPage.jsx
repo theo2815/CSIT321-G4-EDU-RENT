@@ -7,6 +7,8 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 import MarkAsSoldModal from '../components/MarkAsSoldModal'; 
 
+import useAuth from '../hooks/useAuth'; 
+
 // Services
 import { 
   getCurrentUser, 
@@ -74,6 +76,7 @@ function ManageListingsSkeleton() {
 
 export default function ManageListingsPage() {
   const navigate = useNavigate();
+  const { retryAuth, logout } = useAuth();
 
   // Data State
   const [userName, setUserName] = useState('');
@@ -339,7 +342,7 @@ export default function ManageListingsPage() {
        return acc;
   }, { active: 0, inactive: 0, others: 0 });
 
-  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/dashboard'); };
+  
 
   // Handle clicks on notifications
   const handleNotificationClick = async (notification) => {
@@ -413,7 +416,7 @@ export default function ManageListingsPage() {
   if (isLoading) {
       return (
           <div className="profile-page">
-              <Header userName="" onLogout={handleLogout} />
+              <Header userName="" onLogout={logout} />
               <ManageListingsSkeleton />
           </div>
       );
@@ -422,7 +425,7 @@ export default function ManageListingsPage() {
   if (error) {
        return (
            <div className="profile-page">
-               <Header userName={userName} onLogout={handleLogout} />
+               <Header userName={userName} onLogout={logout} />
                <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
            </div>
        );
@@ -432,7 +435,7 @@ export default function ManageListingsPage() {
     <div className="profile-page">
       <Header userName={userName} 
         profilePictureUrl={userData?.profilePictureUrl}
-        onLogout={handleLogout} 
+        onLogout={logout} 
         onNotificationClick={handleNotificationClick}
       />
 
@@ -628,7 +631,7 @@ export default function ManageListingsPage() {
                              {!isSold && (
                                <button
                                   className="btn btn-small btn-outline"
-                                  onClick={(e) => handleEdit(e, item.listingId)}
+                                  onClick={() => handleEdit(item.listingId)}
                                >
                                   Edit
                                </button>
