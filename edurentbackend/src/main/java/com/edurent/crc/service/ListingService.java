@@ -2,6 +2,7 @@ package com.edurent.crc.service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -213,7 +214,7 @@ public class ListingService {
     }
     
     public List<ListingEntity> getAllListings() { 
-        return listingRepository.findByStatus("Available");
+        return listingRepository.findByStatusIn(Arrays.asList("Available", "Rented"));
     }
 
     public Optional<ListingEntity> getListingById(Long listingId) { 
@@ -225,7 +226,7 @@ public class ListingService {
     }
 
     public List<ListingEntity> getListingsByCategoryId(Long categoryId) { 
-        return listingRepository.findByCategory_CategoryIdAndStatus(categoryId, "Available");
+        return listingRepository.findByCategory_CategoryIdAndStatusIn(categoryId, Arrays.asList("Available", "Rented"));
     }
 
     // --- UPDATED: deleteListing with Supabase deletion ---

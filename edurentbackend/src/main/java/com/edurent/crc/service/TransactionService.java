@@ -1,15 +1,19 @@
 package com.edurent.crc.service;
 
-import com.edurent.crc.entity.ListingEntity; 
-import com.edurent.crc.entity.TransactionEntity; 
+import java.util.Date;
+import java.util.List; 
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.edurent.crc.entity.ListingEntity;
+import com.edurent.crc.entity.TransactionEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.ListingRepository;
 import com.edurent.crc.repository.TransactionRepository;
 import com.edurent.crc.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class TransactionService {
@@ -35,12 +39,13 @@ public class TransactionService {
         return transactionRepository.findByBuyerId(buyerId);
     }
 
+    @Transactional 
     public TransactionEntity createTransaction(TransactionEntity transaction, Long listingId, Long buyerId) { 
         ListingEntity listing = listingRepository.findById(listingId) 
-                .orElseThrow(() -> new RuntimeException("Listing not found with id: " + listingId));
+                .orElseThrow(() -> new RuntimeException("Listing not found"));
         
         UserEntity buyer = userRepository.findById(buyerId) 
-                .orElseThrow(() -> new RuntimeException("Buyer not found with id: " + buyerId));
+                .orElseThrow(() -> new RuntimeException("Buyer not found"));
         
         UserEntity seller = listing.getUser();
 
@@ -56,6 +61,42 @@ public class TransactionService {
         transaction.setSeller(seller);
         
         return transactionRepository.save(transaction);
+    }
+
+    // --- NEW: Update Rental Dates ---
+    public TransactionEntity updateRentalDates(Long transactionId, Date startDate, Date endDate) {
+        TransactionEntity transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Transaction not found: " + transactionId));
+
+        transaction.setStartDate(startDate);
+        transaction.setEndDate(endDate);
+
+        return transactionRepository.save(transaction);
+    }
+
+    // --- NEW: Mark Rental as Returned (Available) ---
+    @org.springframework.transaction.annotation.Transactional
+    public void completeRental(Long transactionId) {
+        TransactionEntity transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Transaction not found: " + transactionId));
+
+        ListingEntity listing = transaction.getListing();
+
+        // 1. Revert listing status to Available
+        listing.setStatus("Available");
+        listingRepository.save(listing);
+
+        // 2. Mark transaction as Completed
+        transaction.setStatus("Completed");
+        // We set end date to "now" to reflect early return? 
+        transaction.setEndDate(new Date()); 
+        transactionRepository.save(transaction);
+
+    } 
+
+    // --- NEW: Helper to find active transaction by listing ---
+    public Optional<TransactionEntity> getActiveTransactionByListing(Long listingId) {
+        return transactionRepository.findLatestByListingId(listingId);
     }
 }
 

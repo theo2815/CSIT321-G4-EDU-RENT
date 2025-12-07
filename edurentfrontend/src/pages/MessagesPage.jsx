@@ -424,6 +424,12 @@ export default function MessagesPage() {
           };
       }).filter(Boolean);
 
+      processedConvs.sort((a, b) => {
+          const dateA = new Date(a.lastMessageDate || 0);
+          const dateB = new Date(b.lastMessageDate || 0);
+          return dateB - dateA; // Descending order (Newest first)
+      });
+
       setConversations(processedConvs);
       
       // 3. Handle External Navigation (Start New Chat)

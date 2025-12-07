@@ -1,5 +1,3 @@
-// This component is a modal to mark a listing as sold by selecting a buyer from existing conversations
-
 import React, { useState, useEffect } from 'react';
 import { getConversationsForUser, createTransaction } from '../services/apiService';
 import defaultAvatar from '../assets/default-avatar.png';
@@ -10,6 +8,15 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
   const [loading, setLoading] = useState(true);
   const [selectedBuyerId, setSelectedBuyerId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  // New state for rental dates
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Determine mode based on listing type
+  const isRent = listing.listingType?.toUpperCase().includes('RENT');
+  const actionLabel = isRent ? 'Mark as Rented' : 'Mark as Sold';
+  const pastTenseLabel = isRent ? 'rented' : 'sold';
 
   useEffect(() => {
     const fetchRelevantChats = async () => {
@@ -38,21 +45,30 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
 
   const handleConfirm = async () => {
     if (!selectedBuyerId) return;
+    
+    // Validation: Require dates if this is a rental
+    if (isRent && (!startDate || !endDate)) {
+        alert("Please select both start and end dates for the rental.");
+        return;
+    }
+
     setSubmitting(true);
 
     try {
       await createTransaction({
         listingId: listing.listingId,
         buyerId: selectedBuyerId,
-        transactionType: 'Sale', // Or 'Rent' depending on context
-        status: 'Completed'
+        transactionType: isRent ? 'Rent' : 'Sale',
+        status: isRent ? 'Active' : 'Completed', // Active for ongoing rent, Completed for immediate sale
+        startDate: isRent ? startDate : null,
+        endDate: isRent ? endDate : null
       });
       
-      alert("Item marked as sold successfully!");
+      alert(`Item marked as ${pastTenseLabel} successfully!`);
       if (onSuccess) onSuccess();
       onClose();
     } catch (error) {
-      console.error("Failed to mark as sold:", error);
+      console.error(`Failed to mark as ${pastTenseLabel}:`, error);
       alert("Failed to create transaction. Please try again.");
     } finally {
       setSubmitting(false);
@@ -68,12 +84,12 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
     <div className="modal-overlay visible" style={{ zIndex: 1100 }}>
       <div className="mark-sold-modal-content">
         <div className="modal-header">
-          <h3 className="modal-title">Mark as Sold</h3>
+          <h3 className="modal-title">{actionLabel}</h3>
           <button onClick={onClose} className="modal-close-btn">&times;</button>
         </div>
 
         <div className="mark-sold-body">
-          <p className="mark-sold-question">Who did you sell it to?</p>
+          <p className="mark-sold-question">Who did you {isRent ? 'rent' : 'sell'} it to?</p>
 
           {loading ? (
             <div className="skeleton-loader">Loading chats...</div>
@@ -110,6 +126,36 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
               })}
             </div>
           )}
+          
+          {/* Date Inputs - Only visible for Rentals after a buyer is selected */}
+          {isRent && selectedBuyerId && (
+            <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #dee2e6' }}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.8rem' }}>Rental Period</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                        <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '0.25rem', color: '#6c757d' }}>Start Date</label>
+                        <input 
+                            type="date" 
+                            className="form-input" 
+                            style={{ padding: '0.4rem', width: '100%' }}
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '0.25rem', color: '#6c757d' }}>End Date</label>
+                        <input 
+                            type="date" 
+                            className="form-input" 
+                            style={{ padding: '0.4rem', width: '100%' }}
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                        />
+                    </div>
+                </div>
+            </div>
+          )}
+
         </div>
 
         <div className="modal-footer">
@@ -119,7 +165,7 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
             disabled={!selectedBuyerId || submitting}
             style={{ width: '100%' }}
           >
-            {submitting ? 'Confirming...' : 'Confirm Sold'}
+            {submitting ? 'Confirming...' : `Confirm ${isRent ? 'Rented' : 'Sold'}`}
           </button>
         </div>
       </div>

@@ -559,3 +559,23 @@ export const deleteReview = async (reviewId) => {
     throw error;
   }
 };
+
+// NEW
+export const getTransactionByListing = async (listingId) => {
+    return apiClient.get(`/transactions/listing/${listingId}`);
+};
+
+// NEW
+export const updateRentalDates = async (transactionId, startDate, endDate) => {
+    const formData = new FormData();
+    formData.append('startDate', startDate);
+    formData.append('endDate', endDate);
+    return apiClient.put(`/transactions/${transactionId}/dates`, null, {
+        params: { startDate, endDate }
+    });
+};
+
+// NEW
+export const returnRental = async (transactionId) => {
+    return apiClient.put(`/transactions/${transactionId}/return`);
+};
