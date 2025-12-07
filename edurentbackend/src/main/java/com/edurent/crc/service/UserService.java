@@ -173,5 +173,20 @@ public class UserService {
 
         return userRepository.save(currentUser);
     }
+
+    // Change password for current user
+    public void changePassword(UserEntity currentUser, String currentPassword, String newPassword) {
+        // verify current password
+        if (!passwordEncoder.matches(currentPassword, currentUser.getPasswordHash())) {
+            throw new IllegalArgumentException("Current password is incorrect.");
+        }
+        // basic strength check (server-side optional)
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new IllegalArgumentException("New password must be at least 8 characters.");
+        }
+        // update hash
+        currentUser.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(currentUser);
+    }
 }
 

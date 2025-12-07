@@ -37,6 +37,20 @@ apiClient.interceptors.request.use(
   }
 );
 
+// Redirect to login on 401s
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401) {
+      // Optional: clear stale token and redirect
+      localStorage.removeItem('eduRentUserData');
+      // Preserve SPA flow; let caller decide UI message
+    }
+    return Promise.reject(error);
+  }
+);
+
 // --- Authentication ---
 
 export const registerUser = async (userData) => {
@@ -64,6 +78,20 @@ export const loginUser = async (credentials) => {
     return response;
   } catch (error) {
     console.error("Error during loginUser API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+// Change password using backend verification
+export const changePassword = async (currentPassword, newPassword) => {
+  try {
+    const response = await apiClient.put(`/auth/change-password`, {
+      currentPassword,
+      newPassword,
+    });
+    return response;
+  } catch (error) {
+    console.error("Error during changePassword API call:", error.response || error.message);
     throw error;
   }
 };
