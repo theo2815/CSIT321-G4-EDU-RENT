@@ -1,5 +1,6 @@
 package com.edurent.crc.repository;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,4 +33,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
            "AND l.status = 'Rented' " +
            "AND t.endDate < CURRENT_TIMESTAMP")
     List<TransactionEntity> findExpiredRentals();
+
+    @Query("SELECT t FROM TransactionEntity t WHERE t.transactionType = 'Rent' AND t.status = 'Active' AND t.endDate < :now")
+    List<TransactionEntity> findExpiredRentals(@Param("now") Date now);
 }
