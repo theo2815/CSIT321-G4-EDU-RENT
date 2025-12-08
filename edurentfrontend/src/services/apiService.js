@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '../supabaseClient';
 
 // Backend URL
 const API_URL = 'http://localhost:8080/api/v1';
@@ -346,6 +347,54 @@ export const markNotificationAsUnread = async (notificationId) => {
     console.error(`Error during markNotificationAsUnread(${notificationId}) API call:`, error.response || error.message);
     throw error;
   }
+};
+
+// --- Notification Preferences (Supabase) ---
+
+// Table: notification_preferences
+// Columns: user_id (int8, PK), all_notifications (bool), email (bool), likes (bool), messages (bool), updated_at (timestamp)
+
+export const getNotificationPreferences = async (userId) => {
+  const { data, error } = await supabase
+    .from('notification_preferences')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+  if (error && error.code !== 'PGRST116') { // PGRST116: No rows returned
+    console.error('Supabase getNotificationPreferences error:', error);
+    throw error;
+  }
+  // Default preferences if none exist
+  return (
+    data || {
+      user_id: userId,
+      all_notifications: true,
+      email: false,
+      likes: true,
+      messages: true,
+    }
+  );
+};
+
+export const upsertNotificationPreferences = async (prefs) => {
+  const payload = {
+    user_id: prefs.user_id,
+    all_notifications: !!prefs.all_notifications,
+    email: !!prefs.email,
+    likes: !!prefs.likes,
+    messages: !!prefs.messages,
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await supabase
+    .from('notification_preferences')
+    .upsert(payload, { onConflict: 'user_id' })
+    .select()
+    .single();
+  if (error) {
+    console.error('Supabase upsertNotificationPreferences error:', error);
+    throw error;
+  }
+  return data;
 };
 
 // --- Chat & Conversations ---

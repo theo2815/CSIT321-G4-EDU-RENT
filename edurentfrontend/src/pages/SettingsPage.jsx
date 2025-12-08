@@ -15,6 +15,8 @@ import {
   getCurrentUser, 
   updateUserProfile,
   changePassword,
+  getNotificationPreferences,
+  upsertNotificationPreferences,
 } from '../services/apiService';
 import { supabase } from '../supabaseClient';
 
@@ -233,13 +235,56 @@ function ChangePasswordForm({ userEmail }) {
 }
 
 // Manages notification preferences
-function NotificationSettingsForm() {
+function NotificationSettingsForm({ userId }) {
     const [notifications, setNotifications] = useState({
         all: true,
         likes: true,
         messages: true,
         email: false,
     });
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // Load existing preferences from Supabase
+  useEffect(() => {
+    let isMounted = true;
+    const loadPrefs = async () => {
+      if (!userId) return;
+      try {
+        const prefs = await getNotificationPreferences(userId);
+        if (!isMounted) return;
+        setNotifications({
+          all: !!prefs.all_notifications,
+          likes: !!prefs.likes,
+          messages: !!prefs.messages,
+          email: !!prefs.email,
+        });
+        setLoaded(true);
+      } catch (e) {
+        console.error('Failed to load notification preferences:', e);
+      }
+    };
+    loadPrefs();
+    return () => { isMounted = false; };
+  }, [userId]);
+
+  const persist = async (state) => {
+    if (!userId) return;
+    setSaving(true);
+    try {
+      await upsertNotificationPreferences({
+        user_id: userId,
+        all_notifications: state.all,
+        likes: state.likes,
+        messages: state.messages,
+        email: state.email,
+      });
+    } catch (e) {
+      console.error('Failed to save notification preferences:', e);
+    } finally {
+      setSaving(false);
+    }
+  };
 
     const handleToggle = (key) => {
         setNotifications(prev => {
@@ -248,15 +293,16 @@ function NotificationSettingsForm() {
             // Logic to sync "All notifications" switch with sub-switches
             if (key === 'all') {
                 const allValue = newState.all;
-                return { all: allValue, likes: allValue, messages: allValue, email: allValue };
+            const next = { all: allValue, likes: allValue, messages: allValue, email: allValue };
+            persist(next);
+            return next;
             } else {
                 const othersOn = newState.likes && newState.messages && newState.email;
-                return { ...newState, all: othersOn };
+            const next = { ...newState, all: othersOn };
+            persist(next);
+            return next;
             }
         });
-        
-        // TO DO: Send API call to save these preferences to the database
-        console.log(`Notification setting changed: ${key}`, !notifications[key]);
     };
 
     return (
@@ -266,31 +312,37 @@ function NotificationSettingsForm() {
                 <div className="notification-item">
                     <span className="notification-label">All notification</span>
                     <label className="toggle-switch">
-                        <input type="checkbox" checked={notifications.all} onChange={() => handleToggle('all')} />
+                        <input type="checkbox" checked={notifications.all} onChange={() => handleToggle('all')} disabled={!loaded || saving} />
                         <span className="toggle-slider"></span>
                     </label>
                 </div>
                 <div className="notification-item">
                     <span className="notification-label">Like of my listing</span>
                     <label className="toggle-switch">
-                        <input type="checkbox" checked={notifications.likes} onChange={() => handleToggle('likes')} disabled={notifications.all} />
+                        <input type="checkbox" checked={notifications.likes} onChange={() => handleToggle('likes')} disabled={notifications.all || !loaded || saving} />
                         <span className="toggle-slider"></span>
                     </label>
                 </div>
                 <div className="notification-item">
                     <span className="notification-label">Message</span>
                     <label className="toggle-switch">
-                        <input type="checkbox" checked={notifications.messages} onChange={() => handleToggle('messages')} disabled={notifications.all} />
+                        <input type="checkbox" checked={notifications.messages} onChange={() => handleToggle('messages')} disabled={notifications.all || !loaded || saving} />
                         <span className="toggle-slider"></span>
                     </label>
                 </div>
                 <div className="notification-item">
                     <span className="notification-label">Email</span>
                     <label className="toggle-switch">
-                        <input type="checkbox" checked={notifications.email} onChange={() => handleToggle('email')} disabled={notifications.all} />
+                        <input type="checkbox" checked={notifications.email} onChange={() => handleToggle('email')} disabled={notifications.all || !loaded || saving} />
                         <span className="toggle-slider"></span>
                     </label>
                 </div>
+                {!loaded && (
+                  <div className="form-hint" style={{ marginTop: '0.5rem' }}>Loading preferences…</div>
+                )}
+                {saving && (
+                  <div className="form-hint" style={{ marginTop: '0.5rem' }}>Saving…</div>
+                )}
             </div>
         </section>
     );
@@ -541,7 +593,9 @@ export default function SettingsPage() {
           {activeSetting === 'change-password' && (
             <ChangePasswordForm userEmail={userData?.email} />
           )}
-          {activeSetting === 'notification' && <NotificationSettingsForm />}
+          {activeSetting === 'notification' && (
+            <NotificationSettingsForm userId={userData?.userId} />
+          )}
           {activeSetting === 'theme' && <ThemeSettingsForm />}
         </main>
       </div>

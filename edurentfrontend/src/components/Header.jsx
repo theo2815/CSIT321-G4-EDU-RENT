@@ -12,7 +12,8 @@ import {
   getMyNotifications, 
   markNotificationAsRead, 
   deleteNotification,
-  markAllNotificationsAsRead 
+  markAllNotificationsAsRead,
+  getNotificationPreferences,
 } from '../services/apiService'; 
 
 // Assets and Styles
@@ -46,6 +47,7 @@ export default function Header({
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationFilter, setNotificationFilter] = useState('all'); // 'all' or 'unread'
+  const [notifPrefs, setNotifPrefs] = useState({ all_notifications: true, likes: true, messages: true, email: false });
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   // --- Notification Logic ---
@@ -58,6 +60,10 @@ export default function Header({
 
     setIsLoadingNotifications(true);
     try {
+      // Load preferences first
+      const prefs = await getNotificationPreferences(userData.userId);
+      setNotifPrefs(prefs);
+
       const response = await getMyNotifications(notificationFilter === 'unread');
       const notifs = response.data || [];
 
@@ -65,13 +71,25 @@ export default function Header({
       const sortedNotifs = notifs.sort((a, b) => {
         return new Date(b.createdAt) - new Date(a.createdAt);
       });
-      setNotifications(sortedNotifs);
+      // Filter by preferences
+      const allowAll = !!prefs.all_notifications;
+      const allowLikes = !!prefs.likes;
+      const allowMessages = !!prefs.messages;
+      const filtered = allowAll
+        ? sortedNotifs
+        : sortedNotifs.filter(n => {
+            if (n.type === 'NEW_LIKE') return allowLikes;
+            if (n.type === 'NEW_MESSAGE') return allowMessages;
+            // default notifications respect all_notifications only
+            return allowAll;
+          });
+      setNotifications(filtered);
 
       // specific logic for the red badge count
       if (notificationFilter === 'all') {
-        setUnreadCount(notifs.filter(n => !n.isRead).length);
+        setUnreadCount(filtered.filter(n => !n.isRead).length);
       } else {
-        setUnreadCount(notifs.length);
+        setUnreadCount(filtered.length);
       }
     } catch (error) {
       console.error("Oops, failed to fetch notifications:", error);
