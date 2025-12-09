@@ -211,6 +211,10 @@ export default function MessagesPage() {
   const [chatUserRating, setChatUserRating] = useState(null);
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
+    // Dispatch event to inform Header about the active conversation ID
+    window.dispatchEvent(new CustomEvent('active-chat-change', { 
+      detail: { id: selectedConversation ? selectedConversation.id : null } 
+    }));
   }, [selectedConversation]);
 
   // --- Likes Handling ---
@@ -553,12 +557,6 @@ export default function MessagesPage() {
               return prevConvs;
             }
           });
-          
-          const currentChatId = selectedConversationRef.current?.id;
-          
-          if (!currentChatId || currentChatId !== payload.conversationId) {
-             toast.showInfo(`New message from ${payload.senderName || 'someone'}`);
-          }
         });
       }, (err) => {
         console.error("Socket connection error:", err);
@@ -642,6 +640,9 @@ export default function MessagesPage() {
           getUserReviews(conversation.otherUser.id),
           markConversationAsRead(conversation.id)
       ]);
+      
+      // Dispatch event to update Header badge
+      window.dispatchEvent(new Event('message-read'));
 
       const mappedMessages = messagesRes.data.map(msg => ({
           id: msg.messageId, senderId: msg.sender?.userId, text: msg.content,

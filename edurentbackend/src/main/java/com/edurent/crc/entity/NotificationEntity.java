@@ -26,7 +26,7 @@ public class NotificationEntity {
     @Column(name = "is_read")
     private Boolean isRead = false;
 
-    @Column(name = "created_at", updatable = false, nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @ManyToOne(fetch = FetchType.LAZY)

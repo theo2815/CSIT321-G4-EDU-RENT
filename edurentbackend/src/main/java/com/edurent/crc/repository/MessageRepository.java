@@ -39,4 +39,8 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     @Modifying
     @Query("UPDATE MessageEntity m SET m.isRead = false WHERE m.messageId = (SELECT MAX(m2.messageId) FROM MessageEntity m2 WHERE m2.conversation.conversationId = :conversationId AND m2.sender.userId != :userId)")
     void markLastMessageAsUnread(@Param("conversationId") Long conversationId, @Param("userId") Long userId);
+
+    // Count unread messages from a specific sender in a conversation
+    long countByConversation_ConversationIdAndSender_UserIdAndIsReadFalse(Long conversationId, Long senderId);
 }
+

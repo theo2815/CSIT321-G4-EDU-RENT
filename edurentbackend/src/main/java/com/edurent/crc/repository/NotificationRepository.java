@@ -35,4 +35,10 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
     @Modifying 
     @Query("UPDATE NotificationEntity n SET n.isRead = true WHERE n.user.userId = :userId AND n.isRead = false")
     int markAllAsReadByUserId(@Param("userId") Long userId);
+
+    // Find existing unread notification for a specific link (used for grouping)
+    Optional<NotificationEntity> findByTypeAndUser_UserIdAndLinkUrlAndIsReadFalse(String type, Long userId, String linkUrl);
+
+    // Find the latest notification for a specific link (read or unread) to support re-surfacing
+    Optional<NotificationEntity> findFirstByTypeAndUser_UserIdAndLinkUrlOrderByCreatedAtDesc(String type, Long userId, String linkUrl);
 }

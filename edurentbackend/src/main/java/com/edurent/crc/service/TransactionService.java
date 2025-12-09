@@ -3,15 +3,19 @@ package com.edurent.crc.service;
 import java.util.Date;
 import java.util.List; 
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import com.edurent.crc.entity.ListingEntity;
+import com.edurent.crc.entity.NotificationEntity;
 import com.edurent.crc.entity.TransactionEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.ListingRepository;
+import com.edurent.crc.repository.NotificationRepository;
 import com.edurent.crc.repository.TransactionRepository;
 import com.edurent.crc.repository.UserRepository;
 
@@ -26,6 +30,12 @@ public class TransactionService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     public List<TransactionEntity> getAllTransactions() { 
         return transactionRepository.findAll();
@@ -60,7 +70,34 @@ public class TransactionService {
         transaction.setBuyer(buyer);
         transaction.setSeller(seller);
         
-        return transactionRepository.save(transaction);
+        TransactionEntity savedTransaction = transactionRepository.save(transaction);
+
+        // Send Notification if it's a Sale
+        if ("Sale".equalsIgnoreCase(savedTransaction.getTransactionType())) {
+            sendSaleNotification(savedTransaction, listing, buyer, seller);
+        }
+
+        return savedTransaction;
+    }
+
+    private void sendSaleNotification(TransactionEntity transaction, ListingEntity listing, UserEntity buyer, UserEntity seller) {
+        try {
+            NotificationEntity notification = new NotificationEntity();
+            notification.setUser(buyer); // Notify the Buyer
+            notification.setType("TRANSACTION_COMPLETED");
+            notification.setLinkUrl("/listing/" + listing.getListingId()); // Link triggers the Modal
+
+            String content = String.format("<strong>%s</strong> sold <strong>%s</strong> to you. Don't forget to leave a review!", 
+                                         seller.getFullName(), listing.getTitle());
+            notification.setContent(content);
+            notification.setCreatedAt(LocalDateTime.now());
+            notification.setIsRead(false);
+
+            NotificationEntity savedNotif = notificationRepository.save(notification);
+            messagingTemplate.convertAndSend("/topic/user." + buyer.getUserId(), savedNotif);
+        } catch (Exception e) {
+            System.err.println("Failed to send transaction notification: " + e.getMessage());
+        }
     }
 
     // --- NEW: Update Rental Dates ---

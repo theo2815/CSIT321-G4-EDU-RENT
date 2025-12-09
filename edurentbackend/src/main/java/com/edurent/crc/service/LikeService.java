@@ -2,10 +2,12 @@ package com.edurent.crc.service;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import com.edurent.crc.entity.LikeEntity;
 import com.edurent.crc.entity.LikeIdEntity;
@@ -19,9 +21,11 @@ import com.edurent.crc.repository.UserRepository;
 
 
 
-
 @Service
 public class LikeService {
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @Autowired
     private LikeRepository likeRepository;
@@ -60,23 +64,45 @@ public class LikeService {
         }
 
         if (!user.getUserId().equals(owner.getUserId())) {
-            NotificationEntity notification = new NotificationEntity();
-            notification.setUser(owner);
-            notification.setType("NEW_LIKE");
-            
+            String linkUrl = String.format("/listing/%d", listing.getListingId());
             String content = String.format("%s liked your listing: '%s'", 
                                         user.getFullName(), 
                                         listing.getTitle());
-            notification.setContent(content);
+
+            // Stock-up Logic: Check for existing like notification for this item
+            NotificationEntity notification = notificationRepository
+                .findFirstByTypeAndUser_UserIdAndLinkUrlOrderByCreatedAtDesc("NEW_LIKE", owner.getUserId(), linkUrl)
+                .orElse(new NotificationEntity());
+
+            // We update IF it's new OR if it's the same user (content check)
+            boolean isSameUser = notification.getContent() != null && notification.getContent().contains(user.getFullName());
             
-            String linkUrl = String.format("/listing/%d", listing.getListingId());
-            notification.setLinkUrl(linkUrl);
-            
-            
-            notificationRepository.save(notification);
+            if (notification.getNotificationId() == null || isSameUser) {
+                if (notification.getNotificationId() == null) {
+                    notification.setUser(owner);
+                    notification.setType("NEW_LIKE");
+                    notification.setLinkUrl(linkUrl);
+                }
+                notification.setContent(content);
+                notification.setCreatedAt(LocalDateTime.now()); // Bump timestamp
+                notification.setIsRead(false); // Mark as unread
+                
+                NotificationEntity saved = notificationRepository.save(notification);
+                messagingTemplate.convertAndSend("/topic/user." + owner.getUserId(), saved);
+            } else {
+                // Different user liked the same item -> Create NEW notification
+                NotificationEntity newNotif = new NotificationEntity();
+                newNotif.setUser(owner);
+                newNotif.setType("NEW_LIKE");
+                newNotif.setContent(content);
+                newNotif.setLinkUrl(linkUrl);
+                
+                NotificationEntity savedNew = notificationRepository.save(newNotif);
+                messagingTemplate.convertAndSend("/topic/user." + owner.getUserId(), savedNew);
+            }
         }
 
-        LikeEntity like = new LikeEntity(likeId, user, listing); // Updated
+        LikeEntity like = new LikeEntity(likeId, user, listing);
         return likeRepository.save(like);
     }
 

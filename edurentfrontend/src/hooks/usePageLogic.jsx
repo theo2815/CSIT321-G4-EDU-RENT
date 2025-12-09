@@ -119,6 +119,26 @@ export default function usePageLogic(userData, likeData = null) {
 
   // Handles notification clicks by extracting listing ID and opening the modal
   const handleNotificationClick = useCallback(async (notification) => {
+    // Handle Message Notifications
+    if (notification.type === 'NEW_MESSAGE') {
+        const urlParts = notification.linkUrl?.split('/');
+        const conversationId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+        
+        if (conversationId) {
+            navigate('/messages', { state: { openConversationId: conversationId } });
+        } else {
+            navigate('/messages');
+        }
+        return;
+    }
+
+    // Handle Profile/Review Notifications (Redirect logic)
+    if (notification.linkUrl && notification.linkUrl.startsWith('/profile')) {
+        navigate(notification.linkUrl);
+        return;
+    }
+
+    // Handle Listing/Like Notifications (Modal logic)
     const urlParts = notification.linkUrl?.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
 
@@ -127,7 +147,7 @@ export default function usePageLogic(userData, likeData = null) {
       return;
     }
     handleOpenListing(listingId); 
-  }, [handleOpenListing]);
+  }, [handleOpenListing, navigate]);
 
   // --- 3. Render Helper ---
   

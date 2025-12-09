@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios'; 
 
 // Custom hooks for application logic
@@ -283,6 +283,7 @@ export default function ProfilePage() {
   
   const { profileId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Auth and global logic
   const { userData: loggedInUser, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
@@ -529,6 +530,20 @@ export default function ProfilePage() {
         fetchProfileData(loggedInUser.userId, 0);
     }
   }, [profileId, loggedInUser?.userId, fetchProfileData]);
+
+  // Handle Tab Navigation via URL (e.g., from Notifications)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam === 'reviews') {
+        setActiveTab('reviews');
+        // Optional: Scroll to reviews section
+        setTimeout(() => {
+            const reviewSection = document.querySelector('.profile-reviews-section');
+            if (reviewSection) reviewSection.scrollIntoView({ behavior: 'smooth' });
+        }, 500);
+    }
+  }, [location.search]);
 
   const openProfileModal = () => setIsProfileModalOpen(true);
   const closeProfileModal = () => setIsProfileModalOpen(false);
