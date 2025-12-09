@@ -9,6 +9,10 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -213,20 +217,28 @@ public class ListingService {
         return listingRepository.save(existingListing);
     }
     
-    public List<ListingEntity> getAllListings() { 
-        return listingRepository.findByStatusIn(Arrays.asList("Available", "Rented"));
+    public Page<ListingEntity> getAllListings(int page, int size) { 
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return listingRepository.findByStatusIn(Arrays.asList("Available", "Rented"), pageable);
     }
 
     public Optional<ListingEntity> getListingById(Long listingId) { 
         return listingRepository.findById(listingId); 
     }
 
-    public List<ListingEntity> getListingsByUserId(Long userId) { 
-        return listingRepository.findByUser_UserId(userId); 
+    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size) { 
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return listingRepository.findByUser_UserId(userId, pageable); 
     }
 
-    public List<ListingEntity> getListingsByCategoryId(Long categoryId) { 
-        return listingRepository.findByCategory_CategoryIdAndStatusIn(categoryId, Arrays.asList("Available", "Rented"));
+    public Page<ListingEntity> getListingsByCategoryId(Long categoryId, int page, int size) { 
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return listingRepository.findByCategory_CategoryIdAndStatusIn(categoryId, Arrays.asList("Available", "Rented"), pageable);
+    }
+
+    public Page<ListingEntity> getListingsByType(String listingType, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return listingRepository.findByListingTypeAndStatusIn(listingType, Arrays.asList("Available", "Rented"), pageable);
     }
 
     // --- UPDATED: deleteListing with Supabase deletion ---

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -34,8 +35,11 @@ public class ListingController {
 
     // Retrieves a list of all available listings in the system
     @GetMapping
-    public List<ListingEntity> getAllListings() {
-        return listingService.getAllListings();
+    public Page<ListingEntity> getAllListings(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return listingService.getAllListings(page, size);
     }
 
     // Fetches a single listing by its unique ID. Returns 404 if not found.
@@ -48,18 +52,40 @@ public class ListingController {
 
     // Retrieves all listings created by a specific user profile
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<ListingEntity>> getListingsByUserId(@PathVariable Long userId) {
-        List<ListingEntity> listings = listingService.getListingsByUserId(userId);
+    public ResponseEntity<Page<ListingEntity>> getListingsByUserId(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Page<ListingEntity> listings = listingService.getListingsByUserId(userId, page, size);
         return ResponseEntity.ok(listings);
     }
     
     // Retrieves all listings belonging to a specific category
     @GetMapping("/category/{categoryId}")
-    public ResponseEntity<List<ListingEntity>> getListingsByCategoryId(@PathVariable Long categoryId) {
-        List<ListingEntity> listings = listingService.getListingsByCategoryId(categoryId);
+    public ResponseEntity<Page<ListingEntity>> getListingsByCategoryId(
+            @PathVariable Long categoryId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Page<ListingEntity> listings = listingService.getListingsByCategoryId(categoryId, page, size);
         if (listings.isEmpty()) {
             return ResponseEntity.noContent().build(); 
         }
+        return ResponseEntity.ok(listings);
+    }
+
+    // New endpoint for filtering by type (Rent/Sale) with pagination
+    @GetMapping("/type/{listingType}")
+    public ResponseEntity<Page<ListingEntity>> getListingsByType(
+            @PathVariable String listingType,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {        
+        String formattedType = listingType.equalsIgnoreCase("rent") ? "For Rent" : 
+                               listingType.equalsIgnoreCase("sale") ? "For Sale" : listingType;
+
+        Page<ListingEntity> listings = listingService.getListingsByType(formattedType, page, size);
         return ResponseEntity.ok(listings);
     }
 

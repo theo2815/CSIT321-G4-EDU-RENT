@@ -1,12 +1,10 @@
-import React from 'react'; 
+import React, { useState, useEffect, useCallback } from 'react'; 
 import { Link, useNavigate } from 'react-router-dom';
 
-// Import custom hooks to handle page logic
+// Import custom hooks
 import useAuth from '../hooks/useAuth';
-import usePageData from '../hooks/usePageData';
 import useSearch from '../hooks/useSearch';
 import usePageLogic from '../hooks/usePageLogic';
-import useFilteredListings from '../hooks/useFilteredListings'; 
 import useLikes from '../hooks/useLikes';
 import { useAuthModal } from '../context/AuthModalContext';
 
@@ -14,6 +12,11 @@ import { useAuthModal } from '../context/AuthModalContext';
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
+import PaginationControls from '../components/PaginationControls';
+import LoadMoreButton from '../components/LoadMoreButton';
+
+// Import API service
+import { getListingsByType } from '../services/apiService';
 
 // Import styles
 import '../static/BrowsePage.css';
@@ -30,86 +33,100 @@ const Icons = {
 
 export default function ForSalePage() {
   const navigate = useNavigate();
+  const { userData, userName, logout, retryAuth, authError } = useAuth();
   const { openLogin } = useAuthModal();
 
-  // Get current user details and authentication status
-  const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
+  // Local state for paginated data
+  const [listings, setListings] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dataError, setDataError] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  // Load all listings from the server
-  const { allListings, isLoadingData, dataError, refetchData } = usePageData(!!userData);
-  
-  // Create a specific list containing only items available for sale
-  const saleListings = useFilteredListings(allListings, 'sale');
-  
-  // Filter the sale list based on what the user types in the search bar
+  // Likes and Page Logic
+  const likesHook = useLikes();
+  const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
+  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook); 
+
+  // Fetches "Sale" type listings from the server
+  const fetchData = useCallback(async (page = 0) => {
+      setIsLoadingData(true);
+      if (page === 0) setDataError(null);
+      try {
+          const response = await getListingsByType('sale', page, 8); 
+          const data = response.data;
+          
+          if (data.content) {
+              setListings(prev => page === 0 ? data.content : [...prev, ...data.content]);
+              setCurrentPage(data.number);
+              setTotalPages(data.totalPages);
+              setHasMore(data.number < data.totalPages - 1);
+          } else {
+              setListings(data || []);
+              setHasMore(false);
+          }
+      } catch (err) {
+          console.error("Failed to load sale listings", err);
+          setDataError("Could not load items for sale. Please refresh.");
+      } finally {
+          setIsLoadingData(false);
+      }
+  }, []);
+
+  // Initial data load
+  useEffect(() => {
+      fetchData(0);
+  }, [fetchData]);
+
+  // Search functionality (filters the currently loaded page)
   const { searchQuery, handleSearch, filteredListings } = useSearch(
-    saleListings, 
+    listings, 
     ['title', 'description', 'category.name']
   );
 
-  // Manage the logic for liking and unliking items
-  const likesHook = useLikes();
-  const { 
-    likedListingIds, 
-    likingInProgress, 
-    isLoadingLikes, 
-    likeError, 
-    handleLikeToggle,
-    refetchLikes
-  } = likesHook;
-
-  // Handle UI interactions like opening the detail modal and notifications
-  const { 
-    openModal,
-    handleNotificationClick, 
-    ModalComponent
-  } = usePageLogic(userData, likesHook); 
-
-  // Check if any part of the page is still loading or has encountered an error
-  const isPageLoading = isLoadingAuth || isLoadingData || isLoadingLikes;
+  // Combine loading and error states for cleaner UI logic
+  const isPageLoading = isLoadingData || isLoadingLikes;
   const pageError = authError || dataError || likeError;
 
-  // Try to reload the specific part that failed
+  // Retry logic for all potential failure points
   const handleRetry = () => {
     if (authError) retryAuth();
-    if (dataError) refetchData();
     if (likeError) refetchLikes();
-    
-    if (!authError && !dataError && !likeError) {
-       retryAuth();
-       refetchData();
-       refetchLikes();
-    }
+    fetchData(currentPage);
   };
-  
-  // Show a skeleton loader while waiting for data
+
+  // Loading State
   if (isPageLoading) {
     return (
         <div className="profile-page">
-            <Header userName="" onLogout={logout} searchQuery="" onSearchChange={()=>{}} />
+            <Header userName="" onLogout={logout} />
             <main className="browse-page-container">
                 <div className="browse-search-bar skeleton" style={{ height: '60px', marginBottom: '2rem' }}></div>
-                <section className="browse-section">
-                    <div className="skeleton skeleton-listing-text" style={{ height: '2rem', width: '200px', marginBottom: '1.5rem' }}></div>
-                    <ListingGridSkeleton count={8} />
-                </section>
+                <ListingGridSkeleton count={8} />
             </main>
         </div>
     );
   }
-  
-  // Display an error message if something went wrong
+
+  // Error State
   if (pageError) {
-     return (
-       <div className="profile-page">
-           <Header userName={userName} onLogout={logout} searchQuery="" onSearchChange={()=>{}} />
-           <div style={{ padding: '2rem', textAlign: 'center' }}>
-             <div style={{color: 'red', marginBottom: '1rem'}}>Error: {pageError}</div>
-             <button className="error-retry-btn" onClick={handleRetry}>Try Again</button>
-           </div>
-       </div>
-     );
+       return (
+         <div className="profile-page">
+             <Header userName={userName} onLogout={logout} searchQuery="" onSearchChange={()=>{}} />
+             <div style={{ padding: '2rem', textAlign: 'center' }}>
+               <div style={{color: 'red', marginBottom: '1rem'}}>Error: {pageError}</div>
+               <button className="error-retry-btn" onClick={handleRetry}>Try Again</button>
+             </div>
+         </div>
+       );
   }
+
+  const handleLoadMore = () => {
+      fetchData(currentPage + 1);
+  };
 
   return (
     <div className="profile-page">
@@ -123,7 +140,7 @@ export default function ForSalePage() {
       />
 
       <main className="browse-page-container">
-        {/* Search Bar specific to items for sale */}
+        {/* Search Bar */}
         <div className="browse-search-bar">
            <span className="browse-search-icon"><Icons.Search /></span>
            <input
@@ -136,34 +153,42 @@ export default function ForSalePage() {
            />
         </div>
 
-        {/* List of items available for sale */}
+        {/* Listings Grid */}
         <section className="browse-section">
           <h2 className="browse-section-title">Items For Sale</h2>
           
           {filteredListings.length > 0 ? (
-            <div className="listing-grid">
-              {filteredListings.map(listing => (
-                <ListingCard 
-                  key={listing.listingId} 
-                  listing={listing} 
-                  onClick={openModal}                     
-                  isLiked={likedListingIds.has(listing.listingId)} 
-                  onLikeClick={handleLikeToggle}          
-                  isOwner={userData?.userId === listing.user?.userId} 
-                  currentUserId={userData?.userId}        
-                  isLiking={likingInProgress.has(listing.listingId)} 
+            <>
+                <div className="listing-grid">
+                  {filteredListings.map(listing => (
+                    <ListingCard 
+                      key={listing.listingId} 
+                      listing={listing} 
+                      onClick={openModal}                     
+                      isLiked={likedListingIds.has(listing.listingId)} 
+                      onLikeClick={handleLikeToggle}          
+                      isOwner={userData?.userId === listing.user?.userId} 
+                      currentUserId={userData?.userId}        
+                      isLiking={likingInProgress.has(listing.listingId)} 
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                <LoadMoreButton 
+                    onLoadMore={handleLoadMore}
+                    isLoading={isLoadingData}
+                    hasMore={hasMore}
                 />
-              ))}
-            </div>
+            </>
           ) : (
-            // Message shown when search returns no results
             <p style={{ color: 'var(--text-muted)' }}>
               No items found for sale {searchQuery ? 'matching your search' : ''}.
             </p>
           )}
         </section>
 
-        {/* Call to Action for new sellers */}
+        {/* Call to Action */}
         <section className="content-card cta-card">
           <h2 className="cta-title">Have items to sell or rent?</h2>
           <p className="cta-subtitle">
@@ -175,7 +200,6 @@ export default function ForSalePage() {
         </section>
       </main>
 
-      {/* Renders the detail modal when an item is clicked */}
       <ModalComponent />
     </div>
   );

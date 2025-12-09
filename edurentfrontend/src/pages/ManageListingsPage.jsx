@@ -6,6 +6,7 @@ import Header from '../components/Header';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 import MarkAsSoldModal from '../components/MarkAsSoldModal'; 
+import PaginationControls from '../components/PaginationControls';
 
 import useAuth from '../hooks/useAuth'; 
 
@@ -111,9 +112,13 @@ export default function ManageListingsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('available');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
   // Load the user's profile and their listings when the page mounts
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (page = 0) => {
       setIsLoading(true);
       setError(null);
       try {
@@ -126,11 +131,22 @@ export default function ManageListingsPage() {
 
         // Fetch listings and categories at the same time
         const [listingsRes, catRes] = await Promise.all([
-            getUserListings(userId),
+            getUserListings(userId, page, 10),
             getCategories()
         ]);
 
-        setAllListings(listingsRes.data || []);
+
+        // Handle Page response
+        const data = listingsRes.data;
+        if (data.content) {
+            setAllListings(data.content);
+            setTotalPages(data.totalPages);
+            setCurrentPage(data.number);
+        } else {
+            setAllListings(data || []);
+        }
+
+        //setAllListings(listingsRes.data || []);
         
         // Add a default "All" option to the category list
         setCategories([{ categoryId: 'all', name: 'All Categories' }, ...(catRes.data || [])]);
@@ -555,6 +571,7 @@ export default function ManageListingsPage() {
           </div>
 
           {filteredListings.length > 0 ? (
+            <>
             <div style={{ overflowX: 'auto' }}>
               <table className="listings-table">
                 <thead>
@@ -650,6 +667,14 @@ export default function ManageListingsPage() {
                 </tbody>
               </table>
             </div>
+            <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                    <PaginationControls 
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={fetchData}
+                    />
+                </div>
+            </>
           ) : (
              <div className="listings-empty-state">
                <div className="empty-state-illustration" aria-hidden="true">

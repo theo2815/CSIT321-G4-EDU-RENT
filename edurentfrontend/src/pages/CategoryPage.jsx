@@ -11,6 +11,8 @@ import useLikes from '../hooks/useLikes';
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
+import PaginationControls from '../components/PaginationControls';
+import LoadMoreButton from '../components/LoadMoreButton';
 
 // Import API functions needed for this specific page
 import { getCategories, getListingsByCategoryId } from '../services/apiService';
@@ -35,6 +37,10 @@ export default function CategoryPage() {
 
   // Get the current user's session data
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
+
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   
   // Handle the logic for liking items
   const likesHook = useLikes();
@@ -70,7 +76,7 @@ export default function CategoryPage() {
   useEffect(() => {
     if (!categoryId) return;
 
-    const fetchData = async () => {
+    const fetchData = async (page = 0) => {
       setIsLoadingPageData(true);
       setPageDataError(null);
       const catIdNumber = parseInt(categoryId, 10);
@@ -84,7 +90,7 @@ export default function CategoryPage() {
       try {
         // Fetch both the full category list (to get the name) and the specific items
         const categoriesPromise = getCategories(); 
-        const listingsPromise = getListingsByCategoryId(catIdNumber);
+        const listingsPromise = getListingsByCategoryId(catIdNumber, page, 8);
 
         const [categoriesResponse, listingsResponse] = await Promise.all([
           categoriesPromise,
@@ -103,6 +109,18 @@ export default function CategoryPage() {
         // Save the items found in this category
         setCategoryListings(listingsResponse.data || []);
 
+        // Handle Page response
+        const data = listingsResponse.data;
+        if (data.content) {
+            setCategoryListings(prev => page === 0 ? data.content : [...prev, ...data.content]);
+            setTotalPages(data.totalPages);
+            setCurrentPage(data.number);
+            setHasMore(data.number < data.totalPages - 1);
+        } else {
+            setCategoryListings(data || []);
+            setHasMore(false);
+        }
+
       } catch (err) {
         console.error("Failed to fetch category data:", err);
         let errorMsg = err.message || "Could not load category data. Please try again.";
@@ -115,7 +133,7 @@ export default function CategoryPage() {
       }
     };
     
-    fetchData();
+    if (categoryId) fetchData(0);
   }, [categoryId]); 
 
   // Check if any part of the page is loading or has failed
@@ -223,6 +241,13 @@ export default function CategoryPage() {
                </p>
                 <Link to="/dashboard" className="cta-button" style={{marginTop: '1rem'}}>Back to Dashboard</Link>
             </div>
+          )}
+          {filteredListings.length > 0 && (
+              <LoadMoreButton 
+                onLoadMore={() => fetchData(currentPage + 1)}
+                isLoading={isLoadingPageData}
+                hasMore={hasMore}
+              />
           )}
         </section>
       </main>

@@ -15,6 +15,7 @@ import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ReviewImagesModal from '../components/ReviewImagesModal';
 import ReviewModal from '../components/ReviewModal';
 import ConversationStarterModal from '../components/ConversationStarterModal';
+import PaginationControls from '../components/PaginationControls';
 
 // API Services
 import { 
@@ -299,10 +300,14 @@ export default function ProfilePage() {
   const [editingReview, setEditingReview] = useState(null);
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
 
+  // Add pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
   // --- Data Fetching Logic ---
   
   // 1. Define fetchProfileData first so it is available for dependencies
-  const fetchProfileData = useCallback(async (targetId) => {
+  const fetchProfileData = useCallback(async (targetId, page = 0) => {
     setIsLoadingPageData(true);
     setPageDataError(null);
     try {
@@ -313,7 +318,7 @@ export default function ProfilePage() {
           userPromise = getCurrentUser();
       }
 
-      const listingsPromise = getUserListings(targetId);
+      const listingsPromise = getUserListings(targetId, page, 6);
       const reviewsPromise = getUserReviews(targetId);
       
       const [userResponse, listingsResponse, reviewsResponse] = await Promise.all([
@@ -323,6 +328,16 @@ export default function ProfilePage() {
       ]);
 
       setProfileUser(userResponse.data);
+
+      // Handle Page response
+      const listingsData = listingsResponse.data;
+      if (listingsData.content) {
+          setOriginalListings(listingsData.content); // Sorting might need to move to backend or stay here for current page
+          setTotalPages(listingsData.totalPages);
+          setCurrentPage(listingsData.number);
+      } else {
+          setOriginalListings(listingsData || []);
+      }
       
       // Sort listings so Sold items are at the bottom, and newest are at the top
       const rawListings = listingsResponse.data || [];
@@ -616,6 +631,7 @@ export default function ProfilePage() {
                 </div>
                 
                 {displayedListings.length > 0 ? (
+                  <>
                   <div className="listing-grid">
                     {displayedListings.map((listing) => (
                       <ListingCard
@@ -630,6 +646,12 @@ export default function ProfilePage() {
                       />
                     ))}
                   </div>
+                  <PaginationControls 
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={handlePageChange}
+                      />
+                  </>
                 ) : (
                   <div className="empty-state">
                       <div className="empty-state-icon">📦</div> 

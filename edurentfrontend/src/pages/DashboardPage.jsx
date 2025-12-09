@@ -8,6 +8,8 @@ import usePageData from '../hooks/usePageData';
 import useSearch from '../hooks/useSearch';       
 import useLikes from '../hooks/useLikes';
 import { useAuthModal } from '../context/AuthModalContext';
+import PaginationControls from '../components/PaginationControls';
+import LoadMoreButton from '../components/LoadMoreButton';
 
 // Import UI components
 import ListingCard from '../components/ListingCard';
@@ -74,7 +76,15 @@ export default function DashboardPage() {
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
   
   // Fetch the main content (listings and categories) from the server
-  const { allListings, categories, isLoadingData, dataError, refetchData } = usePageData(!!userData);
+  const { 
+    allListings, 
+    categories, 
+    isLoadingData, 
+    dataError, 
+    loadMore, 
+    hasMore,
+    refetchData
+  } = usePageData(!!userData);
 
   const { openLogin } = useAuthModal();
   
@@ -224,6 +234,7 @@ export default function DashboardPage() {
         <section>
           <h2 className="section-title">📦 All Listings</h2>
           {filteredListings.length > 0 ? (
+            <>
             <div className="listing-grid">
               {filteredListings.map(listing => (
                 <ListingCard 
@@ -237,6 +248,13 @@ export default function DashboardPage() {
                 />
               ))}
             </div>
+            <LoadMoreButton 
+                    onLoadMore={loadMore}
+                    isLoading={isLoadingData}
+                    hasMore={hasMore}
+                />
+            </>
+            
           ) : (
             // Show this if the search returns no results
             <div className="empty-state">

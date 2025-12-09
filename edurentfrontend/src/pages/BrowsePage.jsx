@@ -9,11 +9,13 @@ import usePageLogic from '../hooks/usePageLogic';
 import useFilteredListings from '../hooks/useFilteredListings'; 
 import useLikes from '../hooks/useLikes';
 import { useAuthModal } from '../context/AuthModalContext';
+import PaginationControls from '../components/PaginationControls';
 
 // Import UI components
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
 import ListingGridSkeleton from '../components/ListingGridSkeleton';
+import LoadMoreButton from '../components/LoadMoreButton';
 
 // Import styles
 import '../static/BrowsePage.css';
@@ -35,7 +37,15 @@ export default function BrowsePage() {
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
 
   // Load the latest listings and categories from the server
-  const { allListings, categories, isLoadingData, dataError, refetchData } = usePageData(!!userData);
+  const { 
+    allListings, 
+    categories, 
+    isLoadingData, 
+    dataError, 
+    refetchData,
+    loadMore,
+    hasMore
+  } = usePageData(!!userData);
 
   const { openLogin } = useAuthModal();
 
@@ -53,7 +63,7 @@ export default function BrowsePage() {
     isLoadingLikes, 
     likeError, 
     handleLikeToggle,
-    refetchLikes
+    refetchLikes,
   } = likesHook;
 
   // Manage UI interactions like opening modals and handling notifications
@@ -189,6 +199,12 @@ export default function BrowsePage() {
             <p style={{ color: 'var(--text-muted)' }}>No items found for rent {searchQuery ? 'matching your search' : ''}.</p>
           )}
         </section>
+
+        <LoadMoreButton 
+            onLoadMore={loadMore}
+            isLoading={isLoadingData}
+            hasMore={hasMore}
+        />
 
         {/* Call to Action for new sellers */}
         <section className="content-card cta-card">

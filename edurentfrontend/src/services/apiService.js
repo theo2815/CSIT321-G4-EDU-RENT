@@ -110,8 +110,10 @@ export const getCurrentUser = async () => {
 };
 
 // Retrieves all listings created by a specific user
-export const getUserListings = (userId) => {
-  return apiClient.get(`/listings/user/${userId}`);
+export const getUserListings = (userId, page = 0, size = 10) => {
+  return apiClient.get(`/listings/user/${userId}`, {
+      params: { page, size }
+  });
 };
 
 // Gets all reviews received by a specific user
@@ -164,9 +166,11 @@ export const getCategoryById = async (id) => {
 
 // --- Listings Management ---
 
-export const getListings = async () => {
+export const getListings = async (page = 0, size = 10) => {
   try {
-    const response = await apiClient.get(`/listings`);
+    const response = await apiClient.get(`/listings`, {
+        params: { page, size }
+    });
     return response;
   } catch (error) {
     console.error("Error during getListings API call:", error.response || error.message);
@@ -174,9 +178,11 @@ export const getListings = async () => {
   }
 };
 
-export const getListingsByCategoryId = async (categoryId) => {
+export const getListingsByCategoryId = async (categoryId, page = 0, size = 10) => {
   try {
-    const response = await apiClient.get(`/listings/category/${categoryId}`);
+    const response = await apiClient.get(`/listings/category/${categoryId}`, {
+        params: { page, size }
+    });
     return response;
   } catch (error) {
     console.error(`Error during getListingsByCategoryId(${categoryId}) API call:`, error.response || error.message);
@@ -190,6 +196,19 @@ export const getUsers = async () => {
     return response;
   } catch (error) {
     console.error("Error during getUsers API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+export const getListingsByType = async (type, page = 0, size = 10) => {
+  try {
+    // type should be 'rent' or 'sale' to match the Controller logic above
+    const response = await apiClient.get(`/listings/type/${type}`, {
+        params: { page, size }
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error getListingsByType(${type}):`, error);
     throw error;
   }
 };

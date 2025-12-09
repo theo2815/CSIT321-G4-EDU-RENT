@@ -8,12 +8,18 @@ export default function usePageData() {
   const [allListings, setAllListings] = useState([]);
   const [categories, setCategories] = useState([]);
 
-  const fetchData = useCallback(async () => {
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const pageSize = 10; // Default size
+  const [hasMore, setHasMore] = useState(false);
+
+  const fetchData = useCallback(async (page = 0) => {
     setIsLoadingData(true);
-    setDataError(null);
+    if (page === 0) setDataError(null);
     try {
       // Fetch listings and categories in parallel
-      const listingsPromise = getListings();
+      const listingsPromise = getListings(page, 10);
       const categoriesPromise = getCategories();
 
       const [listingsResponse, categoriesResponse] = await Promise.all([
@@ -21,7 +27,18 @@ export default function usePageData() {
         categoriesPromise,
       ]);
 
-      setAllListings(listingsResponse.data || []);
+      const data = listingsResponse.data;
+
+      if (data.content) {
+          setAllListings(prev => page === 0 ? data.content : [...prev, ...data.content]);
+          setCurrentPage(data.number);
+          setTotalPages(data.totalPages);
+          setHasMore(data.number < data.totalPages - 1);
+      } else {
+          setAllListings(data || []);
+          setHasMore(false);
+      }
+      
       setCategories(categoriesResponse.data || []);
 
     } catch (err) {
@@ -40,11 +57,19 @@ export default function usePageData() {
     fetchData();
   }, [fetchData]);
 
+  const loadMore = useCallback(() => {
+      if (hasMore && !isLoadingData) {
+          fetchData(currentPage + 1);
+      }
+  }, [hasMore, isLoadingData, currentPage, fetchData]);
+
   return {
     allListings,    
     categories,     
     isLoadingData,  
     dataError,     
-    refetchData: fetchData 
+    refetchData: () => fetchData(0),
+    loadMore,       
+    hasMore      
   };
 }
