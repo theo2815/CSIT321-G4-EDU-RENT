@@ -42,7 +42,11 @@ export default function ListingCard({
   // Status Checks
   const isSold = listing?.status === 'Sold';
   const isRented = listing?.status === 'Rented';
-  const rentalInfo = listing?.transaction;
+  
+  // Find active rental info from either single object or array
+  const rentalInfo = listing?.transaction || (listing?.transactions?.find(t => 
+    t.status === 'Active' || (new Date(t.endDate) > new Date())
+  ));
 
   const serverLikeCount = listing?.likes ? listing.likes.length : 0;
 
@@ -51,9 +55,9 @@ export default function ListingCard({
     return listing.likes.some(like => like.id?.userId === currentUserId);
   }, [listing?.likes, currentUserId]);
 
-  // Optimistic UI update for likes (disabled if item is unavailable)
+  // Optimistic UI update for likes (disabled if item is sold)
   let displayLikeCount = serverLikeCount;
-  if (!isSold && !isRented) {
+  if (!isSold) {
     if (isLiked && !wasLikedInitial) {
       displayLikeCount++; 
     } else if (!isLiked && wasLikedInitial) {
@@ -85,13 +89,20 @@ export default function ListingCard({
 
   const formatDate = (dateString) => {
      if (!dateString) return '';
-     return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+     // Parse string directly to avoid timezone shifts (Treat as UTC)
+     const date = new Date(dateString);
+     return date.toLocaleDateString('en-US', { 
+       month: '2-digit', 
+       day: '2-digit', 
+       year: 'numeric',
+       timeZone: 'UTC' 
+     });
   };
 
   return (
     <div 
       className={`listing-card ${variant === 'compact' ? 'compact' : ''} ${(isSold || isRented) ? 'sold-item' : ''}`} 
-      onClick={handleClick} 
+      onClick={handleClick}
       role="button" 
       tabIndex={0}
       onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleClick(e)}
@@ -111,15 +122,19 @@ export default function ListingCard({
                     </span>
                     {rentalInfo && rentalInfo.startDate && rentalInfo.endDate && (
                         <div style={{ 
-                            backgroundColor: 'rgba(0, 0, 0, 0.7)', 
+                            backgroundColor: 'rgba(0, 0, 0, 0.85)', 
                             color: '#fff', 
-                            padding: '2px 8px', 
-                            borderRadius: '4px',
-                            fontSize: '0.75rem',
+                            padding: '4px 8px', 
+                            borderRadius: '6px',
+                            fontSize: '0.7rem',
                             fontWeight: '600',
-                            marginTop: '2px'
+                            marginTop: '2px',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'center',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                         }}>
-                            {formatDate(rentalInfo.startDate)} - {formatDate(rentalInfo.endDate)}
+                            <div>Start: {formatDate(rentalInfo.startDate)}</div>
+                            <div>End: {formatDate(rentalInfo.endDate)}</div>
                         </div>
                     )}
                 </div>
@@ -130,8 +145,9 @@ export default function ListingCard({
         {variant !== 'compact' && (
         <div 
             className="like-badge"
-            onClick={!isOwner ? handleLikeClick : undefined}
-            title={isOwner ? `${displayLikeCount} likes` : (!currentUserId ? 'Login to like' : (isSold ? 'Item is sold' : (isRented ? 'Item is rented' : (isLiked ? 'Unlike' : 'Like'))))}
+            // Allow liking even if rented (only disable if owner)
+            onClick={(!isOwner && !isSold) ? handleLikeClick : undefined}
+            title={isOwner ? `${displayLikeCount} likes` : (!currentUserId ? 'Login to like' : (isSold ? 'Item is sold' : (isLiked ? 'Unlike' : 'Like')))}
             style={{
                 position: 'absolute',
                 top: '8px',
@@ -144,11 +160,11 @@ export default function ListingCard({
                 padding: '4px 8px',
                 borderRadius: '16px',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                cursor: !isOwner ? 'pointer' : 'default',
+                cursor: (!isOwner && !isSold) ? 'pointer' : 'default',
                 transition: 'transform 0.2s',
                 border: '1px solid rgba(0,0,0,0.05)'
             }}
-            onMouseEnter={(e) => !isOwner && (e.currentTarget.style.transform = 'scale(1.05)')}
+            onMouseEnter={(e) => (!isOwner && !isSold) && (e.currentTarget.style.transform = 'scale(1.05)')}
             onMouseLeave={(e) => !isOwner && (e.currentTarget.style.transform = 'scale(1)')}
         >
             <span style={{ fontSize: '1rem', lineHeight: 1, color: isOwner ? '#6c757d' : (isLiked ? '#e53935' : '#ccc') }}>

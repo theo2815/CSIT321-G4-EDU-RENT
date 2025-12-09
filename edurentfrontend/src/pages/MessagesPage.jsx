@@ -19,7 +19,7 @@ import Header from '../components/Header';
 import ListingCard from '../components/ListingCard'; 
 import ReviewModal from '../components/ReviewModal'; 
 import UserRatingDisplay from '../components/UserRatingDisplay';
-import AlertBanner from '../components/AlertBanner'; // Replaces the raw error div
+import AlertBanner from '../components/AlertBanner'; 
 
 // API functions
 import { 
@@ -43,7 +43,7 @@ import {
 import '../static/MessagesPage.css';
 import defaultAvatar from '../assets/default-avatar.png';
 
-// --- Icons Component (Kept exactly as provided) ---
+// --- Icons Component ---
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -77,7 +77,7 @@ const Icons = {
   )
 };
 
-// --- Skeletons (Kept exactly as provided) ---
+// --- Skeletons ---
 function ChatWindowSkeleton() {
   return (
     <div className="chat-skeleton-loader">
@@ -115,7 +115,7 @@ function MessagesSkeleton() {
   );
 }
 
-// --- Formatters (Kept exactly as provided) ---
+// --- Formatters ---
 const formatRelativeTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -181,12 +181,14 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false); 
   const [error, setError] = useState(null);
+  const [isConnected, setIsConnected] = useState(false); // New: Track socket connection state
 
   // References
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const stompClientRef = useRef(null);
   const conversationSubscriptionRef = useRef(null);
+  const selectedConversationRef = useRef(null);
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -207,6 +209,9 @@ export default function MessagesPage() {
   };
   
   const [chatUserRating, setChatUserRating] = useState(null);
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+  }, [selectedConversation]);
 
   // --- Likes Handling ---
   const [likedListingIds, setLikedListingIds] = useState(new Set());
@@ -515,7 +520,8 @@ export default function MessagesPage() {
   // Initial Fetch
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Connect to the real-time server
+  // --- WEBSOCKET CONNECTION (Global) ---
+  // This effect runs ONCE when userData is available to establish the socket connection.
   useEffect(() => {
     if (userData) {
       const socket = new SockJS('http://localhost:8080/ws');
@@ -523,7 +529,9 @@ export default function MessagesPage() {
 
       stompClient.connect({}, () => {
         stompClientRef.current = stompClient;
-        // Subscribe to sidebar updates
+        setIsConnected(true);
+
+        // Subscribe to sidebar updates (Global user topic)
         stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
           const payload = JSON.parse(message.body);
           setConversations(prevConvs => {
@@ -536,7 +544,8 @@ export default function MessagesPage() {
                 ...conv,
                 lastMessagePreview: payload.text,
                 lastMessageDate: payload.timestamp,
-                isUnread: true 
+                // Only mark as unread if we aren't currently looking at this chat
+                isUnread: selectedConversation?.id === payload.conversationId ? false : true 
               });
               return updatedConvs;
             } else {
@@ -544,15 +553,68 @@ export default function MessagesPage() {
               return prevConvs;
             }
           });
-          // Optional: Show a small info toast for new background messages
-          if (!selectedConversation || selectedConversation.id !== payload.conversationId) {
+          
+          const currentChatId = selectedConversationRef.current?.id;
+          
+          if (!currentChatId || currentChatId !== payload.conversationId) {
              toast.showInfo(`New message from ${payload.senderName || 'someone'}`);
           }
         });
+      }, (err) => {
+        console.error("Socket connection error:", err);
+        setIsConnected(false);
       });
-      return () => { if (stompClientRef.current) stompClientRef.current.disconnect(); };
+
+      return () => { 
+        if (stompClientRef.current) stompClientRef.current.disconnect(); 
+        setIsConnected(false);
+      };
     }
-  }, [userData, fetchData, selectedConversation]);
+  }, [userData]); // Dependencies removed to keep connection stable
+
+  // --- WEBSOCKET SUBSCRIPTION (Active Chat) ---
+  // This effect handles subscribing/unsubscribing to the specific conversation topic
+  // whenever the user clicks a different conversation.
+  useEffect(() => {
+    if (!selectedConversation || !isConnected || !stompClientRef.current) return;
+
+    // Unsubscribe from previous chat
+    if (conversationSubscriptionRef.current) {
+        conversationSubscriptionRef.current.unsubscribe();
+    }
+
+    // Subscribe to new chat
+    conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${selectedConversation.id}`, (message) => {
+        const payload = JSON.parse(message.body);
+        
+        // Prevent duplicate messages if sender is self (handled optimistically)
+        if (payload.senderId === userData.userId) return;
+
+        const newMsg = {
+            id: payload.id, 
+            senderId: payload.senderId, 
+            text: payload.text,
+            attachmentUrl: payload.attachmentUrl, 
+            timestamp: formatChatTimestamp(payload.timestamp), 
+            rawDate: payload.timestamp
+        };
+
+        setMessages(prev => {
+            // Safety check for duplicates
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+        });
+        
+        markConversationAsRead(selectedConversation.id);
+    });
+
+    return () => {
+        if (conversationSubscriptionRef.current) {
+            conversationSubscriptionRef.current.unsubscribe();
+        }
+    };
+  }, [selectedConversation, isConnected, userData]);
+
 
   // Load the message history when the user clicks on a conversation
   const handleSelectConversation = async (conversation) => {
@@ -571,20 +633,8 @@ export default function MessagesPage() {
       c.id === conversation.id ? { ...c, isUnread: false } : c
     ));
 
-    // WebSocket subscription for this specific chat
-    if (stompClientRef.current && stompClientRef.current.connected) {
-        if (conversationSubscriptionRef.current) conversationSubscriptionRef.current.unsubscribe();
-        conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${conversation.id}`, (message) => {
-            const payload = JSON.parse(message.body);
-            if (payload.senderId === userData.userId) return;
-            const newMsg = {
-                id: payload.id, senderId: payload.senderId, text: payload.text,
-                attachmentUrl: payload.attachmentUrl, timestamp: formatChatTimestamp(payload.timestamp), rawDate: payload.timestamp
-            };
-            setMessages(prev => [...prev, newMsg]);
-            markConversationAsRead(conversation.id);
-        });
-    }
+    // Note: The WebSocket subscription is now handled by the separate useEffect above,
+    // so we don't need to manually subscribe here anymore.
 
     try {
       const [messagesRes, ratingRes] = await Promise.all([

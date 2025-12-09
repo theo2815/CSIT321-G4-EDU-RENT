@@ -88,9 +88,11 @@ export default function LikesPage() {
           <div className="empty-state-icon">❤️</div>
           <div className="empty-state-title">No Favorites Yet</div>
           <p>Find something you like and tap the heart to save it.</p>
-          <Link to="/browse" className="cta-button" style={{marginTop: '1rem'}}>
-            Browse all items
-          </Link>
+          <div style={{ marginTop: '1.5rem' }}>
+            <Link to="/browse" className="cta-button">
+              Browse all items
+            </Link>
+          </div>
         </div>
       );
     }

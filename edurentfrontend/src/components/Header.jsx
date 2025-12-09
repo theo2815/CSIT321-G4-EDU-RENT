@@ -47,7 +47,7 @@ export default function Header({
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationFilter, setNotificationFilter] = useState('all'); // 'all' or 'unread'
-  const [notifPrefs, setNotifPrefs] = useState({ all_notifications: true, likes: true, messages: true, email: false });
+  const [setNotifPrefs] = useState({ all_notifications: true, likes: true, messages: true, email: false });
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   // --- Notification Logic ---
@@ -96,7 +96,7 @@ export default function Header({
     } finally   {
       setIsLoadingNotifications(false);
     }
-  }, [notificationFilter, userData]); 
+  }, [notificationFilter, setNotifPrefs, userData]); 
 
   // Watch for changes: If the user logs in or changes filters, refresh the list.
   useEffect(() => {

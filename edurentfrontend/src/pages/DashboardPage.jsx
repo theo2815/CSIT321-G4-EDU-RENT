@@ -8,7 +8,6 @@ import usePageData from '../hooks/usePageData';
 import useSearch from '../hooks/useSearch';       
 import useLikes from '../hooks/useLikes';
 import { useAuthModal } from '../context/AuthModalContext';
-import PaginationControls from '../components/PaginationControls';
 import LoadMoreButton from '../components/LoadMoreButton';
 
 // Import UI components
@@ -18,6 +17,7 @@ import Header from '../components/Header';
 
 // Import styles
 import '../static/DashboardPage.css';
+import dashboardImg from '../assets/dashboard.png';
 
 // Shows a placeholder layout while data is loading so the page doesn't feel empty
 function LoadingSkeleton() {
@@ -177,16 +177,29 @@ export default function DashboardPage() {
 
       <main className="dashboard-body">
         {/* Welcome Banner */}
-        <section className="content-card hero-card">
-          <div className="hero-left">
-            <h1 className="hero-title">Your Campus Marketplace for Students</h1>
-            <p className="hero-subtitle">
+        <section 
+          className="content-card hero-card"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${dashboardImg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            justifyContent: 'center',
+            alignItems: 'center',
+            textAlign: 'center',
+            minHeight: '320px',
+            padding: '3rem 2rem'
+          }}
+        >
+          <div style={{ maxWidth: '700px', width: '100%' }}>
+            <h1 className="hero-title" style={{ color: 'white', marginBottom: '1rem', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+              Your Campus Marketplace for Students
+            </h1>
+            <p className="hero-subtitle" style={{ color: 'rgba(255, 255, 255, 0.95)', marginBottom: '2rem', fontWeight: 500 }}>
               Edu-Rent makes it easy to rent, buy, and sell items within your university community. Find textbooks, electronics, and more.
             </p>
-            <Link to="/browse" className="hero-button">Browse All Items</Link>
-          </div>
-          <div className="hero-right">
-            <div className="hero-image-placeholder">📚 Marketplace Hub</div>
+            <Link to="/browse" className="hero-button" style={{ border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+              Browse All Items
+            </Link>
           </div>
         </section>
 

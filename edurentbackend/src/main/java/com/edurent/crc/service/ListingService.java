@@ -46,8 +46,11 @@ public class ListingService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // Centralized list of statuses visible to the public
+    // Centralized list of statuses visible to the public (Dashboard, Browse, Categories)
     private final List<String> PUBLIC_STATUSES = Arrays.asList("Available", "Rented", "AVAILABLE", "RENTED");
+    
+    // Statuses visible on a user's public profile (Includes Sold history)
+    private final List<String> PROFILE_STATUSES = Arrays.asList("Available", "Rented", "Sold", "AVAILABLE", "RENTED", "SOLD");
 
     // --- Helper Methods ---
 
@@ -227,7 +230,7 @@ public class ListingService {
         if (includeInactive) {
             return listingRepository.findByUser_UserId(userId, pageable); 
         } else {
-            return listingRepository.findByUser_UserIdAndStatusIn(userId, PUBLIC_STATUSES, pageable);
+            return listingRepository.findByUser_UserIdAndStatusIn(userId, PROFILE_STATUSES, pageable);
         }
     }
 
