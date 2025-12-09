@@ -70,7 +70,7 @@
 
   font-weight: 500;
 
-  color: var(--text-muted);
+  color: var(--text-color);
 
   text-decoration: none;
 
@@ -181,8 +181,8 @@
 
 
   .settings-nav-item a {
-
-    padding: 0.75rem 1.5rem; /* MODIFIED: Restore item padding */
+    background-color: var(--bg-color);
+    color: var(--text-color);
 
     border-bottom: 3px solid transparent; /* MODIFIED: Remove bottom border */
 
@@ -1028,4 +1028,9 @@ input:checked + .toggle-slider:before {
 
   }
 
+}
+
+/* Dark-mode specific hover requirement */
+[data-theme="dark"] .settings-nav-item a:hover {
+  color: #000;
 }

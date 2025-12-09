@@ -77,7 +77,7 @@
   position: absolute;
   top: 100%;
   left: 0;
-  background-color: white;
+  background-color: var(--bg-light);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Enhanced shadow for depth */
@@ -103,7 +103,7 @@
 }
 
 .filter-option:hover {
-  background-color: #f8f9fa;
+  background-color: var(--bg-color);
 }
 
 .filter-option.active {
@@ -191,13 +191,13 @@
 
 /* Elevate hovered item so its potential menus display over the next item */
 .conversation-list-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--bg-color);
   z-index: 10; 
 }
 
 /* Highlights the currently selected chat */
 .conversation-list-item.active {
-  background-color: #e7f5ff;
+  background-color: var(--bg-light);
   z-index: 5;
 }
 
@@ -210,23 +210,23 @@
 
 /* Status Indicators (Unread) */
 .conversation-list-item.unread {
-  background-color: #f0f7ff;
+  background-color: var(--bg-color);
 }
 
 .conversation-list-item.unread .conversation-user-name {
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .conversation-list-item.unread .conversation-preview {
   font-weight: 600;
-  color: #34495e;
+  color: var(--text-color);
 }
 
 .unread-dot {
   height: 10px;
   width: 10px;
-  background-color: #007bff;
+  background-color: var(--primary-color);
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
@@ -263,7 +263,7 @@
 
 .conversation-preview {
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: var(--text-color);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -325,7 +325,7 @@
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  background-color: #fdfdfd;
+  background-color: var(--bg-light);
   z-index: 10; /* Ensures header floats above scrolling messages */
   position: relative;
 }
@@ -390,6 +390,8 @@
   word-wrap: break-word;
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
   position: relative;
+  background-color: var(--bg-color);
+  color: var(--text-color);
 }
 
 .message-timestamp {
@@ -421,7 +423,7 @@
 }
 
 .message-bubble-wrapper.received .message-bubble {
-  background-color: #e9ecef;
+  background-color: var(--bg-light);
   color: var(--text-color);
   border-bottom-left-radius: 0px;
 }
@@ -434,7 +436,7 @@
 .chat-input-area {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border-color);
-  background-color: #f8f9fa;
+  background-color: var(--bg-light);
   display: flex;
   align-items: flex-end; /* Aligns icons to bottom for multi-line text */
   gap: 0.75rem;
@@ -479,7 +481,7 @@
 }
 
 .icon-button:hover {
-  background-color: #e9ecef;
+  background-color: var(--bg-color);
 }
 
 .send-button {
@@ -487,7 +489,7 @@
 }
 
 .send-button:hover {
-  background-color: #e7f5ff;
+  background-color: var(--bg-color);
 }
 
 /* Placeholder for empty chat state */
@@ -512,7 +514,7 @@
   display: block;
   background: none;
   border: none;
-  color: #007bff;
+  color: var(--primary-color);
   font-weight: 600;
   cursor: pointer;
   padding: 0.5rem 1rem;
@@ -554,7 +556,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .skeleton-conversation-avatar {
@@ -577,7 +579,7 @@
   display: none;
   justify-content: center;
   align-items: center;
-  background-color: #f8f9fa;
+  background-color: var(--bg-light);
   color: var(--text-muted);
 }
 
@@ -698,7 +700,7 @@
 .date-header-badge::after {
   content: "";
   height: 1px;
-  background-color: #e0e0e0;
+  background-color: var(--border-color);
   width: 30px; /* Width of the line */
   margin: 0 10px;
 }
@@ -723,8 +725,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #34495e; /* Dark background */
-  color: white;
+  background-color: var(--primary-color);
+  color: var(--bg-light);
   padding: 0.75rem 1rem;
   border-radius: 8px;
   font-size: 0.9rem;
@@ -735,7 +737,7 @@
 .clear-filter-btn {
   background: none;
   border: 1px solid rgba(255,255,255,0.4);
-  color: white;
+  color: var(--bg-light);
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
   cursor: pointer;
