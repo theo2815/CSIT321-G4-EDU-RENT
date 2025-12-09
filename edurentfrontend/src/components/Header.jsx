@@ -242,6 +242,14 @@ export default function Header({
            // 2. Add to list
            setNotifications(prev => [payload, ...prev]);
            setUnreadCount(prev => prev + 1);
+        }else if (['TRANSACTION_COMPLETED', 'TRANSACTION_COMPLETED_SELLER', 'RENTAL_STARTED_RENTER', 'RENTAL_STARTED_OWNER', 'RENTAL_REMINDER'].includes(payload.type)) {
+           // 1. Show Toast
+           const plainText = payload.content ? payload.content.replace(/<[^>]*>?/gm, '') : 'New Notification';
+           showInfo(plainText);
+           
+           // 2. Add to list
+           setNotifications(prev => [payload, ...prev]);
+           setUnreadCount(prev => prev + 1);
         }
       });
     }, (err) => {

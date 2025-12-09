@@ -72,12 +72,80 @@ public class TransactionService {
         
         TransactionEntity savedTransaction = transactionRepository.save(transaction);
 
-        // Send Notification if it's a Sale
+        // Send Notification based on type
         if ("Sale".equalsIgnoreCase(savedTransaction.getTransactionType())) {
             sendSaleNotification(savedTransaction, listing, buyer, seller);
+            sendSellerNotification(savedTransaction, listing, buyer, seller);
+        } else if ("Rent".equalsIgnoreCase(savedTransaction.getTransactionType())) {
+            sendRentNotificationToRenter(savedTransaction, listing, buyer, seller);
+            sendRentNotificationToOwner(savedTransaction, listing, buyer, seller);
         }
 
         return savedTransaction;
+    }
+
+    // --- RENTAL NOTIFICATIONS ---
+
+    private void sendRentNotificationToRenter(TransactionEntity transaction, ListingEntity listing, UserEntity buyer, UserEntity seller) {
+        try {
+            NotificationEntity notification = new NotificationEntity();
+            notification.setUser(buyer);
+            notification.setType("RENTAL_STARTED_RENTER");
+            notification.setLinkUrl("/listing/" + listing.getListingId()); // Opens Product Modal
+
+            String content = String.format("<strong>%s</strong> rented this item to you. Don't forget to leave a review!", 
+                                         seller.getFullName());
+            notification.setContent(content);
+            notification.setCreatedAt(LocalDateTime.now());
+            notification.setIsRead(false);
+
+            NotificationEntity savedNotif = notificationRepository.save(notification);
+            messagingTemplate.convertAndSend("/topic/user." + buyer.getUserId(), savedNotif);
+        } catch (Exception e) {
+            System.err.println("Failed to send renter notification: " + e.getMessage());
+        }
+    }
+
+    private void sendRentNotificationToOwner(TransactionEntity transaction, ListingEntity listing, UserEntity buyer, UserEntity seller) {
+        try {
+            NotificationEntity notification = new NotificationEntity();
+            notification.setUser(seller);
+            notification.setType("RENTAL_STARTED_OWNER");
+            // Includes ?review=true to trigger the Review Modal flow we built earlier
+            notification.setLinkUrl("/listing/" + listing.getListingId() + "?review=true"); 
+
+            String content = String.format("You recently rented this item to <strong>%s</strong>. Don't forget to leave a review!", 
+                                         buyer.getFullName());
+            notification.setContent(content);
+            notification.setCreatedAt(LocalDateTime.now());
+            notification.setIsRead(false);
+
+            NotificationEntity savedNotif = notificationRepository.save(notification);
+            messagingTemplate.convertAndSend("/topic/user." + seller.getUserId(), savedNotif);
+        } catch (Exception e) {
+            System.err.println("Failed to send owner rental notification: " + e.getMessage());
+        }
+    }
+
+    private void sendSellerNotification(TransactionEntity transaction, ListingEntity listing, UserEntity buyer, UserEntity seller) {
+        try {
+            NotificationEntity notification = new NotificationEntity();
+            notification.setUser(seller); // Notify the Seller
+            notification.setType("TRANSACTION_COMPLETED_SELLER");
+            // Append query param to trigger review mode
+            notification.setLinkUrl("/listing/" + listing.getListingId() + "?review=true"); 
+
+            String content = String.format("You recently sold <strong>%s</strong> to <strong>%s</strong>. Don't forget to leave a review!", 
+                                         listing.getTitle(), buyer.getFullName());
+            notification.setContent(content);
+            notification.setCreatedAt(LocalDateTime.now());
+            notification.setIsRead(false);
+
+            NotificationEntity savedNotif = notificationRepository.save(notification);
+            messagingTemplate.convertAndSend("/topic/user." + seller.getUserId(), savedNotif);
+        } catch (Exception e) {
+            System.err.println("Failed to send seller transaction notification: " + e.getMessage());
+        }
     }
 
     private void sendSaleNotification(TransactionEntity transaction, ListingEntity listing, UserEntity buyer, UserEntity seller) {

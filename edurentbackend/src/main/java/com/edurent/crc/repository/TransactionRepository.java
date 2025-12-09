@@ -36,4 +36,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
 
     @Query("SELECT t FROM TransactionEntity t WHERE t.transactionType = 'Rent' AND t.status = 'Active' AND t.endDate < :now")
     List<TransactionEntity> findExpiredRentals(@Param("now") Date now);
+
+    // Find rentals ending within a specific range (e.g., today)
+    @Query("SELECT t FROM TransactionEntity t WHERE t.transactionType = 'Rent' AND t.status = 'Active' AND t.endDate >= :start AND t.endDate < :end")
+    List<TransactionEntity> findRentalsEndingBetween(@Param("start") Date start, @Param("end") Date end);
 }

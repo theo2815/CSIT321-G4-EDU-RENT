@@ -40,7 +40,7 @@ export default function usePageLogic(userData, likeData = null) {
   }, []);
 
   // Fetches listing details and pre-calculates context before opening the modal
-  const handleOpenListing = useCallback(async (listingId) => {
+  const handleOpenListing = useCallback(async (listingId, options = {}) => {
     if (!listingId) return;
 
     closeModal();
@@ -75,6 +75,11 @@ export default function usePageLogic(userData, likeData = null) {
           context.relatedConversations = related;
           context.chatCount = related.length;
           context.existingChat = related.length > 0 ? related[0] : null; 
+        }
+        
+        // Pass the requested action (e.g. review) into the context
+        if (options.initialReviewAction) {
+            context.initialAction = 'review';
         }
 
         setModalContext(context);
@@ -139,14 +144,16 @@ export default function usePageLogic(userData, likeData = null) {
     }
 
     // Handle Listing/Like Notifications (Modal logic)
-    const urlParts = notification.linkUrl?.split('/');
+    const urlObj = new URL(notification.linkUrl, window.location.origin);
+    const urlParts = urlObj.pathname.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+    const shouldReview = urlObj.searchParams.get('review') === 'true';
 
     if (!listingId) {
       console.error("Invalid notification link:", notification.linkUrl);
       return;
     }
-    handleOpenListing(listingId); 
+    handleOpenListing(listingId, { initialReviewAction: shouldReview }); 
   }, [handleOpenListing, navigate]);
 
   // --- 3. Render Helper ---
@@ -164,6 +171,7 @@ export default function usePageLogic(userData, likeData = null) {
            isLiking={likingInProgress.has(selectedListing.listingId)}
            sellerRatingInitialData={sellerRatingData}
            initialContext={modalContext} // Pass the pre-calculated context
+           initialAction={modalContext?.initialAction} // Pass intent
          />
       )}
       {isModalLoading && (
