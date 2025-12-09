@@ -185,6 +185,7 @@ export default function Header({
         <div className="header-left">
           <Link to="/" className="header-logo-link">
             <img src={eduRentLogo} alt="Edu-Rent Logo" className="header-logo" />
+            <span className="header-logo-text">Edu-Rent</span>
           </Link>
           <nav className="header-nav">
             <Link to="/browse" className="nav-link">Browse All Items</Link>

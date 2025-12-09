@@ -55,7 +55,10 @@ export default function ForgotPasswordPage() {
       
       {/* Left Side: Branding and Logo */}
       <div className="auth-branding-panel">
-        <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
+        <Link to="/" className="auth-logo-wrapper">
+          <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
+          <span className="auth-branding-text">Edu-Rent</span>
+        </Link>
         <p className="auth-tagline">
           Your Campus Marketplace for Students.
         </p>

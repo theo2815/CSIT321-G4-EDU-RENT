@@ -95,9 +95,26 @@ body {
   }
 }
 
+.auth-logo-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem; /* Small gap between logo and text */
+  text-decoration: none;
+  margin-bottom: 1.5rem; /* Replaces margin from logo */
+}
+
+.auth-branding-text {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--bg-light);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  letter-spacing: 0.05em;
+}
+
 .auth-logo {
   max-width: clamp(120px, 18vw, 180px);
-  margin-bottom: 1.5rem;
+  margin-bottom: 0; /* Let wrapper handle spacing */
 }
 
 .auth-tagline {

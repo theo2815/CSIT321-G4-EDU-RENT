@@ -38,9 +38,23 @@
   flex-shrink: 0; /* Prevent shrinking */
 }
 
+.header-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* Space between logo and text */
+  text-decoration: none; /* Remove underline from link */
+}
+
 .header-logo {
   height: 36px; /* Adjust as needed */
   display: block;
+}
+
+.header-logo-text {
+  font-size: 1.5rem; /* Make it prominent */
+  font-weight: 700; /* Bold */
+  color: var(--primary-color); /* Use a theme color */
+  display: none; /* Hide on very small screens by default */
 }
 
 .header-nav {
@@ -49,6 +63,9 @@
 }
 
 @media (min-width: 768px) { /* Show on medium screens and up */
+  .header-logo-text {
+    display: block;
+  }
   .header-nav {
     display: flex;
   }
@@ -254,4 +271,3 @@
   line-height: 1;
   pointer-events: none; /* Don't let badge block clicks */
 }
-

@@ -111,10 +111,10 @@ export const getCurrentUser = async () => {
 };
 
 // Retrieves all listings created by a specific user
-export const getUserListings = (userId, page = 0, size = 10) => {
-  return apiClient.get(`/listings/user/${userId}`, {
-      params: { page, size }
-  });
+export const getUserListings = (userId, page = 0, size = 10, includeInactive = false) => {
+    return apiClient.get(`/listings/user/${userId}`, {
+        params: { page, size, includeInactive }
+    });
 };
 
 // Gets all reviews received by a specific user

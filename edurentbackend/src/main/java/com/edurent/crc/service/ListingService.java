@@ -40,19 +40,17 @@ public class ListingService {
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private ListingImageRepository listingImageRepository;
 
-    // Inject Supabase Config
-    @Value("${supabase.url}")
-    private String supabaseUrl;
-
-    @Value("${supabase.key}")
-    private String supabaseKey;
-
-    @Value("${supabase.bucket}")
-    private String bucketName;
+    @Value("${supabase.url}") private String supabaseUrl;
+    @Value("${supabase.key}") private String supabaseKey;
+    @Value("${supabase.bucket}") private String bucketName;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // --- Helper: Upload to Supabase ---
+    // Centralized list of statuses visible to the public
+    private final List<String> PUBLIC_STATUSES = Arrays.asList("Available", "Rented", "AVAILABLE", "RENTED");
+
+    // --- Helper Methods ---
+
     private String uploadFileToSupabase(MultipartFile file, String fileName) throws IOException {
         String storageUrl = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + fileName;
 
@@ -62,15 +60,11 @@ public class ListingService {
         headers.setContentType(MediaType.valueOf(file.getContentType()));
 
         HttpEntity<byte[]> requestEntity = new HttpEntity<>(file.getBytes(), headers);
-
-        // Send POST request to upload
         restTemplate.exchange(storageUrl, HttpMethod.POST, requestEntity, String.class);
 
-        // Return the public URL
         return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + fileName;
     }
 
-    // --- Helper: Delete from Supabase ---
     private void deleteFileFromSupabase(String imageUrl) {
         try {
             String[] parts = imageUrl.split("/" + bucketName + "/");
@@ -85,20 +79,19 @@ public class ListingService {
 
             HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
             restTemplate.exchange(storageUrl, HttpMethod.DELETE, requestEntity, String.class);
-            
         } catch (Exception e) {
             System.err.println("Failed to delete file from Supabase: " + e.getMessage());
         }
     }
 
+    // --- Core Listing Logic ---
 
-    // --- MAIN METHODS ---
     @Transactional
     public ListingEntity createListingWithImages(ListingEntity listing, Long userId, Long categoryId, List<MultipartFile> images) throws IOException {
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
         CategoryEntity category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Category not found with id: " + categoryId));
+                .orElseThrow(() -> new RuntimeException("Category not found: " + categoryId));
 
         listing.setUser(user);
         listing.setCategory(category);
@@ -108,13 +101,11 @@ public class ListingService {
         ListingEntity savedListing = listingRepository.save(listing);
         Long listingId = savedListing.getListingId();
 
-        // --- Supabase Image Upload ---
         if (images != null && !images.isEmpty()) {
             boolean isFirstImage = true;
             for (MultipartFile imageFile : images) {
                 if (!imageFile.isEmpty()) {
                     String originalFilename = imageFile.getOriginalFilename();
-                    // Sanitize filename to prevent issues
                     String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
                     String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
 
@@ -144,16 +135,16 @@ public class ListingService {
     ) throws IOException {
         
         ListingEntity existingListing = listingRepository.findById(listingId)
-                .orElseThrow(() -> new RuntimeException("Listing not found with id: " + listingId));
+                .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
 
         if (!existingListing.getUser().getUserId().equals(currentUserId)) {
-            throw new AccessDeniedException("User does not have permission to edit this listing.");
+            throw new AccessDeniedException("You do not have permission to edit this listing.");
         }
 
         CategoryEntity category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Category not found with id: " + categoryId));
+                .orElseThrow(() -> new RuntimeException("Category not found: " + categoryId));
 
-        // Update fields
+        // Update basic fields
         existingListing.setTitle(updateData.getTitle());
         existingListing.setCategory(category);
         existingListing.setCondition(updateData.getCondition());
@@ -165,22 +156,20 @@ public class ListingService {
         existingListing.setAllowDelivery(updateData.getAllowDelivery());
         existingListing.setDeliveryOptions(updateData.getDeliveryOptions());
 
-        // --- Supabase Image Deletion ---
+        // Handle image deletions
         if (imagesToDelete != null && !imagesToDelete.isEmpty()) {
             List<ListingImageEntity> imagesToRemove = listingImageRepository.findAllById(imagesToDelete);
             
             for (ListingImageEntity image : imagesToRemove) {
                 if (image.getListing().getListingId().equals(listingId)) {
-                    // Delete from Cloud
                     deleteFileFromSupabase(image.getImageUrl());
-                    // Remove from Collection
                     existingListing.getImages().remove(image);
                 }
             }
             listingImageRepository.deleteAll(imagesToRemove);
         }
 
-        // --- Supabase Image Addition ---
+        // Handle new image uploads
         if (newImages != null && !newImages.isEmpty()) {
             boolean needsNewCover = existingListing.getImages().stream().noneMatch(ListingImageEntity::isCoverPhoto);
 
@@ -208,7 +197,7 @@ public class ListingService {
             }
         }
         
-        // Cover photo fallback
+        // Ensure there is always a cover photo if images exist
         if (!existingListing.getImages().isEmpty() && 
              existingListing.getImages().stream().noneMatch(ListingImageEntity::isCoverPhoto)) {
             existingListing.getImages().iterator().next().setCoverPhoto(true);
@@ -216,41 +205,54 @@ public class ListingService {
 
         return listingRepository.save(existingListing);
     }
-    
+
+    // --- Data Retrieval Methods ---
+
     public Page<ListingEntity> getAllListings(int page, int size) { 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return listingRepository.findByStatusIn(Arrays.asList("Available", "Rented"), pageable);
+        // Only return visible statuses to the public feed
+        return listingRepository.findByStatusIn(PUBLIC_STATUSES, pageable);
     }
 
     public Optional<ListingEntity> getListingById(Long listingId) { 
         return listingRepository.findById(listingId); 
     }
 
-    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size) { 
+    // Fetches listings for a specific user.
+    // If includeInactive is true, returns EVERYTHING (for "Manage Listings").
+    // If false, returns only PUBLIC items (for public profile view).
+    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size, boolean includeInactive) { 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return listingRepository.findByUser_UserId(userId, pageable); 
+        
+        if (includeInactive) {
+            return listingRepository.findByUser_UserId(userId, pageable); 
+        } else {
+            return listingRepository.findByUser_UserIdAndStatusIn(userId, PUBLIC_STATUSES, pageable);
+        }
     }
 
     public Page<ListingEntity> getListingsByCategoryId(Long categoryId, int page, int size) { 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return listingRepository.findByCategory_CategoryIdAndStatusIn(categoryId, Arrays.asList("Available", "Rented"), pageable);
+        return listingRepository.findByCategory_CategoryIdAndStatusIn(categoryId, PUBLIC_STATUSES, pageable);
     }
 
     public Page<ListingEntity> getListingsByType(String listingType, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return listingRepository.findByListingTypeAndStatusIn(listingType, Arrays.asList("Available", "Rented"), pageable);
+        return listingRepository.findByListingTypeAndStatusIn(listingType, PUBLIC_STATUSES, pageable);
     }
 
-    // --- UPDATED: deleteListing with Supabase deletion ---
+    // --- Listing Management ---
+
     @Transactional
     public void deleteListing(Long listingId, Long currentUserId) {
         ListingEntity existingListing = listingRepository.findById(listingId)
-                .orElseThrow(() -> new RuntimeException("Listing not found with id: " + listingId));
+                .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
         
         if (!existingListing.getUser().getUserId().equals(currentUserId)) {
             throw new AccessDeniedException("User does not have permission to delete this listing.");
         }
 
+        // Clean up cloud storage before DB deletion
         if (existingListing.getImages() != null) {
             for (ListingImageEntity image : existingListing.getImages()) {
                 deleteFileFromSupabase(image.getImageUrl());
@@ -259,11 +261,10 @@ public class ListingService {
         listingRepository.delete(existingListing);
     }
 
-    // --- NEW METHOD: Update Listing Status ---
     @Transactional
     public void updateListingStatus(Long listingId, String newStatus, Long currentUserId) {
         ListingEntity listing = listingRepository.findById(listingId)
-                .orElseThrow(() -> new RuntimeException("Listing not found with id: " + listingId));
+                .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
 
         if (!listing.getUser().getUserId().equals(currentUserId)) {
             throw new AccessDeniedException("User does not have permission to edit this listing.");
@@ -271,19 +272,5 @@ public class ListingService {
 
         listing.setStatus(newStatus);
         listingRepository.save(listing);
-    }
-
-    // --- OLD METHODS FOR REFERENCE ---
-    public ListingEntity createListing(ListingEntity listing, Long userId, Long categoryId) {
-        UserEntity user = userRepository.findById(userId).orElseThrow();
-        CategoryEntity category = categoryRepository.findById(categoryId).orElseThrow();
-        listing.setUser(user);
-        listing.setCategory(category);
-        listing.setCreatedAt(LocalDateTime.now());
-        return listingRepository.save(listing);
-    }
-    
-    public void deleteListing(Long id) {
-         listingRepository.deleteById(id);
     }
 }
