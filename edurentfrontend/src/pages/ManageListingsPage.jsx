@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Components
 import Header from '../components/Header';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
-import MarkAsSoldModal from '../components/MarkAsSoldModal'; 
-import PaginationControls from '../components/PaginationControls';
+import MarkAsSoldModal from '../components/MarkAsSoldModal';
+import LoadMoreButton from '../components/LoadMoreButton';
 
-import useAuth from '../hooks/useAuth'; 
+import useAuth from '../hooks/useAuth';
 
 // Services
 import { 
@@ -18,8 +18,8 @@ import {
   getListingById, 
   deleteListing,
   updateListingStatus,
-  likeListing,     
-  unlikeListing    
+  likeListing,      
+  unlikeListing     
 } from '../services/apiService';
 
 // Styles
@@ -27,7 +27,7 @@ import '../static/ManageListingsPage.css';
 import '../static/ProfilePage.css'; 
 import '../static/DashboardPage.css';
 
-// Placeholder layout shown while the page data is loading
+// Layout shown while the initial data is being fetched
 function ManageListingsSkeleton() {
   return (
     <div className="manage-listings-page">
@@ -77,7 +77,7 @@ function ManageListingsSkeleton() {
 
 export default function ManageListingsPage() {
   const navigate = useNavigate();
-  const { retryAuth, logout } = useAuth();
+  const { logout } = useAuth();
 
   // Data State
   const [userName, setUserName] = useState('');
@@ -86,6 +86,10 @@ export default function ManageListingsPage() {
   const [filteredListings, setFilteredListings] = useState([]); 
   const [categories, setCategories] = useState([]); 
   
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+
   // UI & Selection State
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -112,61 +116,62 @@ export default function ManageListingsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('available');
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  // Unified data fetching function to handle both initial load and "Load More"
+  const fetchData = useCallback(async (page = 0) => {
+    setIsLoading(true);
+    if (page === 0) setError(null);
+    
+    try {
+      // Get user info first
+      const userRes = await getCurrentUser();
+      const userId = userRes.data?.userId;
+      setUserData(userRes.data);
+      setUserName(userRes.data?.fullName?.split(' ')[0] || 'User');
 
-  // Load the user's profile and their listings when the page mounts
-  useEffect(() => {
-    const fetchData = async (page = 0) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const userRes = await getCurrentUser();
-        const userId = userRes.data?.userId;
-        setUserData(userRes.data);
-        setUserName(userRes.data?.fullName?.split(' ')[0] || 'User');
+      if (!userId) throw new Error("Could not find user ID.");
 
-        if (!userId) throw new Error("Could not find user ID.");
+      // Fetch listings and categories concurrently
+      const listingsPromise = getUserListings(userId, page, 8);
+      const categoriesPromise = getCategories();
 
-        // Fetch listings and categories at the same time
-        const [listingsRes, catRes] = await Promise.all([
-            getUserListings(userId, page, 10),
-            getCategories()
-        ]);
+      const [listingsRes, catRes] = await Promise.all([
+          listingsPromise,
+          categoriesPromise
+      ]);
 
+      const data = listingsRes.data;
+      const newContent = data.content || [];
 
-        // Handle Page response
-        const data = listingsRes.data;
-        if (data.content) {
-            setAllListings(data.content);
-            setTotalPages(data.totalPages);
-            setCurrentPage(data.number);
-        } else {
-            setAllListings(data || []);
-        }
-
-        //setAllListings(listingsRes.data || []);
-        
-        // Add a default "All" option to the category list
-        setCategories([{ categoryId: 'all', name: 'All Categories' }, ...(catRes.data || [])]);
-
-      } catch (err) {
-        console.error("Failed to load data:", err);
-        setError("Could not load listings.");
-        if (err.message === "No authentication token found.") navigate('/login');
-      } finally {
-        setIsLoading(false);
+      // If it's page 0, replace the list. If it's a later page, append to the list.
+      setAllListings(prev => page === 0 ? newContent : [...prev, ...newContent]);
+      
+      setCurrentPage(data.number);
+      setHasMore(data.number < data.totalPages - 1);
+      
+      // Update categories only on the first load to keep dropdowns stable
+      if (page === 0) {
+          setCategories([{ categoryId: 'all', name: 'All Categories' }, ...(catRes.data || [])]);
       }
-    };
-    fetchData();
+
+    } catch (err) {
+      console.error("Failed to load data:", err);
+      setError("Could not load listings.");
+      if (err.message === "No authentication token found.") navigate('/login');
+    } finally {
+      setIsLoading(false);
+    }
   }, [navigate]);
 
-  // Re-run filters whenever the user inputs change or the data updates
+  // Initial load
+  useEffect(() => {
+    fetchData(0);
+  }, [fetchData]);
+
+  // Apply filters whenever inputs or data change
   useEffect(() => {
     let result = [...allListings];
 
-    // Filter by Item Status (Active, Inactive, etc)
+    // Filter by Item Status
     if (filterStatus !== 'all') {
       if (filterStatus === 'others') {
         result = result.filter(item => 
@@ -174,7 +179,7 @@ export default function ManageListingsPage() {
             item.status.toLowerCase() !== 'inactive'
         );
       } else {
-        result = result.filter(item => item.status.toLowerCase() === filterStatus);      
+        result = result.filter(item => item.status.toLowerCase() === filterStatus);       
       }
     }
 
@@ -202,7 +207,7 @@ export default function ManageListingsPage() {
       );
     }
 
-    // Sort the results
+    // Sort Results
     result.sort((a, b) => {
       const dateA = new Date(a.createdAt);
       const dateB = new Date(b.createdAt);
@@ -211,7 +216,7 @@ export default function ManageListingsPage() {
 
     setFilteredListings(result);
 
-    // Keep the selection set in sync (remove IDs that are no longer visible)
+    // Sync selection (remove IDs that are no longer visible in current filter)
     setSelectedItems(prevSelected => {
         const currentFilteredIds = new Set(result.map(item => item.listingId));
         const newSelected = new Set();
@@ -258,14 +263,12 @@ export default function ManageListingsPage() {
     navigate(`/edit-listing/${itemId}`);
   };
 
-  // Trigger the "Mark Sold" modal for a specific item
   const handleOpenMarkSold = (e, listing) => {
     e.stopPropagation(); 
     setListingToMarkSold(listing);
     setIsMarkSoldModalOpen(true);
   };
 
-  // Update the list locally after an item is successfully marked sold
   const handleMarkSoldSuccess = () => {
     if (listingToMarkSold) {
         setAllListings(prev => prev.map(item => 
@@ -278,7 +281,6 @@ export default function ManageListingsPage() {
     setIsMarkSoldModalOpen(false);
   };
 
-  // Delete a single item
   const handleDelete = async (itemId) => {
     setBulkActionMessage("");
     if (window.confirm(`Are you sure you want to delete listing ID ${itemId}?`)) {
@@ -296,7 +298,7 @@ export default function ManageListingsPage() {
     }
   };
 
-  // Bulk Action: Mark multiple items as sold
+  // Bulk Actions
   const handleBulkMarkSold = async () => {
     setBulkActionMessage("");
     const numToUpdate = selectedItems.size;
@@ -326,7 +328,6 @@ export default function ManageListingsPage() {
     }
   };
 
-  // Bulk Action: Delete multiple items
   const handleBulkDelete = async () => {
     setBulkActionMessage("");
     const numToDelete = selectedItems.size;
@@ -349,7 +350,7 @@ export default function ManageListingsPage() {
     }
   };
 
-  // Calculate counts for the filter tabs
+  // Calculate counts for tabs
   const counts = allListings.reduce((acc, item) => {
        const status = item.status?.toLowerCase() || 'other';
        if (status === 'active' || status === 'available') acc.active++;
@@ -359,8 +360,7 @@ export default function ManageListingsPage() {
   }, { active: 0, inactive: 0, others: 0 });
 
   
-
-  // Handle clicks on notifications
+  // Notification Handling
   const handleNotificationClick = async (notification) => {
     const urlParts = notification.linkUrl?.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
@@ -396,7 +396,7 @@ export default function ManageListingsPage() {
     setIsModalOpen(false);
   };
 
-  // Handle liking/unliking functionality
+  // Like / Unlike
   const handleLikeToggle = async (listingId) => {
     if (likingInProgress.has(listingId)) return;
     setLikingInProgress(prev => new Set(prev).add(listingId));
@@ -413,7 +413,7 @@ export default function ManageListingsPage() {
       else await likeListing(listingId);
     } catch (err) {
       console.error("Failed to toggle like:", err);
-      // Revert optimism
+      // Revert on failure
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
           if (isCurrentlyLiked) revertedIds.add(listingId);
@@ -429,7 +429,8 @@ export default function ManageListingsPage() {
     }
   };
 
-  if (isLoading) {
+  // Render Loading Skeleton only for initial load
+  if (isLoading && currentPage === 0) {
       return (
           <div className="profile-page">
               <Header userName="" onLogout={logout} />
@@ -590,11 +591,10 @@ export default function ManageListingsPage() {
                     const isSold = item.status?.toLowerCase() === 'sold';
                     const statusClass = item.status?.toLowerCase() || 'other';
                     
-                    // Format status text for display
                     const statusText = item.status?.toLowerCase() === 'available' ? 'Active' : 
-                                       item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
-                                       item.status?.toLowerCase() === 'sold' ? 'Sold' : 
-                                       item.status; 
+                                     item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
+                                     item.status?.toLowerCase() === 'sold' ? 'Sold' : 
+                                     item.status; 
 
                     return (
                       <tr key={item.listingId} onClick={() => openModal(item)} style={{ cursor: 'pointer' }}>
@@ -667,13 +667,13 @@ export default function ManageListingsPage() {
                 </tbody>
               </table>
             </div>
-            <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
-                    <PaginationControls 
-                        currentPage={currentPage}
-                        totalPages={totalPages}
-                        onPageChange={fetchData}
-                    />
-                </div>
+
+            {/* Load More Button */}
+            <LoadMoreButton 
+                onLoadMore={() => fetchData(currentPage + 1)}
+                isLoading={isLoading}
+                hasMore={hasMore}
+            />
             </>
           ) : (
              <div className="listings-empty-state">

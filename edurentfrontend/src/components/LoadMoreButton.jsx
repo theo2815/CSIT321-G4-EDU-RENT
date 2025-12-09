@@ -3,10 +3,16 @@ import React from 'react';
 export default function LoadMoreButton({ onLoadMore, isLoading, hasMore }) {
   if (!hasMore) return null;
 
+  const handleClick = (e) => {
+    e.preventDefault();
+    onLoadMore();      
+  };
+
   return (
     <div style={{ textAlign: 'center', marginTop: '2rem', marginBottom: '2rem' }}>
       <button
-        onClick={onLoadMore}
+        type="button"
+        onClick={handleClick}
         disabled={isLoading}
         className="btn btn-outline"
         style={{

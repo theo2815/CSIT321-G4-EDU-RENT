@@ -15,7 +15,7 @@ import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ReviewImagesModal from '../components/ReviewImagesModal';
 import ReviewModal from '../components/ReviewModal';
 import ConversationStarterModal from '../components/ConversationStarterModal';
-import PaginationControls from '../components/PaginationControls';
+import LoadMoreButton from '../components/LoadMoreButton'; // Swapped PaginationControls for LoadMore
 
 // API Services
 import { 
@@ -33,16 +33,16 @@ import defaultAvatar from '../assets/default-avatar.png';
 
 const API_URL = 'http://localhost:8080/api/v1';
 
-// Placeholder for items missing an image
+// Fallback for missing item images
 const defaultProductPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3e%3crect width='60' height='60' fill='%23f0f0f0'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='10' fill='%23aaaaaa'%3eItem%3c/text%3e%3c/svg%3e";
 
-// Fix image paths to ensure they are absolute URLs
+// Ensure image paths are absolute
 const getImageUrl = (path) => {
   if (!path) return null;
   return path.startsWith('http') ? path : `http://localhost:8080${path}`;
 };
 
-// Manually fetch user data if the standard service isn't enough
+// Fallback fetcher if the service layer fails
 const fetchUserById = async (id) => {
   const storedData = localStorage.getItem('eduRentUserData');
   const token = storedData ? JSON.parse(storedData).token : null;
@@ -52,7 +52,7 @@ const fetchUserById = async (id) => {
   });
 };
 
-// Shows a loading layout while the profile data is being fetched
+// Loading state layout
 function ProfileSkeleton() {
   return (
     <main className="dashboard-body">
@@ -92,7 +92,7 @@ function ProfileSkeleton() {
   );
 }
 
-// Pop-up modal showing extra user details like join date and location
+// Modal for extra user details
 function ProfileDetailsModal({ user, onClose }) {
   if (!user) return null;
 
@@ -123,7 +123,6 @@ function ProfileDetailsModal({ user, onClose }) {
   );
 }
 
-// Reusable component to show error messages
 function ErrorDisplay({ error, onRetry }) {
   return (
     <div className="error-container" style={{ margin: '2rem auto', maxWidth: '600px'}}>
@@ -134,7 +133,7 @@ function ErrorDisplay({ error, onRetry }) {
   );
 }
 
-// Display a single review with the product image, comment, and rating
+// Single review item
 function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
   const reviewerName = review.reviewer?.fullName || 'Anonymous';
   const reviewerAvatar = getImageUrl(review.reviewer?.profilePictureUrl) || defaultAvatar;
@@ -157,7 +156,7 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
     <div className="review-card" style={{ position: 'relative' }}>
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
         
-        {/* Product Image Thumbnail */}
+        {/* Product Thumbnail */}
         <div style={{ flexShrink: 0 }}>
             <img 
               src={productCoverImage} 
@@ -167,7 +166,7 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
             />
         </div>
 
-        {/* Review Content */}
+        {/* Review Body */}
         <div style={{ flexGrow: 1 }}>
             
             <div className="review-header" style={{ marginBottom: '0.25rem', display: 'flex', justifyContent: 'space-between' }}>
@@ -182,14 +181,14 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                       to={reviewerId ? `/profile/${reviewerId}` : '#'}
                       className="review-reviewer"
                       style={{ 
-                          color: 'var(--primary-color)', // Blue color to indicate clickable
+                          color: 'var(--primary-color)', 
                           textDecoration: 'none',
-                          fontWeight: '700', // Keep it bold
+                          fontWeight: '700', 
                           cursor: reviewerId ? 'pointer' : 'default'
                       }}
                       onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
                       onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                      onClick={(e) => !reviewerId && e.preventDefault()} // Prevent click if no ID
+                      onClick={(e) => !reviewerId && e.preventDefault()} 
                     >
                         {reviewerName}
                     </Link>
@@ -203,12 +202,11 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                       {'☆'.repeat(5 - (review.rating || 0))}
                     </span>
 
-                    {/* Show Edit/Delete buttons if the current user wrote this review */}
+                    {/* Actions for Author */}
                     {isAuthor && (
                         <div style={{ marginLeft: '0.5rem', display: 'flex', gap: '5px' }}>
                             <button 
                                 onClick={(e) => { 
-                                    // Prevent default link behavior to stop page refresh
                                     e.preventDefault(); 
                                     onEdit(review); 
                                 }}
@@ -219,7 +217,6 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                             </button>
                             <button 
                                 onClick={(e) => {
-                                    // Prevent default link behavior to stop page refresh
                                     e.preventDefault(); 
                                     onDelete(review.id);
                                 }}
@@ -241,7 +238,7 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                 {review.comment || 'No comment provided.'}
             </p>
 
-            {/* Show attached images if any */}
+            {/* Attached Images */}
             {reviewImageUrls.length > 0 && (
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {reviewImageUrls.map((imgUrl, index) => (
@@ -274,25 +271,25 @@ export default function ProfilePage() {
   const { profileId } = useParams();
   const navigate = useNavigate();
 
-  // Load auth data and global logic
+  // Auth and global logic
   const { userData: loggedInUser, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
   const likesHook = useLikes();
   const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
   const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(loggedInUser, likesHook);
 
-  // Store the profile data, listings, and reviews locally
+  // Local Data State
   const [profileUser, setProfileUser] = useState(null); 
   const [originalListings, setOriginalListings] = useState([]); 
   const [userReviews, setUserReviews] = useState([]);
   
-  // UI Controls for tabs and filters
+  // Controls
   const [activeTab, setActiveTab] = useState('listings');
   const [listingFilter, setListingFilter] = useState('all'); 
   
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   const [pageDataError, setPageDataError] = useState(null);
 
-  // Modal visibility states
+  // Modals
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImages, setModalImages] = useState([]);
@@ -300,26 +297,32 @@ export default function ProfilePage() {
   const [editingReview, setEditingReview] = useState(null);
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
 
-  // Add pagination state
+  // Pagination State (Load More approach)
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
-  // --- Data Fetching Logic ---
+  // --- Data Fetching ---
   
-  // 1. Define fetchProfileData first so it is available for dependencies
+  // Fetches profile data; optimized to append listings on load more
   const fetchProfileData = useCallback(async (targetId, page = 0) => {
     setIsLoadingPageData(true);
     setPageDataError(null);
     try {
-      let userPromise;
-      if (profileId) {
-          userPromise = fetchUserById(profileId); 
-      } else {
-          userPromise = getCurrentUser();
+      // Only fetch User details and Reviews on the initial load to save bandwidth
+      let userPromise = Promise.resolve(null);
+      let reviewsPromise = Promise.resolve(null);
+
+      if (page === 0) {
+        if (profileId) {
+            userPromise = fetchUserById(profileId); 
+        } else {
+            userPromise = getCurrentUser();
+        }
+        reviewsPromise = getUserReviews(targetId);
       }
 
-      const listingsPromise = getUserListings(targetId, page, 6);
-      const reviewsPromise = getUserReviews(targetId);
+      // Always fetch listings for the current page request
+      const listingsPromise = getUserListings(targetId, page, 8);
       
       const [userResponse, listingsResponse, reviewsResponse] = await Promise.all([
         userPromise,
@@ -327,32 +330,32 @@ export default function ProfilePage() {
         reviewsPromise
       ]);
 
-      setProfileUser(userResponse.data);
-
-      // Handle Page response
+      if (userResponse) setProfileUser(userResponse.data);
+      if (reviewsResponse) setUserReviews(reviewsResponse.data || []);
+      
+      // Handle Listing Data
       const listingsData = listingsResponse.data;
-      if (listingsData.content) {
-          setOriginalListings(listingsData.content); // Sorting might need to move to backend or stay here for current page
-          setTotalPages(listingsData.totalPages);
-          setCurrentPage(listingsData.number);
-      } else {
-          setOriginalListings(listingsData || []);
-      }
-      
-      // Sort listings so Sold items are at the bottom, and newest are at the top
-      const rawListings = listingsResponse.data || [];
-      const sortedListings = rawListings.sort((a, b) => {
-          const isSoldA = a.status?.toLowerCase() === 'sold';
-          const isSoldB = b.status?.toLowerCase() === 'sold';
+      const newContent = listingsData.content || [];
 
-          if (isSoldA && !isSoldB) return 1; 
-          if (!isSoldA && isSoldB) return -1; 
+      // If page 0, replace list. If > 0, append to list.
+      setOriginalListings(prev => {
+          const combined = page === 0 ? newContent : [...prev, ...newContent];
           
-          return new Date(b.createdAt) - new Date(a.createdAt);
+          // Sort: Sold items last, then Newest first
+          return combined.sort((a, b) => {
+            const isSoldA = a.status?.toLowerCase() === 'sold';
+            const isSoldB = b.status?.toLowerCase() === 'sold';
+
+            if (isSoldA && !isSoldB) return 1; 
+            if (!isSoldA && isSoldB) return -1; 
+            
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          });
       });
-      
-      setOriginalListings(listingsResponse.data || []);
-      setUserReviews(reviewsResponse.data || []);
+
+      // Update pagination flags
+      setCurrentPage(listingsData.number);
+      setHasMore(listingsData.number < listingsData.totalPages - 1);
 
       if (loggedInUser) {
           refetchLikes();
@@ -366,17 +369,25 @@ export default function ProfilePage() {
     }
   }, [profileId, loggedInUser, refetchLikes]); 
 
-  // 2. Define refreshData second, as it depends on fetchProfileData
+  // Resets data to page 0
   const refreshData = useCallback(() => {
     const idToFetch = profileId || loggedInUser?.userId;
     if (idToFetch) {
-        fetchProfileData(idToFetch);
+        fetchProfileData(idToFetch, 0);
     }
   }, [profileId, loggedInUser, fetchProfileData]);
 
-  // --- Search & Filtering Logic ---
+  // Handler for Load More button
+  const handleLoadMore = () => {
+    const idToFetch = profileId || loggedInUser?.userId;
+    if (idToFetch) {
+        fetchProfileData(idToFetch, currentPage + 1);
+    }
+  };
 
-  // Filter listings based on the selected sub-tab (Sale, Rent, Sold)
+  // --- Filtering Logic ---
+
+  // Sub-tabs filtering (Rent, Sale, Sold)
   const typeFilteredListings = useMemo(() => {
     return originalListings.filter(item => {
       const status = item.status?.toLowerCase() || 'available';
@@ -391,16 +402,15 @@ export default function ProfilePage() {
     });
   }, [originalListings, listingFilter]);
 
-  // Apply search functionality on top of the filtered list
+  // Search logic applied to filtered results
   const { searchQuery, handleSearch, filteredListings: displayedListings } = useSearch(
     typeFilteredListings,
     ['title', 'description']
   );
 
-  // Determine if we are viewing our own profile
   const isMyProfile = !profileId || (loggedInUser && profileUser && String(loggedInUser.userId) === String(profileUser.userId));
 
-  // --- Actions & Handlers ---
+  // --- Handlers ---
 
   const openReviewImages = (images, index = 0) => {
       setModalImages(images);
@@ -412,7 +422,6 @@ export default function ProfilePage() {
       if (!window.confirm("Are you sure you want to delete this review?")) return;
       try {
           await deleteReview(reviewId);
-          // Refresh data immediately to show the list without the deleted review
           refreshData(); 
       } catch (error) {
           alert("Failed to delete review.");
@@ -421,21 +430,19 @@ export default function ProfilePage() {
 
   const handleEditReview = (review) => {
       setEditingReview(review);
-      // We don't refresh here to avoid reloading the page while the modal opens
   };
 
   const handleEditSuccess = () => {
       setEditingReview(null);
-      // Refresh data only after the edit is successfully saved
       refreshData();
   };
 
-  // Trigger data load when the component mounts or the ID changes
+  // Initial Data Load
   useEffect(() => {
     if (profileId) {
-        fetchProfileData(profileId);
+        fetchProfileData(profileId, 0);
     } else if (loggedInUser) {
-        fetchProfileData(loggedInUser.userId);
+        fetchProfileData(loggedInUser.userId, 0);
     }
   }, [profileId, loggedInUser?.userId, fetchProfileData]);
 
@@ -444,8 +451,7 @@ export default function ProfilePage() {
 
   const handleRetry = () => {
     if (authError) retryAuth();
-    const idToFetch = profileId || loggedInUser?.userId;
-    if (pageDataError && idToFetch) fetchProfileData(idToFetch);
+    refreshData();
     if (likeError) refetchLikes();
   };
   
@@ -472,7 +478,7 @@ export default function ProfilePage() {
       openModal(listing);
   };
 
-  // Separate reviews into two categories: Buyer and Seller
+  // Organize reviews by role
   const buyerReviews = userReviews.filter(r => r.reviewerRole === 'BUYER');
   const sellerReviews = userReviews.filter(r => r.reviewerRole === 'SELLER');
 
@@ -483,9 +489,10 @@ export default function ProfilePage() {
   const isPageLoading = isLoadingAuth || isLoadingPageData || isLoadingLikes;
   const pageError = authError || pageDataError || likeError;
   
-  // --- Render Views ---
+  // --- Render ---
   
-  if (isPageLoading) {
+  // Show full skeleton only on initial load
+  if (isPageLoading && currentPage === 0) {
     return (
       <div className="profile-page">
         <Header userName="" onLogout={logout} />
@@ -534,7 +541,7 @@ export default function ProfilePage() {
 
       <main className="dashboard-body">
         
-        {/* Profile Card Header */}
+        {/* Profile Info Card */}
         <section className="content-card profile-card">
           <div className="profile-card-left">
              <img 
@@ -568,7 +575,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        {/* Listings and Reviews Tabs */}
+        {/* Tabs Section */}
         <section className="content-card">
           <div className="profile-tabs">
             <button className={`tab-button ${activeTab === 'listings' ? 'active' : ''}`} onClick={() => setActiveTab('listings')}>
@@ -580,13 +587,13 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            {/* Listings Tab */}
+            {/* Listings Content */}
             {activeTab === 'listings' && (
               <div className="profile-listings-section">
                 <div className="profile-listings-header">
                   <h2 className="profile-listings-title">{isMyProfile ? 'Your' : `${profileUser.fullName}'s`} Listings</h2>
                   
-                  {/* Filters for Listings */}
+                  {/* Filter Sub-tabs */}
                   <div className="profile-sub-tabs">
                     <button 
                       className={`sub-tab-btn ${listingFilter === 'all' ? 'active' : ''}`} 
@@ -632,25 +639,27 @@ export default function ProfilePage() {
                 
                 {displayedListings.length > 0 ? (
                   <>
-                  <div className="listing-grid">
-                    {displayedListings.map((listing) => (
-                      <ListingCard
-                        key={listing.listingId}
-                        listing={listing}
-                        onClick={openModal}
-                        currentUserId={loggedInUser?.userId} 
-                        // Only allow liking if it's not your own profile and the item isn't sold
-                        isLiked={isMyProfile ? false : likedListingIds.has(listing.listingId)}
-                        onLikeClick={isMyProfile || listing.status === 'Sold' ? () => {} : handleLikeToggle}
-                        isLiking={isMyProfile ? false : likingInProgress.has(listing.listingId)}
-                      />
-                    ))}
-                  </div>
-                  <PaginationControls 
-                        currentPage={currentPage}
-                        totalPages={totalPages}
-                        onPageChange={handlePageChange}
-                      />
+                    <div className="listing-grid">
+                        {displayedListings.map((listing) => (
+                        <ListingCard
+                            key={listing.listingId}
+                            listing={listing}
+                            onClick={openModal}
+                            currentUserId={loggedInUser?.userId} 
+                            // Only allow liking if it's not your own profile and the item isn't sold
+                            isLiked={isMyProfile ? false : likedListingIds.has(listing.listingId)}
+                            onLikeClick={isMyProfile || listing.status === 'Sold' ? () => {} : handleLikeToggle}
+                            isLiking={isMyProfile ? false : likingInProgress.has(listing.listingId)}
+                        />
+                        ))}
+                    </div>
+
+                    {/* Load More Button */}
+                    <LoadMoreButton 
+                        onLoadMore={handleLoadMore}
+                        isLoading={isLoadingPageData}
+                        hasMore={hasMore}
+                    />
                   </>
                 ) : (
                   <div className="empty-state">
@@ -669,7 +678,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Reviews Tab */}
+            {/* Reviews Content */}
             {activeTab === 'reviews' && (
               <div className="profile-reviews-section">
                   
