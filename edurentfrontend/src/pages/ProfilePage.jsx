@@ -15,14 +15,16 @@ import ListingGridSkeleton from '../components/ListingGridSkeleton';
 import ReviewImagesModal from '../components/ReviewImagesModal';
 import ReviewModal from '../components/ReviewModal';
 import ConversationStarterModal from '../components/ConversationStarterModal';
-import LoadMoreButton from '../components/LoadMoreButton'; // Swapped PaginationControls for LoadMore
+import LoadMoreButton from '../components/LoadMoreButton';
 
 // API Services
 import { 
   getUserListings, 
   getUserReviews, 
   getCurrentUser, 
-  deleteReview 
+  deleteReview,
+  getReviewsFromBuyers,  // API to fetch reviews where user is the seller
+  getReviewsFromSellers  // API to fetch reviews where user is the buyer
 } from '../services/apiService';
 
 // Styles and Assets
@@ -50,6 +52,13 @@ const fetchUserById = async (id) => {
   return axios.get(`${API_URL}/users/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
+};
+
+// Helper: Calculate Average Rating
+const calculateAverageRating = (reviews) => {
+  if (!reviews || reviews.length === 0) return 0;
+  const sum = reviews.reduce((acc, review) => acc + (review.rating || 0), 0);
+  return (sum / reviews.length).toFixed(1);
 };
 
 // Loading state layout
@@ -280,7 +289,30 @@ export default function ProfilePage() {
   // Local Data State
   const [profileUser, setProfileUser] = useState(null); 
   const [originalListings, setOriginalListings] = useState([]); 
-  const [userReviews, setUserReviews] = useState([]);
+  
+  // Split Review State: Separates reviews received as Seller from reviews received as Buyer
+  const [buyerReviews, setBuyerReviews] = useState([]); // Reviews from Buyers (User is Seller)
+  const [sellerReviews, setSellerReviews] = useState([]); // Reviews from Sellers (User is Buyer)
+  
+  // [NEW] Track total counts from server for accurate summary
+  const [totalBuyerReviewsCount, setTotalBuyerReviewsCount] = useState(0);
+  const [totalSellerReviewsCount, setTotalSellerReviewsCount] = useState(0);
+
+  // [NEW] Review Filter State
+  const [reviewFilter, setReviewFilter] = useState('all'); 
+
+  // Listing Pagination
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+
+  // Review Pagination States
+  const [buyerPage, setBuyerPage] = useState(0);
+  const [hasMoreBuyerReviews, setHasMoreBuyerReviews] = useState(false);
+  const [isLoadingBuyerReviews, setIsLoadingBuyerReviews] = useState(false);
+
+  const [sellerPage, setSellerPage] = useState(0);
+  const [hasMoreSellerReviews, setHasMoreSellerReviews] = useState(false);
+  const [isLoadingSellerReviews, setIsLoadingSellerReviews] = useState(false);
   
   // Controls
   const [activeTab, setActiveTab] = useState('listings');
@@ -297,47 +329,73 @@ export default function ProfilePage() {
   const [editingReview, setEditingReview] = useState(null);
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
 
-  // Pagination State (Load More approach)
-  const [currentPage, setCurrentPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-
   // --- Data Fetching ---
+
+  // Fetches reviews where this user was the Seller (received from Buyers)
+  const fetchBuyerReviews = useCallback(async (targetId, page = 0) => {
+      setIsLoadingBuyerReviews(true);
+      try {
+          const res = await getReviewsFromBuyers(targetId, page, 5); // Fetch 5 at a time
+          const data = res.data;
+          
+          // If page 0, replace list. If > 0, append.
+          setBuyerReviews(prev => page === 0 ? data.content : [...prev, ...data.content]);
+          setBuyerPage(data.number);
+          setHasMoreBuyerReviews(data.number < data.totalPages - 1);
+          setTotalBuyerReviewsCount(data.totalElements || 0); // Capture total count
+      } catch (err) {
+          console.error("Failed to load buyer reviews", err);
+      } finally {
+          setIsLoadingBuyerReviews(false);
+      }
+  }, []);
+
+  // Fetches reviews where this user was the Buyer (received from Sellers)
+  const fetchSellerReviews = useCallback(async (targetId, page = 0) => {
+      setIsLoadingSellerReviews(true);
+      try {
+          const res = await getReviewsFromSellers(targetId, page, 5); // Fetch 5 at a time
+          const data = res.data;
+          setSellerReviews(prev => page === 0 ? data.content : [...prev, ...data.content]);
+          setSellerPage(data.number);
+          setHasMoreSellerReviews(data.number < data.totalPages - 1);
+          setTotalSellerReviewsCount(data.totalElements || 0); // Capture total count
+      } catch (err) {
+          console.error("Failed to load seller reviews", err);
+      } finally {
+          setIsLoadingSellerReviews(false);
+      }
+  }, []);
   
-  // Fetches profile data; optimized to append listings on load more
+  // Fetches main profile data; triggers separate review fetches on initial load
   const fetchProfileData = useCallback(async (targetId, page = 0) => {
     setIsLoadingPageData(true);
     setPageDataError(null);
     try {
-      // Only fetch User details and Reviews on the initial load to save bandwidth
-      let userPromise = Promise.resolve(null);
-      let reviewsPromise = Promise.resolve(null);
-
+      // 1. Fetch User Data (Only needed on first load)
       if (page === 0) {
+        let userPromise;
         if (profileId) {
             userPromise = fetchUserById(profileId); 
         } else {
             userPromise = getCurrentUser();
         }
-        reviewsPromise = getUserReviews(targetId);
+        const userResponse = await userPromise;
+        setProfileUser(userResponse.data);
+
+        // Initiate the review fetches for the first page
+        fetchBuyerReviews(targetId, 0);
+        fetchSellerReviews(targetId, 0);
       }
 
-      // Always fetch listings for the current page request
-      const listingsPromise = getUserListings(targetId, page, 8);
+      // 2. Fetch Listings for the requested page
+      const listingsPromise = getUserListings(targetId, page, 8); // Fetch 8 items at a time
+      const listingsResponse = await listingsPromise;
       
-      const [userResponse, listingsResponse, reviewsResponse] = await Promise.all([
-        userPromise,
-        listingsPromise,
-        reviewsPromise
-      ]);
-
-      if (userResponse) setProfileUser(userResponse.data);
-      if (reviewsResponse) setUserReviews(reviewsResponse.data || []);
-      
-      // Handle Listing Data
       const listingsData = listingsResponse.data;
       const newContent = listingsData.content || [];
 
-      // If page 0, replace list. If > 0, append to list.
+      // Handle listing pagination state
       setOriginalListings(prev => {
           const combined = page === 0 ? newContent : [...prev, ...newContent];
           
@@ -353,7 +411,6 @@ export default function ProfilePage() {
           });
       });
 
-      // Update pagination flags
       setCurrentPage(listingsData.number);
       setHasMore(listingsData.number < listingsData.totalPages - 1);
 
@@ -367,9 +424,9 @@ export default function ProfilePage() {
     } finally {
       setIsLoadingPageData(false);
     }
-  }, [profileId, loggedInUser, refetchLikes]); 
+  }, [profileId, loggedInUser, refetchLikes, fetchBuyerReviews, fetchSellerReviews]); 
 
-  // Resets data to page 0
+  // Resets all data to page 0
   const refreshData = useCallback(() => {
     const idToFetch = profileId || loggedInUser?.userId;
     if (idToFetch) {
@@ -377,11 +434,19 @@ export default function ProfilePage() {
     }
   }, [profileId, loggedInUser, fetchProfileData]);
 
-  // Handler for Load More button
-  const handleLoadMore = () => {
+  // Handler for Load More Listings
+  const handleLoadMoreListings = () => {
     const idToFetch = profileId || loggedInUser?.userId;
     if (idToFetch) {
         fetchProfileData(idToFetch, currentPage + 1);
+    }
+  };
+
+  const handleRefreshReviews = () => {
+    const id = profileUser?.userId;
+    if (id) {
+        fetchBuyerReviews(id, 0);
+        fetchSellerReviews(id, 0);
     }
   };
 
@@ -422,7 +487,8 @@ export default function ProfilePage() {
       if (!window.confirm("Are you sure you want to delete this review?")) return;
       try {
           await deleteReview(reviewId);
-          refreshData(); 
+          // Refresh the reviews specifically
+          handleRefreshReviews();
       } catch (error) {
           alert("Failed to delete review.");
       }
@@ -434,7 +500,8 @@ export default function ProfilePage() {
 
   const handleEditSuccess = () => {
       setEditingReview(null);
-      refreshData();
+      // Refresh the reviews after editing
+      handleRefreshReviews();
   };
 
   // Initial Data Load
@@ -478,21 +545,85 @@ export default function ProfilePage() {
       openModal(listing);
   };
 
-  // Organize reviews by role
-  const buyerReviews = userReviews.filter(r => r.reviewerRole === 'BUYER');
-  const sellerReviews = userReviews.filter(r => r.reviewerRole === 'SELLER');
+  // --- Derived State for UI ---
+  const totalReviewsDisplay = totalBuyerReviewsCount + totalSellerReviewsCount;
+  const allLoadedReviews = [...buyerReviews, ...sellerReviews]; // For average calculation based on what we see
+  const overallRating = calculateAverageRating(allLoadedReviews);
 
-  const averageRating = userReviews.length > 0
-    ? (userReviews.reduce((sum, review) => sum + (review.rating || 0), 0) / userReviews.length).toFixed(1)
-    : 0;
-
-  const isPageLoading = isLoadingAuth || isLoadingPageData || isLoadingLikes;
+  const isPageLoading = isLoadingAuth || (isLoadingPageData && currentPage === 0) || isLoadingLikes;
   const pageError = authError || pageDataError || likeError;
   
-  // --- Render ---
+  // --- Render Helpers ---
+
+  const renderReviewSummary = () => (
+    <div className="review-summary-container" style={{ padding: '1.5rem', background: '#f8f9fa', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '2rem' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#2c3e50', lineHeight: 1 }}>{overallRating}</div>
+        <div style={{ color: '#f1c40f', fontSize: '1.2rem', margin: '0.25rem 0' }}>
+           {'⭐'.repeat(Math.round(overallRating))}
+        </div>
+        <div style={{ fontSize: '0.9rem', color: '#7f8c8d' }}>Overall Rating</div>
+      </div>
+      <div style={{ height: '50px', width: '1px', background: '#ddd' }}></div>
+      <div>
+        <div style={{ fontSize: '1.5rem', fontWeight: '600', color: '#2c3e50' }}>{totalReviewsDisplay}</div>
+        <div style={{ fontSize: '0.9rem', color: '#7f8c8d' }}>Total Reviews</div>
+      </div>
+    </div>
+  );
+
+  const renderReviewFilters = () => (
+    <div className="profile-sub-tabs" style={{ marginBottom: '1.5rem' }}>
+      <button 
+        className={`sub-tab-btn ${reviewFilter === 'all' ? 'active' : ''}`} 
+        onClick={() => setReviewFilter('all')}
+      >
+        All
+      </button>
+      <button 
+        className={`sub-tab-btn ${reviewFilter === 'buyers' ? 'active' : ''}`} 
+        onClick={() => setReviewFilter('buyers')}
+      >
+        From Buyers ({totalBuyerReviewsCount})
+      </button>
+      <button 
+        className={`sub-tab-btn ${reviewFilter === 'sellers' ? 'active' : ''}`} 
+        onClick={() => setReviewFilter('sellers')}
+      >
+        From Sellers ({totalSellerReviewsCount})
+      </button>
+    </div>
+  );
+
+  const renderReviewList = (reviews, title, loadMoreFn, isLoadingMore, hasMore) => (
+    <div className="review-list-section" style={{ marginBottom: '2rem' }}>
+      {title && <h3 className="profile-listings-title" style={{ fontSize: '1.1rem' }}>{title}</h3>}
+      
+      {reviews.length > 0 ? (
+        <>
+          <div className="reviews-list">
+            {reviews.map(review => (
+                <ReviewCard 
+                    key={review.id || review.reviewId} 
+                    review={review}
+                    onImageClick={openReviewImages}
+                    currentUserId={loggedInUser?.userId}
+                    onEdit={handleEditReview}
+                    onDelete={() => handleDeleteReview(review.id)}
+                />
+            ))}
+          </div>
+          <LoadMoreButton onLoadMore={loadMoreFn} isLoading={isLoadingMore} hasMore={hasMore} />
+        </>
+      ) : (
+        <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '0.5rem' }}>No reviews found.</p>
+      )}
+    </div>
+  );
+
+  // --- Main Render ---
   
-  // Show full skeleton only on initial load
-  if (isPageLoading && currentPage === 0) {
+  if (isPageLoading) {
     return (
       <div className="profile-page">
         <Header userName="" onLogout={logout} />
@@ -560,8 +691,8 @@ export default function ProfilePage() {
              <button onClick={openProfileModal} className="profile-details-link"> Profile Details &gt; </button> 
           </div>
           <div className="profile-card-right"> 
-             <div className="profile-card-rating"><span>⭐</span><span>{averageRating}</span></div> 
-             <div className="profile-card-reviews">{userReviews.length} reviews</div> 
+             <div className="profile-card-rating"><span>⭐</span><span>{overallRating}</span></div> 
+             <div className="profile-card-reviews">{totalReviewsDisplay} Reviews</div> 
              <div className="profile-card-joined"><span>Joined </span><span>{joinedDate}</span></div> 
              
              <div className="profile-card-actions"> 
@@ -582,12 +713,12 @@ export default function ProfilePage() {
               Listings ({displayedListings.length})
             </button>
             <button className={`tab-button ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>
-              Reviews ({userReviews.length})
+              Reviews
             </button>
           </div>
 
           <div>
-            {/* Listings Content */}
+            {/* Listings Tab */}
             {activeTab === 'listings' && (
               <div className="profile-listings-section">
                 <div className="profile-listings-header">
@@ -624,7 +755,7 @@ export default function ProfilePage() {
                   <div className="profile-listings-actions">
                     <input
                       type="text"
-                      placeholder="Search..."
+                      placeholder="Search listings..."
                       className="profile-search-input"
                       value={searchQuery}
                       onChange={handleSearch}
@@ -640,26 +771,19 @@ export default function ProfilePage() {
                 {displayedListings.length > 0 ? (
                   <>
                     <div className="listing-grid">
-                        {displayedListings.map((listing) => (
+                      {displayedListings.map((listing) => (
                         <ListingCard
-                            key={listing.listingId}
-                            listing={listing}
-                            onClick={openModal}
-                            currentUserId={loggedInUser?.userId} 
-                            // Only allow liking if it's not your own profile and the item isn't sold
-                            isLiked={isMyProfile ? false : likedListingIds.has(listing.listingId)}
-                            onLikeClick={isMyProfile || listing.status === 'Sold' ? () => {} : handleLikeToggle}
-                            isLiking={isMyProfile ? false : likingInProgress.has(listing.listingId)}
+                          key={listing.listingId}
+                          listing={listing}
+                          onClick={openModal}
+                          currentUserId={loggedInUser?.userId} 
+                          isLiked={isMyProfile ? false : likedListingIds.has(listing.listingId)}
+                          onLikeClick={isMyProfile || listing.status === 'Sold' ? () => {} : handleLikeToggle}
+                          isLiking={isMyProfile ? false : likingInProgress.has(listing.listingId)}
                         />
-                        ))}
+                      ))}
                     </div>
-
-                    {/* Load More Button */}
-                    <LoadMoreButton 
-                        onLoadMore={handleLoadMore}
-                        isLoading={isLoadingPageData}
-                        hasMore={hasMore}
-                    />
+                    <LoadMoreButton onLoadMore={handleLoadMoreListings} isLoading={isLoadingPageData} hasMore={hasMore} />
                   </>
                 ) : (
                   <div className="empty-state">
@@ -678,49 +802,60 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Reviews Content */}
+            {/* Reviews Tab (Updated UI) */}
             {activeTab === 'reviews' && (
               <div className="profile-reviews-section">
-                  
-                  {/* Buyer Reviews */}
-                  <h3 className="profile-listings-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', fontSize: '1.1rem' }}>
-                    Reviews from Buyers
-                  </h3>
-                  {buyerReviews.length > 0 ? (
-                      buyerReviews.map((review) => (
-                        <ReviewCard 
-                           key={review.id || review.reviewId} 
-                           review={review} 
-                           onImageClick={openReviewImages}
-                           currentUserId={loggedInUser?.userId} 
-                           onEdit={handleEditReview}           
-                           onDelete={handleDeleteReview}       
-                        />
-                      ))
-                  ) : (
-                      <p className="text-muted" style={{ fontStyle: 'italic', marginBottom: '2rem' }}>No reviews from buyers yet.</p>
-                  )}
+                
+                {renderReviewSummary()}
+                {renderReviewFilters()}
 
-                  <hr style={{ margin: '2rem 0', borderColor: 'var(--border-color)' }} />
+                {/* View: ALL */}
+                {reviewFilter === 'all' && (
+                  <>
+                    {renderReviewList(
+                        buyerReviews, 
+                        "Reviews from Buyers (You Sold items)", 
+                        () => fetchBuyerReviews(profileUser.userId, buyerPage + 1),
+                        isLoadingBuyerReviews,
+                        hasMoreBuyerReviews
+                    )}
+                    
+                    {/* Only show separator if both sections have content */}
+                    {buyerReviews.length > 0 && sellerReviews.length > 0 && (
+                        <hr style={{ margin: '2rem 0', borderTop: '1px solid #eee' }} />
+                    )}
 
-                  {/* Seller Reviews */}
-                  <h3 className="profile-listings-title" style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>
-                    Reviews from Sellers
-                  </h3>
-                  {sellerReviews.length > 0 ? (
-                      sellerReviews.map((review) => (
-                        <ReviewCard 
-                           key={review.id || review.reviewId} 
-                           review={review}
-                           onImageClick={openReviewImages}
-                           currentUserId={loggedInUser?.userId} 
-                           onEdit={handleEditReview}           
-                           onDelete={handleDeleteReview}       
-                        />
-                      ))
-                  ) : (
-                      <p className="text-muted" style={{ fontStyle: 'italic' }}>No reviews from sellers yet.</p>
-                  )}
+                    {renderReviewList(
+                        sellerReviews, 
+                        "Reviews from Sellers (You Bought items)", 
+                        () => fetchSellerReviews(profileUser.userId, sellerPage + 1),
+                        isLoadingSellerReviews,
+                        hasMoreSellerReviews
+                    )}
+                  </>
+                )}
+
+                {/* View: BUYERS Only */}
+                {reviewFilter === 'buyers' && (
+                    renderReviewList(
+                        buyerReviews, 
+                        "Reviews from Buyers", 
+                        () => fetchBuyerReviews(profileUser.userId, buyerPage + 1),
+                        isLoadingBuyerReviews,
+                        hasMoreBuyerReviews
+                    )
+                )}
+
+                {/* View: SELLERS Only */}
+                {reviewFilter === 'sellers' && (
+                    renderReviewList(
+                        sellerReviews, 
+                        "Reviews from Sellers", 
+                        () => fetchSellerReviews(profileUser.userId, sellerPage + 1),
+                        isLoadingSellerReviews,
+                        hasMoreSellerReviews
+                    )
+                )}
               </div>
             )}
           </div>

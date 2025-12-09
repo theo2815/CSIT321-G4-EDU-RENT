@@ -628,6 +628,32 @@ export const deleteReview = async (reviewId) => {
   }
 };
 
+// [NEW] Get reviews where the user was the SELLER (reviews from buyers)
+export const getReviewsFromBuyers = async (userId, page = 0, size = 5) => {
+  try {
+    const response = await apiClient.get(`/reviews/user/${userId}/buyers`, {
+      params: { page, size }
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error getReviewsFromBuyers(${userId}):`, error);
+    throw error;
+  }
+};
+
+// [NEW] Get reviews where the user was the BUYER (reviews from sellers)
+export const getReviewsFromSellers = async (userId, page = 0, size = 5) => {
+  try {
+    const response = await apiClient.get(`/reviews/user/${userId}/sellers`, {
+      params: { page, size }
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error getReviewsFromSellers(${userId}):`, error);
+    throw error;
+  }
+};
+
 // NEW
 export const getTransactionByListing = async (listingId) => {
     return apiClient.get(`/transactions/listing/${listingId}`);

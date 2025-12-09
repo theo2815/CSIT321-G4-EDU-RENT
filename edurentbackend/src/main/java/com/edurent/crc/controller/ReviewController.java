@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.data.domain.Page;
 
 import com.edurent.crc.dto.ListingDTO;
 import com.edurent.crc.dto.ReviewDTO;
@@ -49,6 +50,30 @@ public class ReviewController {
             .collect(Collectors.toList());
         
         return ResponseEntity.ok(reviewDTOs);
+    }
+
+    // [NEW] Get reviews FROM BUYERS (pagination)
+    @GetMapping("/user/{userId}/buyers")
+    public ResponseEntity<Page<ReviewDTO>> getBuyerReviews(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size // Default 5 as requested
+    ) {
+        Page<ReviewEntity> reviews = reviewService.getBuyerReviews(userId, page, size);
+        Page<ReviewDTO> dtos = reviews.map(this::convertToDTO);
+        return ResponseEntity.ok(dtos);
+    }
+
+    // [NEW] Get reviews FROM SELLERS (pagination)
+    @GetMapping("/user/{userId}/sellers")
+    public ResponseEntity<Page<ReviewDTO>> getSellerReviews(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size // Default 5 as requested
+    ) {
+        Page<ReviewEntity> reviews = reviewService.getSellerReviews(userId, page, size);
+        Page<ReviewDTO> dtos = reviews.map(this::convertToDTO);
+        return ResponseEntity.ok(dtos);
     }
     
     // Helper method to convert Entity to DTO

@@ -15,6 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.edurent.crc.entity.ReviewEntity;
 import com.edurent.crc.entity.ReviewImageEntity;
@@ -88,6 +91,18 @@ public class ReviewService {
         } catch (Exception e) {
             System.err.println("Failed to delete file from Supabase: " + e.getMessage());
         }
+    }
+
+    // [NEW] Paginated Buyer Reviews
+    public Page<ReviewEntity> getBuyerReviews(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return reviewRepository.findReviewsFromBuyers(userId, pageable);
+    }
+
+    // [NEW] Paginated Seller Reviews
+    public Page<ReviewEntity> getSellerReviews(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return reviewRepository.findReviewsFromSellers(userId, pageable);
     }
 
     @Transactional
