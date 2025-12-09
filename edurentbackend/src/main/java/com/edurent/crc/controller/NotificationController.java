@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.edurent.crc.entity.NotificationEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.service.NotificationService;
+import com.edurent.crc.service.NotificationPreferenceService;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -27,6 +28,9 @@ public class NotificationController {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private NotificationPreferenceService notificationPreferenceService;
 
     // --- UPDATED: Secure endpoint to get *only* the logged-in user's notifications ---
     @GetMapping("/my-notifications")
@@ -42,6 +46,21 @@ public class NotificationController {
             notifications = notificationService.getUnreadNotificationsForUser(userId);
         } else {
             notifications = notificationService.getNotificationsForUser(userId);
+        }
+        // Apply backend filtering based on preferences
+        var prefs = notificationPreferenceService.getPreferencesForUser(userId);
+        boolean allowAll = prefs.getOrDefault("all_notifications", true);
+        boolean allowLikes = prefs.getOrDefault("likes", true);
+        boolean allowMessages = prefs.getOrDefault("messages", true);
+
+        if (!allowAll) {
+            notifications.removeIf(n -> {
+                String type = n.getType();
+                if ("NEW_LIKE".equals(type)) return !allowLikes;
+                if ("NEW_MESSAGE".equals(type)) return !allowMessages;
+                // For any other types, block when all is off
+                return true;
+            });
         }
         return ResponseEntity.ok(notifications);
     }
