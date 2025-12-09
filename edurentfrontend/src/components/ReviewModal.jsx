@@ -3,6 +3,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createReview, updateReview } from '../services/apiService';
 import '../static/ProductDetailModal.css';
 
+// New Feedback Hook
+import { useToast } from '../context/ToastContext';
+
 // Helper function to resolve image paths (handles both relative paths from DB and absolute URLs)
 const getImageUrl = (path) => {
   if (!path) return '';
@@ -21,6 +24,9 @@ export default function ReviewModal({
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Initialize feedback tools
+  const { showSuccess, showError, showWarning } = useToast();
 
   // Image Management State
   // existingImages: Images currently saved in the database (for Edit Mode)
@@ -49,6 +55,7 @@ export default function ReviewModal({
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
     
+    // Filter out duplicates based on name and size
     const uniqueFiles = files.filter(newFile => {
         const isDuplicate = newImages.some(
             existing => existing.name === newFile.name && existing.size === newFile.size
@@ -61,7 +68,7 @@ export default function ReviewModal({
     // Limit check
     const currentCount = existingImages.length + newImages.length;
     if (currentCount + uniqueFiles.length > 3) {
-      alert("You can upload a maximum of 3 photos.");
+      showWarning("You can upload a maximum of 3 photos.");
       return;
     }
     
@@ -75,6 +82,7 @@ export default function ReviewModal({
   const removeNewImage = (index) => {
     setNewImages(prev => prev.filter((_, i) => i !== index));
   };
+  
   const removeExistingImage = (imageId) => {
     setImagesToDelete(prev => [...prev, imageId]); 
     setExistingImages(prev => prev.filter(img => img.id !== imageId)); 
@@ -84,6 +92,7 @@ export default function ReviewModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
     try {
       if (isEditMode) {
         // UPDATE FLOW
@@ -94,7 +103,7 @@ export default function ReviewModal({
             imagesToDelete,
             newImages
         });
-        alert('Review updated successfully!');
+        showSuccess('Review updated successfully!');
       } else {
         // CREATE FLOW
         // Create a fresh review with rating, comment, and new files
@@ -105,7 +114,7 @@ export default function ReviewModal({
           reviewerId,
           images: newImages
         });
-        alert('Review submitted successfully!');
+        showSuccess('Review submitted successfully!');
       }
       
       // Refresh parent data and close modal
@@ -113,7 +122,7 @@ export default function ReviewModal({
       onClose();
     } catch (error) {
       console.error('Failed to submit review:', error);
-      alert('Failed to submit review. Please try again.');
+      showError('Failed to submit review. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

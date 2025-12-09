@@ -10,6 +10,10 @@ import LoadMoreButton from '../components/LoadMoreButton';
 
 import useAuth from '../hooks/useAuth';
 
+// New Feedback Hooks
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmationContext';
+
 // Services
 import { 
   getCurrentUser, 
@@ -78,6 +82,10 @@ function ManageListingsSkeleton() {
 export default function ManageListingsPage() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  
+  // Initialize feedback hooks
+  const { showSuccess, showError, showInfo } = useToast();
+  const confirm = useConfirm();
 
   // Data State
   const [userName, setUserName] = useState('');
@@ -94,7 +102,6 @@ export default function ManageListingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showBulkBar, setShowBulkBar] = useState(false);
-  const [bulkActionMessage, setBulkActionMessage] = useState('');
   const [selectedItems, setSelectedItems] = useState(new Set()); 
 
   // Modal State
@@ -155,12 +162,15 @@ export default function ManageListingsPage() {
 
     } catch (err) {
       console.error("Failed to load data:", err);
-      setError("Could not load listings.");
+      // Only show full page error on initial load failure
+      if (page === 0) setError("Could not load listings.");
+      else showError("Could not load more items.");
+
       if (err.message === "No authentication token found.") navigate('/login');
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, showError]);
 
   // Initial load
   useEffect(() => {
@@ -259,7 +269,6 @@ export default function ManageListingsPage() {
   // --- Item Actions ---
 
   const handleEdit = (itemId) => {
-    setBulkActionMessage("");
     navigate(`/edit-listing/${itemId}`);
   };
 
@@ -276,77 +285,94 @@ export default function ManageListingsPage() {
             ? { ...item, status: 'Sold' } 
             : item
         ));
+        // Give immediate visual confirmation via Toast
+        showSuccess(`"${listingToMarkSold.title}" marked as Sold`);
     }
     setListingToMarkSold(null);
     setIsMarkSoldModalOpen(false);
   };
 
   const handleDelete = async (itemId) => {
-    setBulkActionMessage("");
-    if (window.confirm(`Are you sure you want to delete listing ID ${itemId}?`)) {
-      try {
-        await deleteListing(itemId);
-        setAllListings(prev => prev.filter(item => item.listingId !== itemId));
-        setSelectedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
-        setBulkActionMessage(`Deleted item ${itemId}`);
-      } catch (err) {
-        console.error("Failed to delete item:", err);
-        setBulkActionMessage(`Error: Could not delete item ${itemId}.`);
-      } finally {
-         setTimeout(() => setBulkActionMessage(''), 2000);
-      }
+    // We use the new Confirm Context here. It returns a promise, essentially pausing
+    // execution until the user clicks "Confirm" or "Cancel" in the modal.
+    const isConfirmed = await confirm({
+      title: 'Delete Listing?',
+      message: `Are you sure you want to delete listing ID ${itemId}? This cannot be undone.`,
+      confirmText: 'Yes, Delete',
+      isDangerous: true
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      await deleteListing(itemId);
+      setAllListings(prev => prev.filter(item => item.listingId !== itemId));
+      setSelectedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
+      showSuccess(`Listing deleted successfully.`);
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+      showError("Failed to delete the listing. Please try again.");
     }
   };
 
-  // Bulk Actions
+  // --- Bulk Actions ---
+  
   const handleBulkMarkSold = async () => {
-    setBulkActionMessage("");
     const numToUpdate = selectedItems.size;
     if (numToUpdate === 0) return;
 
-    if (window.confirm(`Mark ${numToUpdate} selected listing(s) as Sold?`)) {
-      try {
-        const updatePromises = Array.from(selectedItems).map(id => 
-            updateListingStatus(id, 'Sold')
-        );
-        
-        await Promise.all(updatePromises);
-        
-        // Optimistic UI update
-        setAllListings(prev => prev.map(item => 
-            selectedItems.has(item.listingId) ? { ...item, status: 'Sold' } : item
-        ));
-        
-        setSelectedItems(new Set()); 
-        setBulkActionMessage(`Marked ${numToUpdate} items as Sold`);
-      } catch (err) {
-         console.error("Failed to update items:", err);
-         setBulkActionMessage(`Error: Could not update some items.`);
-      } finally {
-         setTimeout(() => setBulkActionMessage(''), 3000);
-      }
+    const isConfirmed = await confirm({
+      title: 'Mark as Sold?',
+      message: `Are you sure you want to mark ${numToUpdate} selected items as Sold?`,
+      confirmText: 'Mark Sold',
+      isDangerous: false
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const updatePromises = Array.from(selectedItems).map(id => 
+          updateListingStatus(id, 'Sold')
+      );
+      
+      await Promise.all(updatePromises);
+      
+      // Update local state without refetching for speed (Optimistic UI)
+      setAllListings(prev => prev.map(item => 
+          selectedItems.has(item.listingId) ? { ...item, status: 'Sold' } : item
+      ));
+      
+      setSelectedItems(new Set()); 
+      showSuccess(`Successfully marked ${numToUpdate} items as Sold.`);
+    } catch (err) {
+       console.error("Failed to update items:", err);
+       showError("Some items could not be updated.");
     }
   };
 
   const handleBulkDelete = async () => {
-    setBulkActionMessage("");
     const numToDelete = selectedItems.size;
     if (numToDelete === 0) return;
 
-    if (window.confirm(`Delete ${numToDelete} selected listing(s)?`)) {
-      try {
-        const deletePromises = Array.from(selectedItems).map(id => deleteListing(id));
-        await Promise.all(deletePromises);
-        
-        setAllListings(prev => prev.filter(item => !selectedItems.has(item.listingId)));
-        setSelectedItems(new Set());
-        setBulkActionMessage(`Deleted ${numToDelete} listing(s)`);
-      } catch (err) {
-         console.error("Failed to delete items:", err);
-         setBulkActionMessage(`Error: Could not delete all selected items.`);
-      } finally {
-         setTimeout(() => setBulkActionMessage(''), 2000);
-      }
+    const isConfirmed = await confirm({
+      title: 'Delete Selected Items?',
+      message: `You are about to delete ${numToDelete} listings. This action is permanent.`,
+      confirmText: `Delete ${numToDelete} Items`,
+      isDangerous: true
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const deletePromises = Array.from(selectedItems).map(id => deleteListing(id));
+      await Promise.all(deletePromises);
+      
+      setAllListings(prev => prev.filter(item => !selectedItems.has(item.listingId)));
+      setSelectedItems(new Set());
+      showSuccess(`Deleted ${numToDelete} listings.`);
+    } catch (err) {
+       console.error("Failed to delete items:", err);
+       showError("Could not delete all selected items.");
     }
   };
 
@@ -366,7 +392,7 @@ export default function ManageListingsPage() {
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
 
     if (!listingId) {
-      alert("Could not open this notification: Invalid link.");
+      showError("Invalid notification link.");
       return;
     }
 
@@ -379,7 +405,7 @@ export default function ManageListingsPage() {
       else throw new Error(`Listing ${listingId} not found.`);
     } catch (err) {
       console.error("Failed to fetch listing for notification:", err);
-      alert(`Could not load item: ${err.message}.`);
+      showError("Could not load the listing referenced in the notification.");
       navigate('/browse');
     } finally {
       setIsNotificationLoading(false);
@@ -413,13 +439,14 @@ export default function ManageListingsPage() {
       else await likeListing(listingId);
     } catch (err) {
       console.error("Failed to toggle like:", err);
-      // Revert on failure
+      // Revert on failure & inform user
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
           if (isCurrentlyLiked) revertedIds.add(listingId);
           else revertedIds.delete(listingId);
           return revertedIds;
       });
+      showInfo("Could not update like status. Please check your connection.");
     } finally {
       setLikingInProgress(prev => {
         const next = new Set(prev);
@@ -478,10 +505,9 @@ export default function ManageListingsPage() {
         </div>
       )}
 
-      {/* Feedback Snackbar */}
-      {bulkActionMessage && (
-        <div className="snackbar" role="status">{bulkActionMessage}</div>
-      )}
+      {/* Removed the old "snackbar" div here. 
+         The ToastProvider in App.jsx now handles global notifications.
+      */}
 
       <main className="manage-listings-page">
         <div className="manage-listings-header">
@@ -592,9 +618,9 @@ export default function ManageListingsPage() {
                     const statusClass = item.status?.toLowerCase() || 'other';
                     
                     const statusText = item.status?.toLowerCase() === 'available' ? 'Active' : 
-                                     item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
-                                     item.status?.toLowerCase() === 'sold' ? 'Sold' : 
-                                     item.status; 
+                                       item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
+                                       item.status?.toLowerCase() === 'sold' ? 'Sold' : 
+                                       item.status; 
 
                     return (
                       <tr key={item.listingId} onClick={() => openModal(item)} style={{ cursor: 'pointer' }}>

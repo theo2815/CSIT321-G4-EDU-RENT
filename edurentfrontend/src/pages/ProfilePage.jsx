@@ -8,6 +8,10 @@ import useLikes from '../hooks/useLikes';
 import usePageLogic from '../hooks/usePageLogic';
 import useSearch from '../hooks/useSearch';
 
+// New Feedback Hooks
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmationContext';
+
 // UI Components
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard';
@@ -286,6 +290,10 @@ export default function ProfilePage() {
   const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
   const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(loggedInUser, likesHook);
 
+  // Initialize feedback tools
+  const { showSuccess, showError } = useToast();
+  const confirm = useConfirm();
+
   // Local Data State
   const [profileUser, setProfileUser] = useState(null); 
   const [originalListings, setOriginalListings] = useState([]); 
@@ -294,11 +302,11 @@ export default function ProfilePage() {
   const [buyerReviews, setBuyerReviews] = useState([]); // Reviews from Buyers (User is Seller)
   const [sellerReviews, setSellerReviews] = useState([]); // Reviews from Sellers (User is Buyer)
   
-  // [NEW] Track total counts from server for accurate summary
+  // Track total counts from server for accurate summary
   const [totalBuyerReviewsCount, setTotalBuyerReviewsCount] = useState(0);
   const [totalSellerReviewsCount, setTotalSellerReviewsCount] = useState(0);
 
-  // [NEW] Review Filter State
+  // Review Filter State
   const [reviewFilter, setReviewFilter] = useState('all'); 
 
   // Listing Pagination
@@ -484,13 +492,22 @@ export default function ProfilePage() {
   };
 
   const handleDeleteReview = async (reviewId) => {
-      if (!window.confirm("Are you sure you want to delete this review?")) return;
-      try {
-          await deleteReview(reviewId);
-          // Refresh the reviews specifically
-          handleRefreshReviews();
-      } catch (error) {
-          alert("Failed to delete review.");
+      const isConfirmed = await confirm({
+          title: "Delete Review?",
+          message: "Are you sure you want to delete this review? This action cannot be undone.",
+          confirmText: "Yes, Delete",
+          isDangerous: true
+      });
+
+      if (isConfirmed) {
+          try {
+              await deleteReview(reviewId);
+              showSuccess("Review deleted successfully.");
+              handleRefreshReviews();
+          } catch (error) {
+              console.error("Delete review failed:", error);
+              showError("Failed to delete review.");
+          }
       }
   };
 
@@ -532,8 +549,8 @@ export default function ProfilePage() {
         .catch(console.error);
     } else {
       navigator.clipboard.writeText(url)
-        .then(() => alert('Profile link copied!'))
-        .catch(() => alert('Failed to copy link.'));
+        .then(() => showSuccess('Profile link copied to clipboard!'))
+        .catch(() => showError('Failed to copy link.'));
     }
   };
 

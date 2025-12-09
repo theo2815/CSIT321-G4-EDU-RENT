@@ -19,6 +19,8 @@ import ListItemPage from './pages/ListItemPage.jsx';
 import ManageListingsPage from './pages/ManageListingsPage.jsx';
 import CategoryPage from './pages/CategoryPage.jsx';
 import EditListingPage from './pages/EditListingPage.jsx';
+import { ToastProvider } from './context/ToastContext';
+import { ConfirmationProvider } from './context/ConfirmationContext';
 
 // Components & Hooks
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -30,6 +32,8 @@ const RootRoute = () => {
 
 function App() {
   return (
+    <ToastProvider>
+      <ConfirmationProvider>
     <Routes>
       {/* --- Public Auth Pages  --- */}
       <Route path="/register" element={<RegisterPage />} />
@@ -71,6 +75,8 @@ function App() {
       <Route path="/" element={<RootRoute />} />
 
     </Routes>
+  </ConfirmationProvider>
+    </ToastProvider>
   )
 }
 

@@ -8,6 +8,10 @@ import UserRatingDisplay from './UserRatingDisplay';
 
 import { useAuthModal } from '../context/AuthModalContext';
 
+// New Feedback Hooks
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmationContext';
+
 import '../static/ProductDetailModal.css';
 import '../static/ProfilePage.css';
 import '../static/DashboardPage.css';
@@ -21,15 +25,18 @@ function EditRentalDatesModal({ transaction, onClose, onSuccess }) {
   const [endDate, setEndDate] = useState(transaction.endDate ? transaction.endDate.split('T')[0] : '');
   const [loading, setLoading] = useState(false);
 
+  // Use toast for feedback inside this sub-component
+  const { showSuccess, showError } = useToast();
+
   const handleSave = async () => {
     setLoading(true);
     try {
       await updateRentalDates(transaction.transactionId, startDate, endDate);
-      alert("Rental dates updated successfully!");
+      showSuccess("Rental dates updated successfully!");
       onSuccess();
     } catch (error) {
       console.error("Update failed:", error);
-      alert("Failed to update dates. Please try again.");
+      showError("Failed to update dates. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -89,6 +96,10 @@ export default function ProductDetailModal({
 }) {
   const navigate = useNavigate();
   const { openLogin } = useAuthModal(); 
+  
+  // Feedback hooks
+  const { showSuccess, showError } = useToast();
+  const confirm = useConfirm();
 
   // Local state for modals and chat
   const [isStartingChat, setIsStartingChat] = useState(false);
@@ -126,14 +137,24 @@ export default function ProductDetailModal({
   // Handles marking a rented item as returned (making it available again)
   const handleReturnItem = async () => {
       if (!activeTransaction) return;
-      if (window.confirm("Mark this item as returned? It will become 'Available' immediately.")) {
+      
+      // Replaced window.confirm with custom confirm modal.
+      // Since confirm() returns a Promise, we await the user's decision.
+      const isConfirmed = await confirm({
+        title: "Return Item?",
+        message: "Mark this item as returned? It will become 'Available' immediately.",
+        confirmText: "Yes, Return it",
+        isDangerous: false
+      });
+
+      if (isConfirmed) {
           try {
               await returnRental(activeTransaction.transactionId);
-              alert("Item marked as returned.");
+              showSuccess("Item marked as returned successfully.");
               onClose();
               window.location.reload(); 
           } catch (error) {
-              alert("Failed to return item.");
+              showError("Failed to return item. Please try again.");
           }
       }
   };
@@ -222,6 +243,7 @@ export default function ProductDetailModal({
         navigate('/messages', { state: { openConversation: fullConversation, openConversationId: fullConversation.conversationId } });
     } catch (error) {
         console.error("Failed to start conversation:", error);
+        showError("Could not start conversation. Please try again.");
     }
   };
 
