@@ -6,14 +6,14 @@
 
 /* --- 1. Color Palette (Copied for a self-contained component) --- */
 :root {
-  --primary-color: #0077B6;   /* Deep Blue */
-  --secondary-color: #90E0EF; /* Light Cyan */
-  --accent-color: #00B4D8;    /* Aqua */
-  --bg-color: #F8F9FA;        /* Neutral Light Gray */
-  --text-color: #212529;    /* Almost Black */
-  --text-muted: #6C757D;      /* Muted text */
-  --bg-light: #FFFFFF;        /* Pure White (for cards) */
-  --border-color: #DEE2E6;   /* Light gray for borders */
+  --primary-color: var(--primary-color);
+  --secondary-color: var(--secondary-color);
+  --accent-color: var(--accent-color);
+  --bg-color: var(--bg-color);
+  --text-color: var(--text-color);
+  --text-muted: var(--text-muted);
+  --bg-light: var(--bg-light);
+  --border-color: var(--border-color);
 }
 
 /* --- 2. Top Header --- */
@@ -21,7 +21,7 @@
   background-color: var(--bg-light); /* White background */
   padding: 0.75rem 2rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
-  border-bottom: 1px solid #E9ECEF;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -183,7 +183,7 @@
   min-width: 10rem;
   z-index: 20;
   overflow: hidden;
-  border: 1px solid #E9ECEF;
+  border: 1px solid var(--border-color);
 }
 
 .dropdown-item {

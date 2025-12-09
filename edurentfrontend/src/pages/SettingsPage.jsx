@@ -22,6 +22,7 @@ import { supabase } from '../supabaseClient';
 
 // Styles
 import '../static/SettingsPage.css';
+import { useTheme } from '../context/ThemeContext.jsx';
 
 // A loading skeleton to keep the UI stable while fetching user data
 function SettingsSkeleton() {
@@ -350,15 +351,17 @@ function NotificationSettingsForm({ userId }) {
 
 // Allows switching between Light and Dark mode
 function ThemeSettingsForm() {
-    const [selectedTheme, setSelectedTheme] = useState('light');
+  const { theme, setTheme } = useTheme();
+  const [selectedTheme, setSelectedTheme] = useState(theme || 'light');
 
-    const handleThemeSelect = (theme) => {
-        setSelectedTheme(theme);
-        // TO DO: Implement the actual theme switching logic (e.g., toggle CSS classes on body)
-        // TO DO: Save user preference to LocalStorage
-        console.log("Theme selected:", theme);
-        alert(`Theme set to ${theme}! (Visuals not implemented yet)`);
-    };
+  useEffect(() => {
+    setSelectedTheme(theme);
+  }, [theme]);
+
+  const handleThemeSelect = (next) => {
+    setSelectedTheme(next);
+    setTheme(next);
+  };
 
     return (
         <section className="settings-card">
