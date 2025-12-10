@@ -1,3 +1,22 @@
+/* Error message in red for emphasis */
+.form-error.error-red {
+  color: #d32f2f;
+  font-weight: 500;
+  margin-top: 0.2rem;
+  font-size: 0.92em;
+}
+
+/* Disable hover effect for read-only inputs */
+.form-input.readonly,
+.form-input[readonly] {
+  background: #f7f7f7;
+  cursor: default;
+}
+.form-input.readonly:hover,
+.form-input[readonly]:hover {
+  border-color: #ccc;
+  box-shadow: none;
+}
 /* --- Settings Page Layout --- */
 
 .settings-page {

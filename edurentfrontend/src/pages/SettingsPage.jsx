@@ -46,6 +46,42 @@ function SettingsSkeleton() {
 
 // Handles editing public profile info and uploading a new avatar
 function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto, uploading }) {
+  const [editMode, setEditMode] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  // Validation logic
+  const validate = () => {
+    const newErrors = {};
+    if (!profileData.fullName || profileData.fullName.trim() === "") {
+      newErrors.fullName = "Full Name is required.";
+    }
+    if (!profileData.address || profileData.address.trim() === "") {
+      newErrors.address = "Address is required.";
+    }
+    // schoolName is read-only, so skip
+    if (!profileData.email || profileData.email.trim() === "") {
+      newErrors.email = "Email is required.";
+    }
+    if (!profileData.phoneNumber || profileData.phoneNumber.trim() === "") {
+      newErrors.phoneNumber = "Phone number is required.";
+    } else if (!/^\d{11}$/.test(profileData.phoneNumber.trim())) {
+      newErrors.phoneNumber = "Phone number must be exactly 11 digits.";
+    }
+    // bio is optional
+    return newErrors;
+  };
+
+  // Wrap the onSave to exit edit mode after successful save, only if valid
+  const handleSave = async (e) => {
+    e.preventDefault();
+    const validationErrors = validate();
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) {
+      return false;
+    }
+    const result = await onSave(e);
+    if (result !== false) setEditMode(false);
+  };
   
   // Logic to decide which image to display: the new upload, the existing one, or a default
   const getProfileSrc = () => {
@@ -65,88 +101,108 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
     return defaultAvatar;
   };
 
-    return (
-        <section className="settings-card">
-            <h2 className="settings-card-title">Edit Profile</h2>
-            <div className="profile-photo-section">
-                <div className="profile-photo-container">
-                  <img
-                    src={getProfileSrc()} 
-                    alt="Profile"
-                    className="profile-photo-placeholder"
-                    style={{ objectFit: 'cover' }}
-                  />
-                  
-                  {/* Show a spinner overlay while the image uploads */}
-                  {uploading && (
-                    <div style={{ 
-                        position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' 
-                    }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>...</span>
-                    </div>
-                  )}
-
-                  <button type="button" className="edit-icon-overlay" title="Change photo" onClick={onPickPhoto} disabled={uploading}>
-                    ✏️
-                  </button>
-                </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                    <span style={{ fontWeight: '600', fontSize: '0.95rem' }}>Profile Picture</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {uploading ? 'Uploading...' : 'PNG, JPG up to 5MB'}
-                    </span>
-                </div>
+  return (
+    <section className="settings-card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h2 className="settings-card-title" style={{ margin: 0 }}>Edit Profile</h2>
+        {!editMode && (
+          <button type="button" className="btn-save" onClick={() => setEditMode(true)}>
+            Edit Details
+          </button>
+        )}
+      </div>
+      <div className="profile-photo-section">
+        <div className="profile-photo-container">
+          <img
+            src={getProfileSrc()}
+            alt="Profile"
+            className="profile-photo-placeholder"
+            style={{ objectFit: 'cover' }}
+          />
+          {uploading && (
+            <div style={{
+              position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
+            }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>...</span>
             </div>
-
-            <form onSubmit={onSave}>
-                {/* Account Details */}
-                <div className="form-section">
-                    <span className="form-section-label">Account details (Public)</span>
-                    <div className="form-grid">
-                        <div>
-                          <label htmlFor="fullName" className="form-label">Full Name</label>
-                          <input type="text" id="fullName" name="fullName" value={profileData.fullName} onChange={onChange} className="form-input"/>
-                        </div>
-                        <div>
-                          <label htmlFor="address" className="form-label">Address</label>
-                          <input type="text" id="address" name="address" value={profileData.address} onChange={onChange} className="form-input"/>
-                        </div>
-                        <div>
-                          <label htmlFor="schoolName" className="form-label">School</label>
-                          <input type="text" id="schoolName" name="schoolName" value={profileData.schoolName} readOnly className="form-input readonly"/>
-                        </div>
-                        <div style={{ gridColumn: 'span 1 / span 2' }}>
-                          <label htmlFor="bio" className="form-label">Bio</label>
-                          <textarea id="bio" name="bio" value={profileData.bio} onChange={onChange} className="form-input form-textarea" placeholder="Tell us a little about yourself..."/>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Private Details */}
-                <div className="form-section">
-                    <span className="form-section-label">Private details</span>
-                    <div className="form-grid form-grid-cols-2">
-                        <div>
-                          <label htmlFor="email" className="form-label">Email</label>
-                          <input type="email" id="email" name="email" value={profileData.email} readOnly className="form-input readonly"/>
-                        </div>
-                        <div>
-                          <label htmlFor="phoneNumber" className="form-label">Phone number</label>
-                          <input type="tel" id="phoneNumber" name="phoneNumber" value={profileData.phoneNumber} onChange={onChange} className="form-input"/>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="save-button-container">
-                    <button type="submit" className="btn-save" disabled={uploading}>
-                        {uploading ? 'Uploading Image...' : 'Save Changes'}
-                    </button>
-                </div>
-            </form>
-        </section>
-    );
+          )}
+          <button type="button" className="edit-icon-overlay" title="Change photo" onClick={onPickPhoto} disabled={uploading || !editMode}>
+            ✏️
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          <span style={{ fontWeight: '600', fontSize: '0.95rem' }}>Profile Picture</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {uploading ? 'Uploading...' : 'PNG, JPG up to 5MB'}
+          </span>
+        </div>
+      </div>
+      <form onSubmit={handleSave} noValidate>
+        {/* Account Details */}
+        <div className="form-section">
+          <span className="form-section-label">Account details (Public)</span>
+          <div className="form-grid">
+            <div>
+              <label htmlFor="fullName" className="form-label">Full Name</label>
+              <input type="text" id="fullName" name="fullName" value={profileData.fullName} onChange={onChange} className={`form-input${!editMode ? ' readonly' : ''}`} readOnly={!editMode} />
+              {errors.fullName && <div className="form-error error-red">{errors.fullName}</div>}
+            </div>
+            <div>
+              <label htmlFor="address" className="form-label">Address</label>
+              <input type="text" id="address" name="address" value={profileData.address} onChange={onChange} className={`form-input${!editMode ? ' readonly' : ''}`} readOnly={!editMode} />
+              {errors.address && <div className="form-error error-red">{errors.address}</div>}
+            </div>
+            <div>
+              <label htmlFor="schoolName" className="form-label">School</label>
+              <input type="text" id="schoolName" name="schoolName" value={profileData.schoolName} readOnly className="form-input readonly" />
+            </div>
+            <div style={{ gridColumn: 'span 1 / span 2' }}>
+              <label htmlFor="bio" className="form-label">Bio</label>
+              <textarea id="bio" name="bio" value={profileData.bio} onChange={onChange} className={`form-input form-textarea${!editMode ? ' readonly' : ''}`} placeholder="Tell us a little about yourself..." readOnly={!editMode} />
+            </div>
+          </div>
+        </div>
+        {/* Private Details */}
+        <div className="form-section">
+          <span className="form-section-label">Private details</span>
+          <div className="form-grid form-grid-cols-2">
+            <div>
+              <label htmlFor="email" className="form-label">Email</label>
+              <input type="email" id="email" name="email" value={profileData.email} readOnly className="form-input readonly" />
+              {errors.email && <div className="form-error error-red">{errors.email}</div>}
+            </div>
+            <div>
+              <label htmlFor="phoneNumber" className="form-label">Phone number</label>
+              <input
+                type="tel"
+                id="phoneNumber"
+                name="phoneNumber"
+                value={profileData.phoneNumber}
+                maxLength={11}
+                onChange={e => {
+                  // Only allow digits and up to 11 characters
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                  onChange({ target: { name: 'phoneNumber', value: val } });
+                }}
+                className={`form-input${!editMode ? ' readonly' : ''}`}
+                readOnly={!editMode}
+              />
+              {errors.phoneNumber && <div className="form-error error-red">{errors.phoneNumber}</div>}
+            </div>
+          </div>
+        </div>
+        {/* Save Button only in edit mode, at the bottom */}
+        {editMode && (
+          <div className="save-button-container">
+            <button type="submit" className="btn-save" disabled={uploading}>
+              {uploading ? 'Uploading Image...' : 'Save Changes'}
+            </button>
+          </div>
+        )}
+      </form>
+    </section>
+  );
 }
 
 // Allows the user to change their password
@@ -503,6 +559,7 @@ export default function SettingsPage() {
     }
   };
 
+  // Returns false if error, undefined if success
   const handleProfileSave = async (e) => {
     e.preventDefault();
     try {
@@ -516,17 +573,18 @@ export default function SettingsPage() {
 
       // 1. Send update to the backend
       const res = await updateUserProfile(payload);
-      
       // 2. Update local component state
       setUserData(res.data);
-
       // 3. Refresh global auth state so the Header updates immediately
       await retryAuth();
-
       alert('Profile updated successfully!');
+      // Success: let EditProfileForm exit edit mode
+      return;
     } catch (err) {
       console.error('Failed to update profile:', err);
       alert(err.response?.data?.message || 'Failed to update profile');
+      // Prevent exiting edit mode
+      return false;
     }
   };
 
