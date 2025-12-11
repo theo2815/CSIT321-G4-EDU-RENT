@@ -47,6 +47,17 @@
   background-color: #e7f5ff; /* Light blue */
 }
 
+/* Dark mode: Make hover effect fit dark theme */
+[data-theme="dark"] .photo-upload-box {
+  background-color: #161B22;
+}
+
+[data-theme="dark"] .photo-upload-box:hover,
+[data-theme="dark"] .photo-upload-box.dragging {
+  background-color: #21262d;
+  border-color: var(--primary-color);
+}
+
 .photo-upload-icon {
   font-size: 2.5rem;
   margin-bottom: 0.5rem;
@@ -144,6 +155,11 @@
 
 .condition-button:hover {
   background-color: #e9ecef; /* Light gray hover */
+}
+
+/* Dark mode: Make condition button hover fit dark theme */
+[data-theme="dark"] .condition-button:hover {
+  background-color: #21262d;
 }
 
 .condition-button.selected {
