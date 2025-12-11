@@ -129,6 +129,9 @@ function ProfileDetailsModal({ user, onClose }) {
             <li><strong>Joined:</strong> {joinedDate}</li>
             <li><strong>School:</strong> {user.school?.name || 'N/A'}</li>
             <li><strong>Location:</strong> {user.address || 'Not specified'}</li>
+            {user.bio && user.bio.trim() && (
+              <li><strong>Bio:</strong> {user.bio}</li>
+            )}
           </ul>
         </div>
       </div>
