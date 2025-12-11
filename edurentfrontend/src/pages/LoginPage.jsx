@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginUser } from '../services/apiService';
 import '../static/Auth.css'; 
-import eduRentLogo from '../assets/edurentlogo.png'; 
+import eduRentLogo from '../assets/edurentAllBlackTest.png'; 
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({

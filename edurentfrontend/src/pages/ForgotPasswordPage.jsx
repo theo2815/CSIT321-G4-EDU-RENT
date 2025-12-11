@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 // Shared styling for authentication pages
 import '../static/Auth.css'; 
 
-import eduRentLogo from '../assets/edurentlogo.png'; 
+import eduRentLogo from '../assets/edurentAllBlackTest.png'; 
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');

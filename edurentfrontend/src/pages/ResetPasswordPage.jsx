@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 // Shared styles for authentication pages
 import '../static/Auth.css'; 
 
-import eduRentLogo from '../assets/edurentlogo.png'; 
+import eduRentLogo from '../assets/edurentAllBlackTest.png'; 
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();

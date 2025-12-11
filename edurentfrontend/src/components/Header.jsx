@@ -23,7 +23,7 @@ import {
 
 // Assets and Styles
 import '../static/Header.css';
-import eduRentLogo from '../assets/edurentlogo.png';
+import eduRentLogo from '../assets/edurentAllBlackTest.png';
 import heartIcon from '../assets/heart.png';
 import notificationIcon from '../assets/notification.png';
 import messengerIcon from '../assets/messenger.png';

@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 // Import the centralized authentication styles
 import '../static/Auth.css'; 
 
-import eduRentLogo from '../assets/edurentlogo.png'; 
+import eduRentLogo from '../assets/edurentAllBlackTest.png'; 
 
 export default function RegisterPage() {
   const [schools, setSchools] = useState([]);

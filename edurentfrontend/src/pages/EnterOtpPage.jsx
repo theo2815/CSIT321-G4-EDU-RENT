@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 // Import shared styles
 import '../static/Auth.css'; 
 
-import eduRentLogo from '../assets/edurentlogo.png'; 
+import eduRentLogo from '../assets/edurentAllBlackTest.png'; 
 
 export default function EnterOtpPage() {
   const [otp, setOtp] = useState(''); 
