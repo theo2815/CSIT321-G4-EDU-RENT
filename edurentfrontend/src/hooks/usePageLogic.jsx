@@ -124,12 +124,15 @@ export default function usePageLogic(userData, likeData = null) {
 
   // Handles notification clicks by extracting listing ID and opening the modal
   const handleNotificationClick = useCallback(async (notification) => {
-    // Handle Message Notifications
-    if (notification.type === 'NEW_MESSAGE') {
-        const urlParts = notification.linkUrl?.split('/');
-        const conversationId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+    if (!notification.linkUrl) return;
+
+    // 1. Handle Message Notifications
+    // We check the URL string directly instead of relying solely on notification.type
+    if (notification.linkUrl.includes('/messages')) {
+        const urlParts = notification.linkUrl.split('/').filter(part => part !== '');
+        const conversationId = parseInt(urlParts[urlParts.length - 1], 10);
         
-        if (conversationId) {
+        if (conversationId && !isNaN(conversationId)) {
             navigate('/messages', { state: { openConversationId: conversationId } });
         } else {
             navigate('/messages');
@@ -137,23 +140,30 @@ export default function usePageLogic(userData, likeData = null) {
         return;
     }
 
-    // Handle Profile/Review Notifications (Redirect logic)
-    if (notification.linkUrl && notification.linkUrl.startsWith('/profile')) {
+    // 2. Handle Profile/Review Notifications
+    if (notification.linkUrl.includes('/profile')) {
         navigate(notification.linkUrl);
         return;
     }
 
-    // Handle Listing/Like Notifications (Modal logic)
-    const urlObj = new URL(notification.linkUrl, window.location.origin);
-    const urlParts = urlObj.pathname.split('/');
-    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
-    const shouldReview = urlObj.searchParams.get('review') === 'true';
+    // 3. Handle Listing Notifications (Modal Logic)
+    try {
+        const urlObj = new URL(notification.linkUrl, window.location.origin);
+        const urlParts = urlObj.pathname.split('/').filter(p => p !== '');
+        const listingId = parseInt(urlParts[urlParts.length - 1], 10);
+        const shouldReview = urlObj.searchParams.get('review') === 'true';
 
-    if (!listingId) {
-      console.error("Invalid notification link:", notification.linkUrl);
-      return;
+        if (!listingId || isNaN(listingId)) {
+            // Fallback: If we can't parse an ID, just go to the link
+            navigate(notification.linkUrl);
+            return;
+        }
+
+        handleOpenListing(listingId, { initialReviewAction: shouldReview });
+    } catch (e) {
+        console.error("Error parsing notification URL:", e);
+        navigate(notification.linkUrl);
     }
-    handleOpenListing(listingId, { initialReviewAction: shouldReview }); 
   }, [handleOpenListing, navigate]);
 
   // --- 3. Render Helper ---

@@ -447,11 +447,36 @@ export default function ManageListingsPage() {
 
   
   const handleNotificationClick = async (notification) => {
-    const urlParts = notification.linkUrl?.split('/');
-    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+    if (!notification.linkUrl) return;
 
-    if (!listingId) {
-      showError("Invalid notification link.");
+    // --- FIX: Handle Message Notifications ---
+    if (notification.linkUrl.includes('/messages')) {
+        // Extract the Conversation ID from the end of the URL (e.g., "/messages/15")
+        const urlParts = notification.linkUrl.split('/').filter(part => part !== '');
+        const conversationId = parseInt(urlParts[urlParts.length - 1], 10);
+
+        if (conversationId && !isNaN(conversationId)) {
+            // Pass the ID in the state so MessagesPage knows what to open
+            navigate('/messages', { state: { openConversationId: conversationId } });
+        } else {
+            // Fallback if no ID is found
+            navigate('/messages');
+        }
+        return;
+    }
+
+    // --- Handle Profile/Review Notifications ---
+    if (notification.linkUrl.includes('/profile')) {
+      navigate(notification.linkUrl);
+      return;
+    }
+
+    // --- Handle Listing Notifications ---
+    const urlParts = notification.linkUrl.split('/').filter(part => part !== '');
+    const potentialId = parseInt(urlParts[urlParts.length - 1], 10);
+
+    if (!potentialId || isNaN(potentialId)) {
+      navigate(notification.linkUrl);
       return;
     }
 
@@ -459,13 +484,16 @@ export default function ManageListingsPage() {
     setIsNotificationLoading(true);
 
     try {
-      const response = await getListingById(listingId); 
-      if (response.data) openModal(response.data);
-      else throw new Error(`Listing ${listingId} not found.`);
+      const response = await getListingById(potentialId); 
+      
+      if (response.data) {
+          openModal(response.data);
+      } else {
+        throw new Error(`Listing ${potentialId} not found.`);
+      }
     } catch (err) {
       console.error("Failed to fetch listing for notification:", err);
-      showError("Could not load the listing referenced in the notification.");
-      navigate('/browse');
+      navigate(notification.linkUrl);
     } finally {
       setIsNotificationLoading(false);
     }

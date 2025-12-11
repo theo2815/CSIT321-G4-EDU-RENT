@@ -1,7 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom'; 
 import Header from '../components/Header';
-import { getCurrentUser, getCategories, getListingById, updateListing } from '../services/apiService';
+import ProductDetailModal from '../components/ProductDetailModal'; 
+import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
+
+import { 
+  getCurrentUser, 
+  getCategories, 
+  getListingById, 
+  updateListing, 
+  likeListing, 
+  unlikeListing 
+} from '../services/apiService';
 
 // Bring in our new feedback hooks
 import { useToast } from '../context/ToastContext';
@@ -63,6 +73,11 @@ export default function EditListingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false); 
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedListingForModal, setSelectedListingForModal] = useState(null);
+  const [isNotificationLoading, setIsNotificationLoading] = useState(false);
 
   // Initialize feedback tools
   const { showSuccess, showError, showWarning } = useToast();
@@ -278,36 +293,52 @@ export default function EditListingPage() {
     }
   };
 
-  // Handles clicking a notification to navigate to the relevant item
+  // Handles clicking a notification to navigate to the relevant item or open modal
   const handleNotificationClick = async (notification) => {
-    console.log("Notification clicked:", notification);
+    if (!notification.linkUrl) return;
 
-    const urlParts = notification.linkUrl?.split('/');
-    const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
+    // Handle Messages
+    if (notification.linkUrl.includes('/messages')) {
+        const urlParts = notification.linkUrl.split('/').filter(part => part !== '');
+        const conversationId = parseInt(urlParts[urlParts.length - 1], 10);
+        if (conversationId && !isNaN(conversationId)) {
+            navigate('/messages', { state: { openConversationId: conversationId } });
+        } else {
+            navigate('/messages');
+        }
+        return;
+    }
+    
+    // Handle Profile
+    if (notification.linkUrl.includes('/profile')) {
+        navigate(notification.linkUrl);
+        return;
+    }
 
-    if (!listingId) {
-      console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
-      showError("Could not open this notification: Invalid link.");
+    // Handle Listings/Reviews -> Open Modal
+    const urlParts = notification.linkUrl.split('/').filter(part => part !== '');
+    const targetListingId = parseInt(urlParts[urlParts.length - 1], 10);
+
+    if (!targetListingId || isNaN(targetListingId)) {
+      navigate(notification.linkUrl);
       return;
     }
 
-    console.log(`Fetching details for listingId: ${listingId}`);
+    setIsNotificationLoading(true);
 
     try {
-      // We need to fetch the listing details to populate the modal
-      const response = await getListingById(listingId); 
-
+      const response = await getListingById(targetListingId); 
       if (response.data) {
-        // Navigating to view the item since we are on a page, not inside the modal flow
-          navigate(`/category/${response.data.category.categoryId}`); 
+          setSelectedListingForModal(response.data);
+          setIsModalOpen(true);
       } else {
-        throw new Error(`Listing ${listingId} not found.`);
+        throw new Error(`Listing ${targetListingId} not found.`);
       }
-
     } catch (err) {
       console.error("Failed to fetch listing for notification:", err);
-      showError(`Could not load item: ${err.message}. It may have been deleted.`);
-      navigate('/browse');
+      navigate(notification.linkUrl);
+    } finally {
+      setIsNotificationLoading(false);
     }
   };
 
@@ -454,6 +485,36 @@ export default function EditListingPage() {
           </section>
         </div>
       </form>
+
+      {/* Notification Detail Modal */}
+      {isModalOpen && selectedListingForModal && (
+         <ProductDetailModal
+           listing={selectedListingForModal}
+           onClose={() => setIsModalOpen(false)}
+           currentUserId={userData?.userId}
+           // Simple check for "isLiked" based on the listing data itself
+           isLiked={selectedListingForModal.likes?.some(l => l.id?.userId === userData?.userId)}
+           onLikeClick={async (id) => {
+               // Simple inline toggle handler since we don't have global like state on this page
+               try {
+                   const isLiked = selectedListingForModal.likes?.some(l => l.id?.userId === userData?.userId);
+                   if (isLiked) await unlikeListing(id);
+                   else await likeListing(id);
+                   
+                   // Refresh the modal data to show the new like status
+                   const res = await getListingById(id);
+                   setSelectedListingForModal(res.data);
+               } catch (e) {
+                   console.error("Like toggle failed", e);
+               }
+           }}
+         />
+       )}
+
+       {/* Loading Skeleton */}
+       {isNotificationLoading && (
+         <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
+       )}
     </div>
   );
 }
