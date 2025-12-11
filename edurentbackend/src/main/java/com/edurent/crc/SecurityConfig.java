@@ -67,6 +67,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/reviews/transaction/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/listings/**").permitAll()
+                .requestMatchers("/api/v1/transactions/test-scheduler").permitAll()
                 
                 // This forces a simple path match, bypassing strict MVC matcher issues
                 .requestMatchers("/api/v1/conversations/{id}/messages/upload-image").permitAll()

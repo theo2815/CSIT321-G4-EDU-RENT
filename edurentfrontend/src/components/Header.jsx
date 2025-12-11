@@ -114,9 +114,9 @@ export default function Header({
     const socket = new SockJS('http://localhost:8080/ws');
     const stompClient = Stomp.over(socket);
     stompClient.debug = null; // Disable debug logs
+    socketClientRef.current = stompClient;
 
     stompClient.connect({}, () => {
-      socketClientRef.current = stompClient;
       
       stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
         const payload = JSON.parse(message.body);

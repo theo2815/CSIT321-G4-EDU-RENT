@@ -538,6 +538,11 @@ export default function MessagesPage() {
         // Subscribe to sidebar updates (Global user topic)
         stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
           const payload = JSON.parse(message.body);
+
+          if (!payload.conversationId) {
+            return;
+          }
+
           setConversations(prevConvs => {
             const convIndex = prevConvs.findIndex(c => c.id === payload.conversationId);
             if (convIndex > -1) {

@@ -20,15 +20,38 @@ import defaultAvatar from '../assets/default-avatar.png';
 // --- Sub-Component: Edit Rental Dates Modal ---
 // This handles the specific logic for updating the start/end dates of an active transaction
 function EditRentalDatesModal({ transaction, onClose, onSuccess }) {
+  // Helper to get local date string for 'min' attribute
+  const getTodayDate = () => {
+    const today = new Date();
+    const offset = today.getTimezoneOffset();
+    const localToday = new Date(today.getTime() - (offset * 60 * 1000));
+    return localToday.toISOString().split('T')[0];
+  };
+
   // Initialize state with existing dates (formatted for input type="date")
   const [startDate, setStartDate] = useState(transaction.startDate ? transaction.startDate.split('T')[0] : '');
   const [endDate, setEndDate] = useState(transaction.endDate ? transaction.endDate.split('T')[0] : '');
   const [loading, setLoading] = useState(false);
 
   // Use toast for feedback inside this sub-component
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showWarning } = useToast();
+  const today = getTodayDate();
 
   const handleSave = async () => {
+    // VALIDATION 
+    if (!startDate || !endDate) {
+        showWarning("Please select both start and end dates.");
+        return;
+    }
+    if (startDate < today) {
+        showWarning("Start date cannot be in the past.");
+        return;
+    }
+    if (endDate < startDate) {
+        showWarning("End date cannot be before the start date.");
+        return;
+    }
+
     setLoading(true);
     try {
       await updateRentalDates(transaction.transactionId, startDate, endDate);
@@ -53,11 +76,29 @@ function EditRentalDatesModal({ transaction, onClose, onSuccess }) {
              <div style={{ display: 'grid', gap: '1rem' }}>
                 <div>
                    <label className="auth-label">Start Date</label>
-                   <input type="date" className="auth-input" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                   <input 
+                     type="date" 
+                     className="auth-input" 
+                     value={startDate} 
+                     min={today}
+                     onChange={e => {
+                        setStartDate(e.target.value);
+                        // Auto-adjust end date if it becomes invalid
+                        if (endDate && e.target.value > endDate) {
+                            setEndDate(e.target.value);
+                        }
+                     }} 
+                   />
                 </div>
                 <div>
                    <label className="auth-label">End Date</label>
-                   <input type="date" className="auth-input" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                   <input 
+                     type="date" 
+                     className="auth-input" 
+                     value={endDate} 
+                     min={startDate || today}
+                     onChange={e => setEndDate(e.target.value)} 
+                   />
                 </div>
              </div>
           </div>
@@ -145,14 +186,13 @@ export default function ProductDetailModal({
     }
   }, [isRented, isSold, isOwner, listing.listingId, initialAction, currentUserId, showSuccess]);
 
-  // Helper to format dates strictly as MM/DD/YYYY without timezone shifts
+  // Helper to format dates using local time to avoid shifts
   const formatRentalDate = (dateString) => {
       if (!dateString) return '...';
       return new Date(dateString).toLocaleDateString('en-US', {
           year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          timeZone: 'UTC'
+          month: 'short', // Changed to short for better readability (e.g. Dec 10, 2025)
+          day: 'numeric'
       });
   };
 
@@ -482,6 +522,42 @@ export default function ProductDetailModal({
                                Mark Returned
                            </button>
                        </div>
+
+                       {/* Review Renter Logic */}
+                       {activeTransaction && (() => {
+                          const userHasReviewed = activeTransaction.reviews?.some(
+                              r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
+                          );
+                          
+                          if (userHasReviewed) {
+                              return (
+                                  <div style={{ 
+                                      marginTop: '0.75rem', 
+                                      color: '#2ecc71', 
+                                      fontWeight: '600', 
+                                      fontSize: '0.9rem',
+                                      textAlign: 'center'
+                                  }}>
+                                      ✓ You reviewed this renter
+                                  </div>
+                              );
+                          }
+
+                          return (
+                              <button 
+                                  className="btn-chat" 
+                                  style={{ 
+                                      marginTop: '0.75rem', 
+                                      backgroundColor: "#f1c40f", 
+                                      color: "#333",
+                                      fontSize: '0.9rem'
+                                  }}
+                                  onClick={() => setShowReviewModal(true)}
+                              >
+                                  ⭐ Review Renter
+                              </button>
+                          );
+                      })()}
                    </div>
                 ) : (
                    // --- Available Controls ---

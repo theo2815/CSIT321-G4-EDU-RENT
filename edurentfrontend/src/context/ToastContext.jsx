@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react'; // Import useMemo
 import '../static/Feedback.css';
 
 const ToastContext = createContext();
@@ -16,17 +16,19 @@ export const ToastProvider = ({ children }) => {
     }, 3000);
   }, []);
 
-  const removeToast = (id) => {
+  const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    showSuccess: (msg) => addToast(msg, 'success'),
+    showError: (msg) => addToast(msg, 'error'),
+    showInfo: (msg) => addToast(msg, 'info'),
+    showWarning: (msg) => addToast(msg, 'warning')
+  }), [addToast]);
 
   return (
-    <ToastContext.Provider value={{ 
-      showSuccess: (msg) => addToast(msg, 'success'),
-      showError: (msg) => addToast(msg, 'error'),
-      showInfo: (msg) => addToast(msg, 'info'),
-      showWarning: (msg) => addToast(msg, 'warning')
-    }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       <div className="toast-container">
         {toasts.map(t => (

@@ -27,8 +27,9 @@ public class RentalSchedulerService {
     @Autowired private NotificationRepository notificationRepository;
     @Autowired private SimpMessagingTemplate messagingTemplate;
 
-    // Run daily at 8:00 AM to send reminders
-    @Scheduled(cron = "0 0 8 * * *") 
+    // Run every hour.
+    @Scheduled(cron = "0 0 * * * *") 
+    //@Scheduled(fixedRate = 10000)
     @Transactional
     public void sendReturnReminders() {
         // Calculate "Today" range

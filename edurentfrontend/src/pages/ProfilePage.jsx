@@ -423,9 +423,7 @@ export default function ProfilePage() {
       setCurrentPage(listingsData.number);
       setHasMore(listingsData.number < listingsData.totalPages - 1);
 
-      if (loggedInUser) {
-          refetchLikes();
-      }
+      refetchLikes();
 
     } catch (err) {
       console.error("Failed to fetch profile data:", err);
@@ -433,7 +431,7 @@ export default function ProfilePage() {
     } finally {
       setIsLoadingPageData(false);
     }
-  }, [profileId, loggedInUser, refetchLikes, fetchBuyerReviews, fetchSellerReviews]); 
+  }, [profileId, refetchLikes, fetchBuyerReviews, fetchSellerReviews]); 
 
   // Resets all data to page 0
   const refreshData = useCallback(() => {
@@ -846,7 +844,7 @@ export default function ProfilePage() {
                   <>
                     {renderReviewList(
                         buyerReviews, 
-                        "Reviews from Buyers (You Sold items)", 
+                        "Reviews from Buyers (Your sold items)", 
                         () => fetchBuyerReviews(profileUser.userId, buyerPage + 1),
                         isLoadingBuyerReviews,
                         hasMoreBuyerReviews
@@ -859,7 +857,7 @@ export default function ProfilePage() {
 
                     {renderReviewList(
                         sellerReviews, 
-                        "Reviews from Sellers (You Bought items)", 
+                        "Reviews from Sellers (Your bought items)", 
                         () => fetchSellerReviews(profileUser.userId, sellerPage + 1),
                         isLoadingSellerReviews,
                         hasMoreSellerReviews

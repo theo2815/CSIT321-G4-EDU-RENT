@@ -15,6 +15,15 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
   // Feedback hook
   const { showSuccess, showError } = useToast();
   
+  // Helper for validation
+  const getTodayDate = () => {
+    const today = new Date();
+    const offset = today.getTimezoneOffset();
+    const localToday = new Date(today.getTime() - (offset * 60 * 1000));
+    return localToday.toISOString().split('T')[0];
+  };
+  const today = getTodayDate();
+  
   // New state for rental dates
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -57,9 +66,19 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
     }
     
     // Validation: Require dates if this is a rental
-    if (isRent && (!startDate || !endDate)) {
-        showError("Please select both start and end dates for the rental.");
-        return;
+    if (isRent) {
+        if (!startDate || !endDate) {
+            showError("Please select both start and end dates for the rental.");
+            return;
+        }
+        if (startDate < today) {
+            showError("Start date cannot be in the past.");
+            return;
+        }
+        if (endDate < startDate) {
+            showError("End date cannot be before the start date.");
+            return;
+        }
     }
 
     setSubmitting(true);
@@ -149,7 +168,14 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
                             className="form-input" 
                             style={{ padding: '0.4rem', width: '100%' }}
                             value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
+                            min={today}
+                            onChange={(e) => {
+                                setStartDate(e.target.value);
+                                // Auto-adjust end date if it becomes invalid
+                                if (endDate && e.target.value > endDate) {
+                                    setEndDate(e.target.value);
+                                }
+                            }}
                         />
                     </div>
                     <div>
@@ -159,6 +185,7 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
                             className="form-input" 
                             style={{ padding: '0.4rem', width: '100%' }}
                             value={endDate}
+                            min={startDate || today}
                             onChange={(e) => setEndDate(e.target.value)}
                         />
                     </div>

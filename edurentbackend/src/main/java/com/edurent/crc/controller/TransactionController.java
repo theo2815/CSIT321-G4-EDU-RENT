@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.edurent.crc.entity.TransactionEntity;
 import com.edurent.crc.service.TransactionService;
+import com.edurent.crc.service.RentalSchedulerService;
 
 @RestController
 @RequestMapping("/api/v1/transactions")
@@ -27,6 +28,16 @@ public class TransactionController {
 
     @Autowired
     private TransactionService transactionService;
+
+    @Autowired
+    private RentalSchedulerService rentalSchedulerService;
+
+    //  Test Endpoint
+    @PostMapping("/test-scheduler")
+    public ResponseEntity<String> triggerSchedulerManually() {
+        rentalSchedulerService.checkExpiredRentals();
+        return ResponseEntity.ok("Scheduler triggered manually!");
+    }
 
     @GetMapping
     public List<TransactionEntity> getAllTransactions() { 
