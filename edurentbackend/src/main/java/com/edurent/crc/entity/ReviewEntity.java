@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.ArrayList; 
 import java.util.List;     
 import com.fasterxml.jackson.annotation.JsonManagedReference;
@@ -34,12 +36,12 @@ public class ReviewEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewer_id", nullable = false)
-    @JsonBackReference(value = "reviewer-reviews")
+    @JsonIgnoreProperties({"reviewsGiven", "reviewsReceived", "transactionsAsBuyer", "transactionsAsSeller", "listings", "school", "likes", "conversationParticipants", "messagesSent", "notifications", "passwordHash", "hibernateLazyInitializer", "handler"})
     private UserEntity reviewer;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_user_id", nullable = false)
-    @JsonBackReference(value = "reviewed-user-reviews")
+    @JsonIgnoreProperties({"reviewsGiven", "reviewsReceived", "transactionsAsBuyer", "transactionsAsSeller", "listings", "school", "likes", "conversationParticipants", "messagesSent", "notifications", "passwordHash", "hibernateLazyInitializer", "handler"})
     private UserEntity reviewedUser;
 
     // --- NEW RELATIONSHIP ---

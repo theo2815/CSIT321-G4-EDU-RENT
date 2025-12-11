@@ -239,7 +239,9 @@ export default function CategoryPage() {
                  There are currently no items listed in the "{categoryInfo?.name || 'selected'}" category
                  {searchQuery ? ' matching your search' : ''}.
                </p>
-                <Link to="/dashboard" className="cta-button" style={{marginTop: '1rem'}}>Back to Dashboard</Link>
+               <div style={{ marginTop: '1.5rem' }}>
+                  <Link to="/dashboard" className="cta-button">Back to Dashboard</Link>
+               </div>
             </div>
           )}
           {filteredListings.length > 0 && (

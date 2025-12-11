@@ -8,6 +8,10 @@ import UserRatingDisplay from './UserRatingDisplay';
 
 import { useAuthModal } from '../context/AuthModalContext';
 
+// New Feedback Hooks
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmationContext';
+
 import '../static/ProductDetailModal.css';
 import '../static/ProfilePage.css';
 import '../static/DashboardPage.css';
@@ -21,15 +25,18 @@ function EditRentalDatesModal({ transaction, onClose, onSuccess }) {
   const [endDate, setEndDate] = useState(transaction.endDate ? transaction.endDate.split('T')[0] : '');
   const [loading, setLoading] = useState(false);
 
+  // Use toast for feedback inside this sub-component
+  const { showSuccess, showError } = useToast();
+
   const handleSave = async () => {
     setLoading(true);
     try {
       await updateRentalDates(transaction.transactionId, startDate, endDate);
-      alert("Rental dates updated successfully!");
+      showSuccess("Rental dates updated successfully!");
       onSuccess();
     } catch (error) {
       console.error("Update failed:", error);
-      alert("Failed to update dates. Please try again.");
+      showError("Failed to update dates. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -85,10 +92,15 @@ export default function ProductDetailModal({
   onLikeClick, 
   isLiking, 
   sellerRatingInitialData,
-  initialContext 
+  initialContext,
+  initialAction
 }) {
   const navigate = useNavigate();
   const { openLogin } = useAuthModal(); 
+  
+  // Feedback hooks
+  const { showSuccess, showError } = useToast();
+  const confirm = useConfirm();
 
   // Local state for modals and chat
   const [isStartingChat, setIsStartingChat] = useState(false);
@@ -111,29 +123,62 @@ export default function ProductDetailModal({
   const priceDisplay = `₱${(listing.price || 0).toFixed(2)}`;
 
   // --- Fetch Active Transaction Logic ---
-  // If the item is rented and the user is the owner, we need the specific transaction details
-  // (ID, dates) to allow them to edit or return the item.
   useEffect(() => {
-    if (isRented && isOwner) {
+    // Fetch transaction if Rented OR if Owner needs to see Sold info (for reviews)
+    if (isRented || (isSold && isOwner)) {
         getTransactionByListing(listing.listingId)
-            .then(res => setActiveTransaction(res.data))
-            .catch(err => console.error("Could not load rental info:", err));
+            .then(res => {
+                const transaction = res.data;
+                setActiveTransaction(transaction);
+                
+                // Check if current user has already reviewed
+                const userHasReviewed = res.data.reviews?.some(
+                    r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
+                );
+
+                // Auto-open review modal ONLY if NOT reviewed yet
+                if (initialAction === 'review' && isOwner && !userHasReviewed) {
+                    setShowReviewModal(true);
+                }
+            })
+            .catch(err => console.error("Could not load transaction info:", err));
     }
-  }, [isRented, isOwner, listing.listingId]);
+  }, [isRented, isSold, isOwner, listing.listingId, initialAction, currentUserId, showSuccess]);
+
+  // Helper to format dates strictly as MM/DD/YYYY without timezone shifts
+  const formatRentalDate = (dateString) => {
+      if (!dateString) return '...';
+      return new Date(dateString).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          timeZone: 'UTC'
+      });
+  };
 
   // --- Handlers ---
 
   // Handles marking a rented item as returned (making it available again)
   const handleReturnItem = async () => {
       if (!activeTransaction) return;
-      if (window.confirm("Mark this item as returned? It will become 'Available' immediately.")) {
+      
+      // Replaced window.confirm with custom confirm modal.
+      // Since confirm() returns a Promise, we await the user's decision.
+      const isConfirmed = await confirm({
+        title: "Return Item?",
+        message: "Mark this item as returned? It will become 'Available' immediately.",
+        confirmText: "Yes, Return it",
+        isDangerous: false
+      });
+
+      if (isConfirmed) {
           try {
               await returnRental(activeTransaction.transactionId);
-              alert("Item marked as returned.");
+              showSuccess("Item marked as returned successfully.");
               onClose();
               window.location.reload(); 
           } catch (error) {
-              alert("Failed to return item.");
+              showError("Failed to return item. Please try again. ",error);
           }
       }
   };
@@ -146,7 +191,7 @@ export default function ProductDetailModal({
   }, [listing.likes, currentUserId]);
 
   let displayLikeCount = serverLikeCount;
-  if (!isSold && !isRented) {
+  if (!isSold) {
     if (isLiked && !wasLikedInitial) displayLikeCount++;
     else if (!isLiked && wasLikedInitial) displayLikeCount--;
   }
@@ -222,6 +267,7 @@ export default function ProductDetailModal({
         navigate('/messages', { state: { openConversation: fullConversation, openConversationId: fullConversation.conversationId } });
     } catch (error) {
         console.error("Failed to start conversation:", error);
+        showError("Could not start conversation. Please try again.");
     }
   };
 
@@ -262,13 +308,13 @@ export default function ProductDetailModal({
               </h2>
               
               <div 
-                  onClick={(!isOwner && !isSold && !isRented) ? handleLikeClick : undefined}
+                  onClick={(!isOwner && !isSold) ? handleLikeClick : undefined}
                   style={{ 
                       display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#f1f3f5', padding: '6px 12px',
-                      borderRadius: '20px', cursor: (!isOwner && !isSold && !isRented) ? 'pointer' : 'default',
-                      flexShrink: 0, opacity: (isSold || isRented) ? 0.7 : 1
+                      borderRadius: '20px', cursor: (!isOwner && !isSold) ? 'pointer' : 'default',
+                      flexShrink: 0, opacity: isSold ? 0.7 : 1
                   }}
-                  title={isOwner ? `${displayLikeCount} people liked this` : (isSold ? 'Item is sold' : (isRented ? 'Item is rented' : (isLiked ? 'Unlike' : 'Like')))}
+                  title={isOwner ? `${displayLikeCount} people liked this` : (isSold ? 'Item is sold' : (isLiked ? 'Unlike' : 'Like'))}
               >
                   <span style={{ fontSize: '1.2rem', lineHeight: 1, color: isOwner ? '#6c757d' : (isLiked ? '#e53935' : '#ccc') }}>
                       {isLiking ? '...' : (isOwner ? '🖤' : (isLiked ? '❤️' : '🤍'))}
@@ -276,6 +322,30 @@ export default function ProductDetailModal({
                   <span style={{ fontWeight: 'bold', color: '#495057' }}>{displayLikeCount}</span>
               </div>
             </div>
+
+            {/* Viewer View: Clean Date Display (Hidden for Owner) */}
+            {isRented && activeTransaction && !isOwner && (
+                <div style={{ 
+                    marginBottom: '1rem', 
+                    padding: '0.5rem 0', 
+                    borderTop: '1px solid #eee', 
+                    borderBottom: '1px solid #eee',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.2rem',
+                    fontSize: '0.9rem',
+                    color: '#555'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Start Date:</span>
+                        <strong style={{ color: '#2ecc71' }}>{formatRentalDate(activeTransaction.startDate)}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>End Date:</span>
+                        <strong style={{ color: '#e53935' }}>{formatRentalDate(activeTransaction.endDate)}</strong>
+                    </div>
+                </div>
+            )}
 
             <p className="product-info-price">{priceDisplay}</p>
             
@@ -342,8 +412,48 @@ export default function ProductDetailModal({
 
                 {/* Owner Status Actions */}
                 {isSold ? (
-                  <div className="action-note" style={{ color: '#e53935', fontWeight: 'bold', marginTop: '0.5rem' }}>
-                    Item marked as Sold
+                  <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                      <div className="action-note" style={{ color: '#e53935', fontWeight: 'bold' }}>
+                        Item marked as Sold
+                      </div>
+                      {/* Allow Seller to Review Buyer */}
+                      {activeTransaction && (() => {
+                          const userHasReviewed = activeTransaction.reviews?.some(
+                              r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
+                          );
+                          
+                          if (userHasReviewed) {
+                              return (
+                                  <div style={{ 
+                                      marginTop: '0.75rem', 
+                                      color: '#2ecc71', 
+                                      fontWeight: '600', 
+                                      fontSize: '0.9rem',
+                                      padding: '0.5rem',
+                                      backgroundColor: '#f0fdf4',
+                                      borderRadius: '8px',
+                                      border: '1px solid #bbf7d0'
+                                  }}>
+                                      ✓ You already reviewed this buyer
+                                  </div>
+                              );
+                          }
+
+                          return (
+                              <button 
+                                  className="btn-chat" 
+                                  style={{ 
+                                      marginTop: '0.5rem', 
+                                      backgroundColor: "#f1c40f", 
+                                      color: "#333",
+                                      fontSize: '0.9rem'
+                                  }}
+                                  onClick={() => setShowReviewModal(true)}
+                              >
+                                  ⭐ Review Buyer
+                              </button>
+                          );
+                      })()}
                   </div>
                 ) : isRented ? (
                    // --- Rented Controls: Edit Dates or Return ---
@@ -351,11 +461,11 @@ export default function ProductDetailModal({
                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                            <span style={{ fontWeight: 'bold', color: '#0284c7' }}>Item is Rented</span>
                            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                               {activeTransaction ? `${new Date(activeTransaction.startDate).toLocaleDateString()} - ${new Date(activeTransaction.endDate).toLocaleDateString()}` : 'Loading...'}
+                               {activeTransaction ? `${formatRentalDate(activeTransaction.startDate)} - ${formatRentalDate(activeTransaction.endDate)}` : 'Loading...'}
                            </span>
                        </div>
                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                           <button 
+                           <button
                                className="btn-chat" 
                                style={{ backgroundColor: "#ffffff", color: "#0284c7", border: "1px solid #0284c7", flex: 1, fontSize: '0.85rem' }} 
                                onClick={() => setShowEditDatesModal(true)}
@@ -465,12 +575,13 @@ export default function ProductDetailModal({
         />
       )}
 
-      {showReviewModal && existingChat && (
+      {showReviewModal && (existingChat || activeTransaction) && (
           <div style={{ position: 'absolute', zIndex: 1100 }}>
             <ReviewModal 
-                transactionId={existingChat.transactionId}
+                transactionId={existingChat?.transactionId || activeTransaction?.transactionId}
                 reviewerId={currentUserId}
-                otherUserName={seller.username}
+                // If owner: reviewing buyer. If buyer: reviewing seller.
+                otherUserName={isOwner ? (activeTransaction?.buyer?.fullName || 'Buyer') : seller.username}
                 onClose={() => setShowReviewModal(false)}
                 onSuccess={() => {
                     setShowReviewModal(false);

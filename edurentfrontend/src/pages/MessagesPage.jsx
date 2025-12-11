@@ -8,15 +8,20 @@ import Stomp from 'stompjs';
 // Custom hooks to manage complex logic outside the view
 import usePageLogic from '../hooks/usePageLogic';
 import useChatScroll from '../hooks/useChatScroll';
-import useAuth from '../hooks/useAuth'; 
+import useAuth from '../hooks/useAuth';
+
+// New Feedback Hooks
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmationContext';
 
 // UI Components
 import Header from '../components/Header';
 import ListingCard from '../components/ListingCard'; 
 import ReviewModal from '../components/ReviewModal'; 
 import UserRatingDisplay from '../components/UserRatingDisplay';
+import AlertBanner from '../components/AlertBanner'; 
 
-// API functions for handling data
+// API functions
 import { 
   getCurrentUser, 
   getMessages,                
@@ -31,15 +36,14 @@ import {
   markConversationAsRead,
   markConversationAsUnread,
   uploadMessageImage,
-  getUserReviews,
-  getListingById 
+  getUserReviews 
 } from '../services/apiService';
 
 // Styles
 import '../static/MessagesPage.css';
 import defaultAvatar from '../assets/default-avatar.png';
 
-// Simple SVG icons used throughout the chat interface
+// --- Icons Component ---
 const Icons = {
   Search: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -62,9 +66,9 @@ const Icons = {
     </svg>
   ),
   ChevronDown: () => (
-     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-       <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-     </svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+      </svg>
   ),
   MenuDots: () => ( 
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
@@ -73,7 +77,7 @@ const Icons = {
   )
 };
 
-// Visual placeholders for when data is loading
+// --- Skeletons ---
 function ChatWindowSkeleton() {
   return (
     <div className="chat-skeleton-loader">
@@ -111,8 +115,7 @@ function MessagesSkeleton() {
   );
 }
 
-// Updated timestamp formatters to be more user-friendly
-// 1. Sidebar: "15 mins ago", "1 hour ago", "2 days ago", etc.
+// --- Formatters ---
 const formatRelativeTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -120,53 +123,34 @@ const formatRelativeTime = (dateString) => {
     const diffInSeconds = Math.floor((now - date) / 1000);
   
     if (diffInSeconds < 60) return 'Just now';
-    
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     if (diffInMinutes < 60) return `${diffInMinutes} mins ago`;
-  
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-  
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-  
     const diffInWeeks = Math.floor(diffInDays / 7);
     return `${diffInWeeks} week${diffInWeeks > 1 ? 's' : ''} ago`;
 };
   
-// 2. Chat Bubble: "10:30 AM" (New) or "Fri 9:11 PM" / "Nov 18, 2025, 2:11 PM" (Old)
 const formatChatTimestamp = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     const now = new Date();
-    
-    // Check if today
-    const isToday = date.getDate() === now.getDate() &&
-                    date.getMonth() === now.getMonth() &&
-                    date.getFullYear() === now.getFullYear();
-    
-    // Time format options
+    const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     const timeOptions = { hour: 'numeric', minute: '2-digit' };
   
-    if (isToday) {
-        return date.toLocaleTimeString([], timeOptions);
-    }
-  
-    // Check if within the last 6 days (approx "this week")
+    if (isToday) return date.toLocaleTimeString([], timeOptions);
     const diffInHours = (now - date) / 1000 / 60 / 60;
-    if (diffInHours < 24 * 6) {
-         // Format: Fri 9:11 PM
-         return date.toLocaleDateString([], { weekday: 'short' }) + ' ' + 
-                date.toLocaleTimeString([], timeOptions);
-    }
-  
-    // Older than a week
-    // Format: Nov 18, 2025, 2:11 PM
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' +
-           date.toLocaleTimeString([], timeOptions);
+    if (diffInHours < 24 * 6) return date.toLocaleDateString([], { weekday: 'short' }) + ' ' + date.toLocaleTimeString([], timeOptions);
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + date.toLocaleTimeString([], timeOptions);
 };
 
 export default function MessagesPage() {
+  // Access our new feedback tools
+  const toast = useToast();
+  const confirm = useConfirm();
+
   // Store user details and the list of active conversations
   const [userData, setUserData] = useState(null);
   const [userName, setUserName] = useState('');
@@ -176,7 +160,7 @@ export default function MessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]); 
   
-  // UI controls for filtering and searching the conversation list
+  // UI controls for filtering and searching
   const [searchQuery, setSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Messages');
@@ -197,21 +181,21 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false); 
   const [error, setError] = useState(null);
+  const [isConnected, setIsConnected] = useState(false); // New: Track socket connection state
 
-  // References for direct DOM manipulation (scrolling, file inputs)
+  // References
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
-  
-  // WebSocket references to manage the connection
   const stompClientRef = useRef(null);
   const conversationSubscriptionRef = useRef(null);
+  const selectedConversationRef = useRef(null);
 
-  // Pagination state for infinite scrolling
+  // Pagination state
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   
-  // Custom hook to manage auto-scrolling to the newest message
+  // Scroll management
   const { 
     chatContentRef, 
     showScrollBtn, 
@@ -219,58 +203,55 @@ export default function MessagesPage() {
     handleScroll: onScrollInternal 
   } = useChatScroll(messages);
 
-  // Combine our custom scroll logic with infinite loading logic
   const handleScroll = (e) => {
-      onScrollInternal(e); // Check if we are near the bottom
-      handleInfiniteScroll(e); // Check if we need to load old messages
+      onScrollInternal(e);
+      handleInfiniteScroll(e);
   };
   
   const [chatUserRating, setChatUserRating] = useState(null);
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+    // Dispatch event to inform Header about the active conversation ID
+    window.dispatchEvent(new CustomEvent('active-chat-change', { 
+      detail: { id: selectedConversation ? selectedConversation.id : null } 
+    }));
+  }, [selectedConversation]);
 
-  // Handle liking items directly from the chat view
+  // --- Likes Handling ---
   const [likedListingIds, setLikedListingIds] = useState(new Set());
   const [likingInProgress, setLikingInProgress] = useState(new Set());
 
   const handleLikeToggle = async (listingId) => {
     if (likingInProgress.has(listingId)) return;
     setLikingInProgress(prev => new Set(prev).add(listingId));
+    
+    // Optimistic UI update
     const newLikedIds = new Set(likedListingIds);
     const isCurrentlyLiked = likedListingIds.has(listingId);
-    
     if (isCurrentlyLiked) newLikedIds.delete(listingId); 
     else newLikedIds.add(listingId);
-    
     setLikedListingIds(newLikedIds);
 
     try { 
       if (isCurrentlyLiked) await unlikeListing(listingId); 
       else await likeListing(listingId); 
     } catch (err) {
+      // Revert if failed
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
           if (isCurrentlyLiked) revertedIds.add(listingId); 
           else revertedIds.delete(listingId);
           return revertedIds;
       });
+      toast.showError("Failed to update like status.");
     } finally {
       setLikingInProgress(prev => { const next = new Set(prev); next.delete(listingId); return next; });
     }
   };
 
-  const likesHook = {
-    likedListingIds,
-    likingInProgress,
-    handleLikeToggle
-  };
+  const likesHook = { likedListingIds, likingInProgress, handleLikeToggle };
+  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook);
 
-  // Manage global UI logic like modals and notifications
-  const { 
-    openModal, 
-    handleNotificationClick, 
-    ModalComponent 
-  } = usePageLogic(userData, likesHook);
-
-  // Helper to display friendly date labels (Today, Yesterday, etc.)
   const getDateLabel = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
@@ -284,7 +265,8 @@ export default function MessagesPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // Check if we navigated here from a specific product page (Deep Linking)
+  // --- Effects & Data Fetching ---
+
   useEffect(() => {
       if (location.state?.filterByListingId) {
           const targetId = location.state.filterByListingId;
@@ -299,7 +281,6 @@ export default function MessagesPage() {
       navigate(location.pathname, { replace: true, state: {} });
   };
 
-  // Efficiently filter the conversation list based on search terms or tabs
   const filteredConversations = useMemo(() => {
     if (!userData) return [];
     let result = conversations;
@@ -352,13 +333,12 @@ export default function MessagesPage() {
       await sendMessage('', selectedConversation.id, userData.userId, imageUrl);
     } catch (error) {
       console.error("Failed to send image", error);
-      alert("Failed to send image.");
+      toast.showError("Failed to upload image. Please try again.");
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // Load the user's profile, active chats, and likes when the page opens
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -376,7 +356,7 @@ export default function MessagesPage() {
       const convResponse = await getConversationsForUser(userId);
       const convs = convResponse.data || [];
 
-      // Process conversation data for UI
+      // Process conversation data
       const processedConvs = convs.map(conv => {
           if (!conv.participants) return null;
           const otherParticipant = conv.participants.find(p => {
@@ -427,12 +407,12 @@ export default function MessagesPage() {
       processedConvs.sort((a, b) => {
           const dateA = new Date(a.lastMessageDate || 0);
           const dateB = new Date(b.lastMessageDate || 0);
-          return dateB - dateA; // Descending order (Newest first)
+          return dateB - dateA;
       });
 
       setConversations(processedConvs);
       
-      // 3. Handle External Navigation (Start New Chat)
+      // 3. Handle External Navigation
       const passedConv = location.state?.openConversation;
       const passedConvId = location.state?.openConversationId;
       const initiateChat = location.state?.initiateChat;
@@ -440,7 +420,7 @@ export default function MessagesPage() {
       if (passedConvId) {
           let targetConv = processedConvs.find(c => c.id === passedConvId);
           if (!targetConv && passedConv) {
-              // Create temporary conversation object
+              // Create temporary conv object
               const participants = passedConv.participants || [];
               const otherParticipantObj = participants.find(p => {
                   const pId = p.user?.userId || p.userId; 
@@ -473,7 +453,7 @@ export default function MessagesPage() {
               setIsChatVisible(true);
               window.history.replaceState({}, document.title);
           }
-      }else if (initiateChat && currentUser) {
+      } else if (initiateChat && currentUser) {
           let targetConv = processedConvs.find(c => 
               c.product?.id === initiateChat.listingId && 
               c.otherUser?.id === initiateChat.sellerId
@@ -518,6 +498,7 @@ export default function MessagesPage() {
                   setIsChatVisible(true);
               } catch (err) {
                   console.error("Failed to auto-create conversation", err);
+                  toast.showError("Could not initialize new chat.");
               }
           }
           window.history.replaceState({}, document.title);
@@ -530,6 +511,7 @@ export default function MessagesPage() {
 
     } catch (err) {
       console.error("Failed to fetch messages data:", err);
+      // Don't toast here if we are showing the full page error, or do both.
       setError("Could not load messages.");
       if (err.message === "No authentication token found." || err.response?.status === 401) {
           navigate('/login');
@@ -542,7 +524,8 @@ export default function MessagesPage() {
   // Initial Fetch
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Connect to the real-time server to receive new messages instantly
+  // --- WEBSOCKET CONNECTION (Global) ---
+  // This effect runs ONCE when userData is available to establish the socket connection.
   useEffect(() => {
     if (userData) {
       const socket = new SockJS('http://localhost:8080/ws');
@@ -550,7 +533,9 @@ export default function MessagesPage() {
 
       stompClient.connect({}, () => {
         stompClientRef.current = stompClient;
-        // Subscribe to sidebar updates
+        setIsConnected(true);
+
+        // Subscribe to sidebar updates (Global user topic)
         stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
           const payload = JSON.parse(message.body);
           setConversations(prevConvs => {
@@ -563,7 +548,8 @@ export default function MessagesPage() {
                 ...conv,
                 lastMessagePreview: payload.text,
                 lastMessageDate: payload.timestamp,
-                isUnread: true 
+                // Only mark as unread if we aren't currently looking at this chat
+                isUnread: selectedConversation?.id === payload.conversationId ? false : true 
               });
               return updatedConvs;
             } else {
@@ -572,10 +558,61 @@ export default function MessagesPage() {
             }
           });
         });
+      }, (err) => {
+        console.error("Socket connection error:", err);
+        setIsConnected(false);
       });
-      return () => { if (stompClientRef.current) stompClientRef.current.disconnect(); };
+
+      return () => { 
+        if (stompClientRef.current) stompClientRef.current.disconnect(); 
+        setIsConnected(false);
+      };
     }
-  }, [userData, fetchData]);
+  }, [userData]); // Dependencies removed to keep connection stable
+
+  // --- WEBSOCKET SUBSCRIPTION (Active Chat) ---
+  // This effect handles subscribing/unsubscribing to the specific conversation topic
+  // whenever the user clicks a different conversation.
+  useEffect(() => {
+    if (!selectedConversation || !isConnected || !stompClientRef.current) return;
+
+    // Unsubscribe from previous chat
+    if (conversationSubscriptionRef.current) {
+        conversationSubscriptionRef.current.unsubscribe();
+    }
+
+    // Subscribe to new chat
+    conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${selectedConversation.id}`, (message) => {
+        const payload = JSON.parse(message.body);
+        
+        // Prevent duplicate messages if sender is self (handled optimistically)
+        if (payload.senderId === userData.userId) return;
+
+        const newMsg = {
+            id: payload.id, 
+            senderId: payload.senderId, 
+            text: payload.text,
+            attachmentUrl: payload.attachmentUrl, 
+            timestamp: formatChatTimestamp(payload.timestamp), 
+            rawDate: payload.timestamp
+        };
+
+        setMessages(prev => {
+            // Safety check for duplicates
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+        });
+        
+        markConversationAsRead(selectedConversation.id);
+    });
+
+    return () => {
+        if (conversationSubscriptionRef.current) {
+            conversationSubscriptionRef.current.unsubscribe();
+        }
+    };
+  }, [selectedConversation, isConnected, userData]);
+
 
   // Load the message history when the user clicks on a conversation
   const handleSelectConversation = async (conversation) => {
@@ -594,20 +631,8 @@ export default function MessagesPage() {
       c.id === conversation.id ? { ...c, isUnread: false } : c
     ));
 
-    // WebSocket subscription for this specific chat
-    if (stompClientRef.current && stompClientRef.current.connected) {
-        if (conversationSubscriptionRef.current) conversationSubscriptionRef.current.unsubscribe();
-        conversationSubscriptionRef.current = stompClientRef.current.subscribe(`/topic/conversation.${conversation.id}`, (message) => {
-            const payload = JSON.parse(message.body);
-            if (payload.senderId === userData.userId) return;
-            const newMsg = {
-                id: payload.id, senderId: payload.senderId, text: payload.text,
-                attachmentUrl: payload.attachmentUrl, timestamp: formatChatTimestamp(payload.timestamp), rawDate: payload.timestamp
-            };
-            setMessages(prev => [...prev, newMsg]);
-            markConversationAsRead(conversation.id);
-        });
-    }
+    // Note: The WebSocket subscription is now handled by the separate useEffect above,
+    // so we don't need to manually subscribe here anymore.
 
     try {
       const [messagesRes, ratingRes] = await Promise.all([
@@ -615,6 +640,9 @@ export default function MessagesPage() {
           getUserReviews(conversation.otherUser.id),
           markConversationAsRead(conversation.id)
       ]);
+      
+      // Dispatch event to update Header badge
+      window.dispatchEvent(new Event('message-read'));
 
       const mappedMessages = messagesRes.data.map(msg => ({
           id: msg.messageId, senderId: msg.sender?.userId, text: msg.content,
@@ -632,6 +660,7 @@ export default function MessagesPage() {
 
     } catch (err) {
       console.error("Error loading conversation:", err);
+      toast.showError("Failed to load conversation history.");
     } finally {
       setIsMessagesLoading(false);
     }
@@ -645,22 +674,52 @@ export default function MessagesPage() {
   const handleArchiveListAction = async (e, conv) => {
     e.stopPropagation(); setActiveListMenuId(null);
     setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, isArchived: !c.isArchived } : c));
-    try { await archiveConversation(conv.id); } catch (err) { console.error("Archive failed", err); fetchData(); }
+    try { 
+        await archiveConversation(conv.id); 
+        toast.showSuccess(conv.isArchived ? "Conversation unarchived" : "Conversation archived");
+    } catch (err) { 
+        console.error("Archive failed", err); 
+        fetchData(); // Revert on failure
+        toast.showError("Action failed. Reloading...");
+    }
   };
 
   const handleDeleteListAction = async (e, convId) => {
     e.stopPropagation(); setActiveListMenuId(null);
-    if (!window.confirm("Are you sure?")) return;
+    
+    // We use the new Confirm Provider here
+    const isConfirmed = await confirm({
+        title: "Delete Conversation?",
+        message: "This cannot be undone. The chat history will be removed for you.",
+        confirmText: "Delete",
+        isDangerous: true
+    });
+
+    if (!isConfirmed) return;
+
     setConversations(prev => prev.filter(c => c.id !== convId));
     if (selectedConversation?.id === convId) { setSelectedConversation(null); setIsChatVisible(false); }
-    try { await deleteConversation(convId); } catch (err) { console.error("Delete failed", err); fetchData(); }
+    try { 
+        await deleteConversation(convId); 
+        toast.showSuccess("Conversation deleted");
+    } catch (err) { 
+        console.error("Delete failed", err); 
+        fetchData(); 
+        toast.showError("Failed to delete conversation");
+    }
   };
 
   const handleReadUnreadAction = async (e, conv) => {
     e.stopPropagation(); setActiveListMenuId(null);
     const newStatus = !conv.isUnread; 
     setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, isUnread: newStatus } : c));
-    try { if (newStatus) await markConversationAsUnread(conv.id); else await markConversationAsRead(conv.id); } catch (err) { console.error("Toggle failed", err); fetchData(); }
+    try { 
+        if (newStatus) await markConversationAsUnread(conv.id); 
+        else await markConversationAsRead(conv.id); 
+    } catch (err) { 
+        console.error("Toggle failed", err); 
+        fetchData(); 
+    }
   };
 
   // --- Chat Actions ---
@@ -675,7 +734,6 @@ export default function MessagesPage() {
     if (textareaRef.current) { textareaRef.current.style.height = 'auto'; textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`; }
   };
 
-  // Send message, update UI optimistically, then call API
   const handleSendMessage = async () => {
       if (!newMessage.trim() || !selectedConversation || !userData) return;
       const textToSend = newMessage;
@@ -700,13 +758,16 @@ export default function MessagesPage() {
           return updatedConvs;
       });
 
-      try { await sendMessage(textToSend, selectedConversation.id, userData.userId); } catch (error) { console.error("Failed to send", error); alert("Failed."); }
+      try { 
+          await sendMessage(textToSend, selectedConversation.id, userData.userId); 
+      } catch (error) { 
+          console.error("Failed to send", error); 
+          toast.showError("Message failed to send.");
+      }
   };
 
-  // Load older messages when the user scrolls to the top
   const handleInfiniteScroll = async (e) => {
     const { scrollTop } = e.currentTarget;
-    
     if (scrollTop === 0 && hasMore && !isFetchingMore) {
       setIsFetchingMore(true);
       const prevHeight = e.currentTarget.scrollHeight; 
@@ -728,23 +789,47 @@ export default function MessagesPage() {
     }
   };
 
-
-  
   const handleArchiveChat = async () => {
       if (!selectedConversation) return;
       const convId = selectedConversation.id;
-      setConversations(prev => prev.map(c => c.id === convId ? { ...c, isArchived: !c.isArchived } : c));
+      const willArchive = !selectedConversation.isArchived;
+
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, isArchived: willArchive } : c));
       setSelectedConversation(null); setIsChatMenuOpen(false); setIsChatVisible(false); 
-      try { await archiveConversation(convId); } catch (err) { fetchData(); }
+      
+      try { 
+          await archiveConversation(convId); 
+          toast.showSuccess(willArchive ? "Conversation archived" : "Conversation unarchived");
+      } catch (err) { 
+          fetchData(); 
+          toast.showError("Failed to update archive status");
+      }
   };
 
   const handleDeleteChat = async () => {
       if (!selectedConversation) return;
-      if (!window.confirm("Are you sure?")) return;
+
+      // New Confirm Logic for active chat
+      const isConfirmed = await confirm({
+          title: "Delete this conversation?",
+          message: "You will lose all message history. This cannot be undone.",
+          confirmText: "Delete Forever",
+          isDangerous: true
+      });
+
+      if (!isConfirmed) return;
+
       const convId = selectedConversation.id;
       setConversations(prev => prev.filter(c => c.id !== convId));
       setSelectedConversation(null); setIsChatMenuOpen(false); setIsChatVisible(false);
-      try { await deleteConversation(convId); } catch (err) { fetchData(); }
+      
+      try { 
+          await deleteConversation(convId); 
+          toast.showSuccess("Conversation deleted");
+      } catch (err) { 
+          fetchData(); 
+          toast.showError("Failed to delete");
+      }
   };
 
   const handleReviewSuccess = () => {
@@ -754,13 +839,24 @@ export default function MessagesPage() {
       if (selectedConversation) {
           setSelectedConversation(prev => ({ ...prev, hasReviewed: true }));
       }
+      toast.showSuccess("Review submitted successfully!");
   };
 
   if (isLoading) {
       return <div className="profile-page"><Header userName="" onLogout={logout} /><MessagesSkeleton /></div>;
   }
+  
   if (error) {
-      return <div className="profile-page"><Header userName={userName} onLogout={logout} /><div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div></div>;
+      // Replaced the raw error div with your new AlertBanner for consistency
+      return (
+        <div className="profile-page">
+            <Header userName={userName} onLogout={logout} />
+            <div style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
+                <AlertBanner type="error" message={`We couldn't load your messages. ${error}`} />
+                <button className="btn btn-primary" onClick={fetchData} style={{ marginTop: '1rem' }}>Retry</button>
+            </div>
+        </div>
+      );
   }
 
   const filterOptions = ['All Messages', 'Selling', 'Buying', 'Unread', 'Archived'];
@@ -863,7 +959,6 @@ export default function MessagesPage() {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {/* CHANGED: Use formatRelativeTime */}
                           {formatRelativeTime(conv.lastMessageDate)}
                       </span>
                       
@@ -1016,7 +1111,6 @@ export default function MessagesPage() {
                           )}
                           {msg.text && <div>{msg.text}</div>}
                         </div>
-                        {/* CHANGED: Use formatChatTimestamp with msg.rawDate */}
                         <span className="message-timestamp">
                             {formatChatTimestamp(msg.rawDate)}
                         </span>

@@ -6,6 +6,9 @@ import useAuth from '../hooks/useAuth';
 import useLikes from '../hooks/useLikes'; 
 import usePageLogic from '../hooks/usePageLogic'; 
 
+// New Feedback Hook
+import { useToast } from '../context/ToastContext';
+
 // Components
 import Header from '../components/Header';
 import defaultAvatar from '../assets/default-avatar.png';
@@ -22,6 +25,7 @@ import { supabase } from '../supabaseClient';
 
 // Styles
 import '../static/SettingsPage.css';
+import { useTheme } from '../context/ThemeContext.jsx';
 
 // A loading skeleton to keep the UI stable while fetching user data
 function SettingsSkeleton() {
@@ -207,14 +211,13 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
 
 // Allows the user to change their password
 function ChangePasswordForm({ userEmail }) {
+    const { showSuccess, showError } = useToast();
     const [passwords, setPasswords] = useState({
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
     });
-    const [message, setMessage] = useState({ type: '', content: '' });
     const [loading, setLoading] = useState(false);
-    const [email] = useState(userEmail || '');
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -230,14 +233,13 @@ function ChangePasswordForm({ userEmail }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage({ type: '', content: '' });
 
         if (passwords.newPassword !== passwords.confirmPassword) {
-            setMessage({ type: 'error', content: 'New passwords do not match.' });
+            showError('New passwords do not match.');
             return;
         }
         if (!validateStrength(passwords.newPassword)) {
-             setMessage({ type: 'error', content: 'New password must be at least 8 characters and include a number.' });
+             showError('New password must be at least 8 characters and include a number.');
              return;
         }
 
@@ -245,12 +247,12 @@ function ChangePasswordForm({ userEmail }) {
         try {
           // Delegate to backend: verifies current and updates to new
           await changePassword(passwords.currentPassword, passwords.newPassword);
-          setMessage({ type: 'success', content: 'Password changed successfully!' });
+          showSuccess('Password changed successfully!');
           setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } catch (err) {
           console.error('Password change failed:', err);
           const serverMsg = err?.response?.data?.message;
-          setMessage({ type: 'error', content: serverMsg || 'Failed to change password.' });
+          showError(serverMsg || 'Failed to change password.');
         } finally {
           setLoading(false);
         }
@@ -275,11 +277,7 @@ function ChangePasswordForm({ userEmail }) {
                         <input type="password" id="confirmPassword" name="confirmPassword" value={passwords.confirmPassword} onChange={handleChange} required className="form-input"/>
                       </div>
                 </div>
-                {message.content && (
-                  <div style={{ marginTop: '1.5rem' }} className={`form-message ${message.type === 'success' ? 'form-message-success' : 'form-message-error'}`}>
-                    {message.content}
-                  </div>
-                )}
+                
                 <div className="save-button-container">
                   <button type="submit" className="btn-save" disabled={loading}>
                     {loading ? 'Saving...' : 'Save Changes'}
@@ -292,6 +290,7 @@ function ChangePasswordForm({ userEmail }) {
 
 // Manages notification preferences
 function NotificationSettingsForm({ userId }) {
+    const { showError } = useToast();
     const [notifications, setNotifications] = useState({
         all: true,
         likes: true,
@@ -337,6 +336,7 @@ function NotificationSettingsForm({ userId }) {
       });
     } catch (e) {
       console.error('Failed to save notification preferences:', e);
+      showError('Failed to save settings. Please check your connection.');
     } finally {
       setSaving(false);
     }
@@ -406,15 +406,17 @@ function NotificationSettingsForm({ userId }) {
 
 // Allows switching between Light and Dark mode
 function ThemeSettingsForm() {
-    const [selectedTheme, setSelectedTheme] = useState('light');
+  const { theme, setTheme } = useTheme();
+  const [selectedTheme, setSelectedTheme] = useState(theme || 'light');
 
-    const handleThemeSelect = (theme) => {
-        setSelectedTheme(theme);
-        // TO DO: Implement the actual theme switching logic (e.g., toggle CSS classes on body)
-        // TO DO: Save user preference to LocalStorage
-        console.log("Theme selected:", theme);
-        alert(`Theme set to ${theme}! (Visuals not implemented yet)`);
-    };
+  useEffect(() => {
+    setSelectedTheme(theme);
+  }, [theme]);
+
+  const handleThemeSelect = (next) => {
+    setSelectedTheme(next);
+    setTheme(next);
+  };
 
     return (
         <section className="settings-card">
@@ -454,6 +456,9 @@ export default function SettingsPage() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Initialize Toast
+  const { showSuccess, showError } = useToast();
 
   // Local state for the edit profile form
   const [profileData, setProfileData] = useState({
@@ -553,7 +558,7 @@ export default function SettingsPage() {
       
     } catch (err) {
       console.error('Avatar upload failed:', err);
-      alert('Failed to upload profile picture. Please try again.');
+      showError('Failed to upload profile picture. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -577,12 +582,13 @@ export default function SettingsPage() {
       setUserData(res.data);
       // 3. Refresh global auth state so the Header updates immediately
       await retryAuth();
-      alert('Profile updated successfully!');
+
+      showSuccess('Profile updated successfully!');
       // Success: let EditProfileForm exit edit mode
       return;
     } catch (err) {
       console.error('Failed to update profile:', err);
-      alert(err.response?.data?.message || 'Failed to update profile');
+      showError(err.response?.data?.message || 'Failed to update profile');
       // Prevent exiting edit mode
       return false;
     }
@@ -590,12 +596,12 @@ export default function SettingsPage() {
 
   
   if (isLoading) {
-     return (
-       <div className="profile-page">
-          <Header userName="" onLogout={logout} />
-          <SettingsSkeleton />
-       </div>
-     );
+      return (
+        <div className="profile-page">
+           <Header userName="" onLogout={logout} />
+           <SettingsSkeleton />
+        </div>
+      );
   }
 
    if (error) {

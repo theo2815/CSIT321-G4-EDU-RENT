@@ -111,10 +111,10 @@ export const getCurrentUser = async () => {
 };
 
 // Retrieves all listings created by a specific user
-export const getUserListings = (userId, page = 0, size = 10) => {
-  return apiClient.get(`/listings/user/${userId}`, {
-      params: { page, size }
-  });
+export const getUserListings = (userId, page = 0, size = 10, includeInactive = false) => {
+    return apiClient.get(`/listings/user/${userId}`, {
+        params: { page, size, includeInactive }
+    });
 };
 
 // Gets all reviews received by a specific user
@@ -624,6 +624,32 @@ export const deleteReview = async (reviewId) => {
     return response;
   } catch (error) {
     console.error(`Error deleting review ${reviewId}:`, error);
+    throw error;
+  }
+};
+
+// [NEW] Get reviews where the user was the SELLER (reviews from buyers)
+export const getReviewsFromBuyers = async (userId, page = 0, size = 5) => {
+  try {
+    const response = await apiClient.get(`/reviews/user/${userId}/buyers`, {
+      params: { page, size }
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error getReviewsFromBuyers(${userId}):`, error);
+    throw error;
+  }
+};
+
+// [NEW] Get reviews where the user was the BUYER (reviews from sellers)
+export const getReviewsFromSellers = async (userId, page = 0, size = 5) => {
+  try {
+    const response = await apiClient.get(`/reviews/user/${userId}/sellers`, {
+      params: { page, size }
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error getReviewsFromSellers(${userId}):`, error);
     throw error;
   }
 };

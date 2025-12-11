@@ -28,6 +28,8 @@ public interface ListingRepository extends JpaRepository<ListingEntity, Long> {
     // Additional query methods
     Page<ListingEntity> findByUser_UserId(Long userId, Pageable pageable);
 
+    Page<ListingEntity> findByUser_UserIdAndStatusIn(Long userId, List<String> statuses, Pageable pageable);
+
     Page<ListingEntity> findByListingTypeAndStatusIn(String listingType, List<String> statuses, Pageable pageable);
     
     List<ListingEntity> findByListingType(String listingType);

@@ -3,6 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/Header';
 import { getCurrentUser, getCategories, getListingById, updateListing } from '../services/apiService';
 
+// Bring in our new feedback hooks
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmationContext';
+
 import '../static/ListItemPage.css';
 import '../static/SettingsPage.css';
 
@@ -59,6 +63,10 @@ export default function EditListingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false); 
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  // Initialize feedback tools
+  const { showSuccess, showError, showWarning } = useToast();
+  const confirm = useConfirm();
 
   // --- Form State Management ---
   const [photos, setPhotos] = useState([]); // Stores *new* photos uploaded in this session
@@ -123,6 +131,7 @@ export default function EditListingPage() {
       } catch (err) {
         console.error("Failed to fetch initial data:", err);
         setError("Could not load listing data. Please try again.");
+        // Only redirect if auth fails, otherwise show the error on screen
         if (err.message === "No authentication token found.") {
             navigate('/login');
         }
@@ -152,7 +161,7 @@ export default function EditListingPage() {
     const totalCurrentPhotos = existingImages.length + photos.length;
     const availableSlots = 10 - totalCurrentPhotos;
     if (availableSlots <= 0) {
-        alert("You can only upload a maximum of 10 photos in total.");
+        showWarning("You can only upload a maximum of 10 photos in total.");
         return;
     }
     
@@ -190,9 +199,16 @@ export default function EditListingPage() {
    };
 
    // Marks an existing server-side image for deletion. 
-   // Note: The actual deletion happens when the user clicks "Save Changes".
-   const removeExistingImage = (imageToRemove) => {
-     if (window.confirm("This will permanently delete this image upon saving. Are you sure?")) {
+   // We use async/await here because the custom confirm modal returns a Promise.
+   const removeExistingImage = async (imageToRemove) => {
+     const isConfirmed = await confirm({
+        title: "Remove Image?",
+        message: "This image will be permanently deleted when you save changes. Are you sure?",
+        confirmText: "Yes, Remove",
+        isDangerous: true
+     });
+
+     if (isConfirmed) {
         // 1. Add ID to deletion list
         setImagesToDelete(prev => [...prev, imageToRemove.imageId]);
         // 2. Remove from visual display
@@ -206,12 +222,12 @@ export default function EditListingPage() {
     
     // Basic validation
     if (!selectedCategory || !title || !condition || !description || !price) {
-        alert("Please fill in all required fields."); return;
+        showError("Please fill in all required fields."); return;
     }
     
     // Ensure there is at least one image remaining (either new or existing)
     if (existingImages.length === 0 && photos.length === 0) {
-        alert("Please add at least one photo.");
+        showError("Please add at least one photo.");
         return;
     }
 
@@ -249,14 +265,14 @@ export default function EditListingPage() {
       const response = await updateListing(listingId, listingData);
 
       console.log("Listing updated successfully:", response.data);
-      alert("Item updated successfully!");
+      showSuccess("Item updated successfully!");
       navigate('/manage-listings'); 
 
     } catch (err) {
       console.error("Failed to update item:", err);
       const errorMsg = err.response?.data?.message || err.message || "Failed to update item.";
       setError(errorMsg);
-      alert(`Error: ${errorMsg}`);
+      showError(`Error: ${errorMsg}`);
     } finally {
       setIsSubmitting(false); 
     }
@@ -271,7 +287,7 @@ export default function EditListingPage() {
 
     if (!listingId) {
       console.error("Could not parse listingId from notification linkUrl:", notification.linkUrl);
-      alert("Could not open this notification: Invalid link.");
+      showError("Could not open this notification: Invalid link.");
       return;
     }
 
@@ -282,18 +298,15 @@ export default function EditListingPage() {
       const response = await getListingById(listingId); 
 
       if (response.data) {
-        // Assuming 'openModal' is passed down or available in context, otherwise this might need adjustment
-        // Since openModal isn't defined in this specific file scope based on imports, 
-        // this likely relies on a parent component or context not fully visible here.
-        // For now, we will navigate to the page view.
-         navigate(`/category/${response.data.category.categoryId}`); 
+        // Navigating to view the item since we are on a page, not inside the modal flow
+          navigate(`/category/${response.data.category.categoryId}`); 
       } else {
         throw new Error(`Listing ${listingId} not found.`);
       }
 
     } catch (err) {
       console.error("Failed to fetch listing for notification:", err);
-      alert(`Could not load item: ${err.message}. It may have been deleted.`);
+      showError(`Could not load item: ${err.message}. It may have been deleted.`);
       navigate('/browse');
     }
   };

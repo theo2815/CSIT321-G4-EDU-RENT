@@ -5,6 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import usePageLogic from '../hooks/usePageLogic';
 
+// New Feedback Hook
+import { useToast } from '../context/ToastContext';
+
 // Components
 import Header from '../components/Header';
 
@@ -67,11 +70,14 @@ export default function ListItemPage() {
   // Get the current user session
   const { userData, userName, isLoadingAuth, authError, logout } = useAuth();
   
-  // Initialize notification handling (we don't need 'likes' on this page, so we pass null)
+  // Initialize notification handling
   const { 
-    handleNotificationClick, 
+    handleNotificationClick: baseHandleNotificationClick, 
     ModalComponent
   } = usePageLogic(userData, null);
+
+  // Initialize feedback tools
+  const { showSuccess, showError, showWarning } = useToast();
 
   // Local state for dropdown data
   const [categories, setCategories] = useState([]);
@@ -141,6 +147,13 @@ export default function ListItemPage() {
   // Convert files to preview URLs and add them to state
   const addPhotos = (newFiles) => {
     const availableSlots = 10 - photos.length;
+    
+    // Provide feedback if user tries to exceed the limit
+    if (availableSlots <= 0) {
+        showWarning("You've reached the 10-photo limit.");
+        return;
+    }
+
     const filesToAdd = newFiles.slice(0, availableSlots);
     
     // Create local object URLs for immediate preview
@@ -153,8 +166,6 @@ export default function ListItemPage() {
 
   // Remove a photo from the list
   const removePhoto = (indexToRemove) => {
-    // TODO: Ideally, we should revoke the object URL here to avoid memory leaks
-    // URL.revokeObjectURL(photos[indexToRemove].previewUrl);
     setPhotos(prevPhotos => prevPhotos.filter((_, index) => index !== indexToRemove));
   };
 
@@ -188,22 +199,21 @@ export default function ListItemPage() {
     setDeliveryOption('');
   };
 
-  // 
   // Submit the listing to the backend
   const handleListNow = async (e) => { 
     e.preventDefault();
     
-    // Basic validation
+    // Basic validation with user-friendly error messages
     if (photos.length === 0 || !selectedCategory || !title || !condition || !description || !price) {
-        alert("Please fill in all required fields and add at least one photo.");
+        showError("Please fill in all required fields and add at least one photo.");
         return;
     }
     if (allowMeetup && !meetupPlace.trim()) {
-      alert("Please enter a meet-up place.");
+      showError("Please enter a meet-up place.");
       return;
     }
     if (allowDelivery && !deliveryOption.trim()) {
-      alert("Please add a delivery option.");
+      showError("Please add a delivery option.");
       return;
     }
     
@@ -238,7 +248,8 @@ export default function ListItemPage() {
     try {
       const response = await createListing(listingData);
       console.log("Listing created successfully:", response.data);
-      alert("Item listed successfully!"); 
+      
+      showSuccess("Item listed successfully!");
       handleClearDetails(); 
       navigate('/profile'); 
 
@@ -246,17 +257,24 @@ export default function ListItemPage() {
       console.error("Failed to list item:", err);
       const errorMsg = err.response?.data?.message || err.message || "Failed to list item.";
       setError(errorMsg); 
-      alert(`Error: ${errorMsg}`); 
+      showError(`Error: ${errorMsg}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Wrapper for notification clicks to handle errors gracefully
+  const handleNotificationClick = (notification) => {
+    try {
+        baseHandleNotificationClick(notification);
+    } catch (err) {
+        showError("Could not open notification.");
     }
   };
 
   // Combine loading states for a smooth UI experience
   const isPageLoading = isLoadingAuth || isLoadingData;
   const pageError = authError || error;
-
-  
 
   if (isPageLoading) {
     return (

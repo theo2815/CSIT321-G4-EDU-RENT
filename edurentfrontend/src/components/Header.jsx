@@ -1,24 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import CategoriesSidebar from './CategoriesSidebar';
 import NotificationsPopup from './NotificationsPopup';
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
 
 // Hooks for handling Auth state and the Auth Modals
 import useAuth from '../hooks/useAuth';
 import { useAuthModal } from '../context/AuthModalContext';
+import { useToast } from '../context/ToastContext';
 
 // API helpers to talk to the backend
 import { 
   getMyNotifications, 
-  markNotificationAsRead, 
+  markNotificationAsRead,
+  markNotificationAsUnread, 
   deleteNotification,
   markAllNotificationsAsRead,
   getNotificationPreferences,
+  getConversationsForUser,
 } from '../services/apiService'; 
 
 // Assets and Styles
 import '../static/Header.css';
-import eduRentLogo from '../assets/edurentlogo.png';
+import eduRentLogo from '../assets/edurentAllBlackTest.png';
 import heartIcon from '../assets/heart.png';
 import notificationIcon from '../assets/notification.png';
 import messengerIcon from '../assets/messenger.png';
@@ -46,11 +51,217 @@ export default function Header({
   // Notification State
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0); // New State for Message Badge
   const [notificationFilter, setNotificationFilter] = useState('all'); // 'all' or 'unread'
   const [notifPrefs, setNotifPrefs] = useState({ all_notifications: true, likes: true, messages: true, email: false });
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  
+  const { showInfo } = useToast();
+  const socketClientRef = useRef(null);
+  
+  const location = useLocation();
+  const locationRef = useRef(location);
+  const activeChatIdRef = useRef(null);
+
+  // Keep location ref updated for the socket callback closure
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
+
+  // Listen for active chat changes from MessagesPage
+  useEffect(() => {
+    const handler = (e) => {
+      activeChatIdRef.current = e.detail.id;
+    };
+    
+    // Listen for when a message is read to update the count
+    const readHandler = () => {
+        fetchUnreadMessagesCount();
+    };
+
+    window.addEventListener('active-chat-change', handler);
+    window.addEventListener('message-read', readHandler); // New listener
+    
+    return () => {
+        window.removeEventListener('active-chat-change', handler);
+        window.removeEventListener('message-read', readHandler);
+    };
+  }, []);
+
+  // Fetch initial unread message count
+  const fetchUnreadMessagesCount = async () => {
+      if (!userData) return;
+      try {
+          const response = await getConversationsForUser(userData.userId);
+          const conversations = response.data || [];
+          const count = conversations.filter(c => c.isUnread).length;
+          setUnreadMsgCount(count);
+      } catch (error) {
+          console.error("Failed to fetch unread messages count", error);
+      }
+  };
+
+  useEffect(() => {
+      fetchUnreadMessagesCount();
+  }, [userData]);
 
   // --- Notification Logic ---
+
+  // Real-time WebSocket connection for notifications
+  useEffect(() => {
+    if (!userData) return;
+
+    const socket = new SockJS('http://localhost:8080/ws');
+    const stompClient = Stomp.over(socket);
+    stompClient.debug = null; // Disable debug logs
+
+    stompClient.connect({}, () => {
+      socketClientRef.current = stompClient;
+      
+      stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
+        const payload = JSON.parse(message.body);
+        
+        // Handle Real-time Like Notification
+        if (payload.type === 'NEW_LIKE') {
+          setNotifications(prev => {
+             const existingIndex = prev.findIndex(n => n.notificationId === payload.notificationId);
+             
+             if (existingIndex !== -1) {
+                 // Update existing: Move to top
+                 const existingNotif = prev[existingIndex];
+                 
+                 // If resurrected (Read -> Unread), increment count
+                 if (existingNotif.isRead && !payload.isRead) {
+                     setUnreadCount(count => count + 1);
+                 }
+                 
+                 const others = prev.filter(n => n.notificationId !== payload.notificationId);
+                 return [payload, ...others];
+             } else {
+                 // New notification
+                 setUnreadCount(count => count + 1);
+                 return [payload, ...prev];
+             }
+          });
+          showInfo("New notification received");
+        } 
+        else if (payload.type === 'NEW_MESSAGE') {
+          // Extract conversation ID from linkUrl (e.g. "/messages/15")
+          const notifConvId = payload.linkUrl ? parseInt(payload.linkUrl.split('/').pop(), 10) : null;
+          
+          const isOnMessagesPage = locationRef.current.pathname === '/messages';
+          const isViewingSameChat = activeChatIdRef.current === notifConvId;
+
+          // If user is currently looking at this conversation, suppress notification completely
+          if (isOnMessagesPage && isViewingSameChat) {
+             // Mark as read immediately in the background so it doesn't stay unread
+             markNotificationAsRead(payload.notificationId);
+             return;
+          }
+
+          // Increment message badge if not viewing the chat
+          setUnreadMsgCount(prev => prev + 1);
+
+          // 1. Show Toast
+          // Strip HTML tags for clean toast text
+          const plainText = payload.notificationContent.replace(/<[^>]*>?/gm, '');
+          showInfo(plainText);
+
+          // 2. Add or Update Notification in Dropdown List
+          const newNotification = {
+             notificationId: payload.notificationId,
+             type: payload.type,
+             content: payload.notificationContent,
+             linkUrl: payload.linkUrl,
+             isRead: payload.isRead,
+             createdAt: payload.createdAt
+          };
+          
+          setNotifications(prev => {
+             // Check if this specific notification ID already exists
+             const existingIndex = prev.findIndex(n => n.notificationId === newNotification.notificationId);
+             
+             if (existingIndex !== -1) {
+                 const existingNotif = prev[existingIndex];
+                 
+                 // If it was previously read and now we are updating it to be unread (resurrecting), increment count
+                 if (existingNotif.isRead && !newNotification.isRead) {
+                     setUnreadCount(count => count + 1);
+                 }
+
+                 // Remove the old version and add the new one to the top
+                 const others = prev.filter(n => n.notificationId !== newNotification.notificationId);
+                 return [newNotification, ...others];
+             } else {
+                 // Completely new notification
+                 if (!newNotification.isRead) {
+                    setUnreadCount(count => count + 1);
+                 }
+                 return [newNotification, ...prev];
+             }
+          });
+        }else if (payload.type === 'NEW_REVIEW') {
+           // 1. Show Toast (Strip HTML tags for clean text)
+           const plainText = payload.content ? payload.content.replace(/<[^>]*>?/gm, '') : 'New review received';
+           showInfo(plainText);
+
+           // 2. Update Dropdown with Stock-up Logic
+           setNotifications(prev => {
+             const existingIndex = prev.findIndex(n => n.notificationId === payload.notificationId);
+             
+             if (existingIndex !== -1) {
+                 // Update existing: Move to top
+                 const existingNotif = prev[existingIndex];
+                 
+                 // If resurrected (Read -> Unread), increment count
+                 if (existingNotif.isRead && !payload.isRead) {
+                     setUnreadCount(count => count + 1);
+                 }
+                 
+                 const others = prev.filter(n => n.notificationId !== payload.notificationId);
+                 return [payload, ...others];
+             } else {
+                 // New notification
+                 setUnreadCount(count => count + 1);
+                 return [payload, ...prev];
+             }
+          });
+        }else if (payload.type === 'REVIEW_DELETED') {
+           // 1. Show Toast
+           const plainText = payload.content ? payload.content.replace(/<[^>]*>?/gm, '') : 'Review deleted';
+           showInfo(plainText);
+           
+           // 2. Add to list (Standard append, no stock-up needed for deletions)
+           setNotifications(prev => [payload, ...prev]);
+           setUnreadCount(prev => prev + 1);
+        }else if (payload.type === 'TRANSACTION_COMPLETED') {
+           // 1. Show Toast
+           const plainText = payload.content ? payload.content.replace(/<[^>]*>?/gm, '') : 'Item sold to you!';
+           showInfo(plainText);
+           
+           // 2. Add to list
+           setNotifications(prev => [payload, ...prev]);
+           setUnreadCount(prev => prev + 1);
+        }else if (['TRANSACTION_COMPLETED', 'TRANSACTION_COMPLETED_SELLER', 'RENTAL_STARTED_RENTER', 'RENTAL_STARTED_OWNER', 'RENTAL_REMINDER'].includes(payload.type)) {
+           // 1. Show Toast
+           const plainText = payload.content ? payload.content.replace(/<[^>]*>?/gm, '') : 'New Notification';
+           showInfo(plainText);
+           
+           // 2. Add to list
+           setNotifications(prev => [payload, ...prev]);
+           setUnreadCount(prev => prev + 1);
+        }
+      });
+    }, (err) => {
+      console.error("Notification socket error:", err);
+    });
+
+    return () => {
+      if (socketClientRef.current && socketClientRef.current.connected) {
+        socketClientRef.current.disconnect();
+      }
+    };
+  }, [userData, showInfo]);
 
   // Let's fetch the notifications from the server, sort them by newest first, 
   // and figure out how many unread badges to show.
@@ -96,7 +307,7 @@ export default function Header({
     } finally   {
       setIsLoadingNotifications(false);
     }
-  }, [notificationFilter, userData]); 
+  }, [notificationFilter, setNotifPrefs, userData]); 
 
   // Watch for changes: If the user logs in or changes filters, refresh the list.
   useEffect(() => {
@@ -112,6 +323,15 @@ export default function Header({
       fetchNotifications(); // Update the UI to reflect the read status
     } catch (error) {
       console.error(`Couldn't mark notification ${notificationId} as read:`, error);
+    }
+  };
+
+  const handleMarkAsUnread = async (notificationId) => {
+    try {
+      await markNotificationAsUnread(notificationId);
+      fetchNotifications(); 
+    } catch (error) {
+      console.error(`Couldn't mark notification ${notificationId} as unread:`, error);
     }
   };
 
@@ -185,6 +405,7 @@ export default function Header({
         <div className="header-left">
           <Link to="/" className="header-logo-link">
             <img src={eduRentLogo} alt="Edu-Rent Logo" className="header-logo" />
+            <span className="header-logo-text">Edu-Rent</span>
           </Link>
           <nav className="header-nav">
             <Link to="/browse" className="nav-link">Browse All Items</Link>
@@ -239,8 +460,11 @@ export default function Header({
                   )}
                 </button>
 
-                <Link to="/messages" className="icon-link" aria-label="Messages">
+                <Link to="/messages" className="icon-link notification-bell" aria-label="Messages">
                   <img src={messengerIcon} alt="Messages" className="header-icon" />
+                  {unreadMsgCount > 0 && (
+                    <span className="notification-badge">{unreadMsgCount}</span>
+                  )}
                 </Link>
               </div>
 
@@ -324,6 +548,7 @@ export default function Header({
           onNotificationClick={onNotificationClick}
           onMarkAllAsRead={handleMarkAllAsRead} 
           onMarkAsRead={handleMarkAsRead}
+          onMarkAsUnread={handleMarkAsUnread}
           onDelete={handleDelete}
           isLoading={isLoadingNotifications}
         />

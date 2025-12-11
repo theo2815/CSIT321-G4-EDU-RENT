@@ -3,11 +3,17 @@ import { getConversationsForUser, createTransaction } from '../services/apiServi
 import defaultAvatar from '../assets/default-avatar.png';
 import '../static/ProductDetailModal.css';
 
+// Import Feedback Hook
+import { useToast } from '../context/ToastContext';
+
 export default function MarkAsSoldModal({ listing, currentUser, onClose, onSuccess }) {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBuyerId, setSelectedBuyerId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Feedback hook
+  const { showSuccess, showError } = useToast();
   
   // New state for rental dates
   const [startDate, setStartDate] = useState('');
@@ -33,6 +39,7 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
         setConversations(relevantChats);
       } catch (error) {
         console.error("Failed to load potential buyers", error);
+        showError("Could not load buyer list.");
       } finally {
         setLoading(false);
       }
@@ -41,14 +48,17 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
     if (currentUser) {
       fetchRelevantChats();
     }
-  }, [currentUser, listing]);
+  }, [currentUser, listing, showError]);
 
   const handleConfirm = async () => {
-    if (!selectedBuyerId) return;
+    if (!selectedBuyerId) {
+        showError("Please select a buyer first.");
+        return;
+    }
     
     // Validation: Require dates if this is a rental
     if (isRent && (!startDate || !endDate)) {
-        alert("Please select both start and end dates for the rental.");
+        showError("Please select both start and end dates for the rental.");
         return;
     }
 
@@ -64,12 +74,12 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
         endDate: isRent ? endDate : null
       });
       
-      alert(`Item marked as ${pastTenseLabel} successfully!`);
+      showSuccess(`Item marked as ${pastTenseLabel} successfully!`);
       if (onSuccess) onSuccess();
       onClose();
     } catch (error) {
       console.error(`Failed to mark as ${pastTenseLabel}:`, error);
-      alert("Failed to create transaction. Please try again.");
+      showError("Failed to create transaction. Please try again.");
     } finally {
       setSubmitting(false);
     }

@@ -10,6 +10,10 @@ import LoadMoreButton from '../components/LoadMoreButton';
 
 import useAuth from '../hooks/useAuth';
 
+// New Feedback Hooks
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmationContext';
+
 // Services
 import { 
   getCurrentUser, 
@@ -31,7 +35,6 @@ import '../static/DashboardPage.css';
 function ManageListingsSkeleton() {
   return (
     <div className="manage-listings-page">
-      {/* Header Skeleton */}
       <div className="manage-listings-header">
         <div className="skeleton skeleton-filter-label" style={{ height: '2rem', width: '250px', marginBottom: '1rem' }}></div>
         <div className="skeleton-filters-container">
@@ -48,7 +51,6 @@ function ManageListingsSkeleton() {
         </div>
       </div>
 
-      {/* Table Skeleton */}
       <div className="skeleton-listings-card-container">
         <div className="skeleton skeleton-listings-card-header"></div>
         {Array.from({ length: 5 }).map((_, index) => (
@@ -78,6 +80,10 @@ function ManageListingsSkeleton() {
 export default function ManageListingsPage() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  
+  // Initialize feedback hooks
+  const { showSuccess, showError, showInfo } = useToast();
+  const confirm = useConfirm();
 
   // Data State
   const [userName, setUserName] = useState('');
@@ -94,7 +100,6 @@ export default function ManageListingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showBulkBar, setShowBulkBar] = useState(false);
-  const [bulkActionMessage, setBulkActionMessage] = useState('');
   const [selectedItems, setSelectedItems] = useState(new Set()); 
 
   // Modal State
@@ -116,13 +121,12 @@ export default function ManageListingsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('available');
 
-  // Unified data fetching function to handle both initial load and "Load More"
+  // Unified data fetching function
   const fetchData = useCallback(async (page = 0) => {
     setIsLoading(true);
     if (page === 0) setError(null);
     
     try {
-      // Get user info first
       const userRes = await getCurrentUser();
       const userId = userRes.data?.userId;
       setUserData(userRes.data);
@@ -130,8 +134,7 @@ export default function ManageListingsPage() {
 
       if (!userId) throw new Error("Could not find user ID.");
 
-      // Fetch listings and categories concurrently
-      const listingsPromise = getUserListings(userId, page, 8);
+      const listingsPromise = getUserListings(userId, page, 8, true);
       const categoriesPromise = getCategories();
 
       const [listingsRes, catRes] = await Promise.all([
@@ -142,32 +145,31 @@ export default function ManageListingsPage() {
       const data = listingsRes.data;
       const newContent = data.content || [];
 
-      // If it's page 0, replace the list. If it's a later page, append to the list.
       setAllListings(prev => page === 0 ? newContent : [...prev, ...newContent]);
       
       setCurrentPage(data.number);
       setHasMore(data.number < data.totalPages - 1);
       
-      // Update categories only on the first load to keep dropdowns stable
       if (page === 0) {
           setCategories([{ categoryId: 'all', name: 'All Categories' }, ...(catRes.data || [])]);
       }
 
     } catch (err) {
       console.error("Failed to load data:", err);
-      setError("Could not load listings.");
+      if (page === 0) setError("Could not load listings.");
+      else showError("Could not load more items.");
+
       if (err.message === "No authentication token found.") navigate('/login');
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, showError]);
 
-  // Initial load
   useEffect(() => {
     fetchData(0);
   }, [fetchData]);
 
-  // Apply filters whenever inputs or data change
+  // Apply filters
   useEffect(() => {
     let result = [...allListings];
 
@@ -183,12 +185,10 @@ export default function ManageListingsPage() {
       }
     }
 
-    // Filter by Category
     if (filterCategory !== 'All Categories') {
       result = result.filter(item => item.category?.name === filterCategory); 
     }
 
-    // Filter by Date
     const now = new Date(); 
     if (filterDate === 'last7') {
       const sevenDaysAgo = new Date(new Date().setDate(now.getDate() - 7));
@@ -198,7 +198,6 @@ export default function ManageListingsPage() {
        result = result.filter(item => new Date(item.createdAt) >= thirtyDaysAgo); 
     }
 
-    // Filter by Search Query
     if (searchQuery.trim() !== '') {
       const lowerQuery = searchQuery.toLowerCase();
       result = result.filter(item =>
@@ -207,7 +206,6 @@ export default function ManageListingsPage() {
       );
     }
 
-    // Sort Results
     result.sort((a, b) => {
       const dateA = new Date(a.createdAt);
       const dateB = new Date(b.createdAt);
@@ -216,7 +214,7 @@ export default function ManageListingsPage() {
 
     setFilteredListings(result);
 
-    // Sync selection (remove IDs that are no longer visible in current filter)
+    // Sync selected items with currently visible items
     setSelectedItems(prevSelected => {
         const currentFilteredIds = new Set(result.map(item => item.listingId));
         const newSelected = new Set();
@@ -229,7 +227,6 @@ export default function ManageListingsPage() {
   }, [allListings, filterCategory, sortOrder, filterDate, searchQuery, filterStatus]);
 
 
-  // Checkbox logic for selecting rows
   const handleSelectAll = (event) => {
     if (event.target.checked) {
       const allFilteredIds = new Set(filteredListings.map(item => item.listingId));
@@ -250,7 +247,6 @@ export default function ManageListingsPage() {
 
   const isAllSelected = filteredListings.length > 0 && selectedItems.size === filteredListings.length;
 
-  // Show the bulk actions bar only when items are selected
   useEffect(() => {
     setShowBulkBar(selectedItems.size > 0);
   }, [selectedItems]);
@@ -259,10 +255,10 @@ export default function ManageListingsPage() {
   // --- Item Actions ---
 
   const handleEdit = (itemId) => {
-    setBulkActionMessage("");
     navigate(`/edit-listing/${itemId}`);
   };
 
+  // Open the detailed modal to select a specific buyer
   const handleOpenMarkSold = (e, listing) => {
     e.stopPropagation(); 
     setListingToMarkSold(listing);
@@ -276,81 +272,171 @@ export default function ManageListingsPage() {
             ? { ...item, status: 'Sold' } 
             : item
         ));
+        showSuccess(`"${listingToMarkSold.title}" marked as Sold`);
     }
     setListingToMarkSold(null);
     setIsMarkSoldModalOpen(false);
   };
 
-  const handleDelete = async (itemId) => {
-    setBulkActionMessage("");
-    if (window.confirm(`Are you sure you want to delete listing ID ${itemId}?`)) {
-      try {
-        await deleteListing(itemId);
-        setAllListings(prev => prev.filter(item => item.listingId !== itemId));
-        setSelectedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
-        setBulkActionMessage(`Deleted item ${itemId}`);
-      } catch (err) {
-        console.error("Failed to delete item:", err);
-        setBulkActionMessage(`Error: Could not delete item ${itemId}.`);
-      } finally {
-         setTimeout(() => setBulkActionMessage(''), 2000);
-      }
+  // Toggles status between Active (Available) and Inactive
+  const handleSingleStatusUpdate = async (e, listing, newStatus) => {
+    e.stopPropagation();
+    
+    const actionLabel = newStatus === 'AVAILABLE' ? 'Mark as Active' : 'Mark as Inactive';
+    const statusText = newStatus === 'AVAILABLE' ? 'Active' : 'Inactive';
+
+    const isConfirmed = await confirm({
+      title: `${actionLabel}?`,
+      message: `Are you sure you want to mark "${listing.title}" as ${statusText}?`,
+      confirmText: 'Yes, Confirm',
+      isDangerous: false
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      await updateListingStatus(listing.listingId, newStatus);
+      
+      // Optimistic update
+      setAllListings(prev => prev.map(item => 
+        item.listingId === listing.listingId 
+        ? { ...item, status: statusText === 'Active' ? 'Available' : 'Inactive' } 
+        : item
+      ));
+
+      showSuccess(`Listing marked as ${statusText}.`);
+    } catch (err) {
+      console.error(`Failed to mark as ${statusText}:`, err);
+      showError(`Failed to update status.`);
     }
   };
 
-  // Bulk Actions
-  const handleBulkMarkSold = async () => {
-    setBulkActionMessage("");
+  const handleDelete = async (itemId) => {
+    const isConfirmed = await confirm({
+      title: 'Delete Listing?',
+      message: `Are you sure you want to delete listing ID ${itemId}? This cannot be undone.`,
+      confirmText: 'Yes, Delete',
+      isDangerous: true
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      await deleteListing(itemId);
+      setAllListings(prev => prev.filter(item => item.listingId !== itemId));
+      setSelectedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
+      showSuccess(`Listing deleted successfully.`);
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+      showError("Failed to delete the listing. Please try again.");
+    }
+  };
+
+  // --- Bulk Actions ---
+  
+  // Handles bulk toggling (Inactive -> Active or Active -> Inactive)
+  const handleBulkStatusUpdate = async (targetStatus) => {
     const numToUpdate = selectedItems.size;
     if (numToUpdate === 0) return;
 
-    if (window.confirm(`Mark ${numToUpdate} selected listing(s) as Sold?`)) {
-      try {
-        const updatePromises = Array.from(selectedItems).map(id => 
-            updateListingStatus(id, 'Sold')
-        );
-        
-        await Promise.all(updatePromises);
-        
-        // Optimistic UI update
-        setAllListings(prev => prev.map(item => 
-            selectedItems.has(item.listingId) ? { ...item, status: 'Sold' } : item
-        ));
-        
-        setSelectedItems(new Set()); 
-        setBulkActionMessage(`Marked ${numToUpdate} items as Sold`);
-      } catch (err) {
-         console.error("Failed to update items:", err);
-         setBulkActionMessage(`Error: Could not update some items.`);
-      } finally {
-         setTimeout(() => setBulkActionMessage(''), 3000);
-      }
+    const isActivate = targetStatus === 'AVAILABLE';
+    const actionLabel = isActivate ? 'Mark as Active' : 'Mark as Inactive';
+    const statusText = isActivate ? 'Active' : 'Inactive';
+    const message = isActivate 
+      ? `Move ${numToUpdate} items back to Active listings?`
+      : `Move ${numToUpdate} items to Inactive? They will be hidden from the marketplace.`;
+
+    const isConfirmed = await confirm({
+      title: `${actionLabel}?`,
+      message: message,
+      confirmText: actionLabel,
+      isDangerous: !isActivate
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const updatePromises = Array.from(selectedItems).map(id => 
+          updateListingStatus(id, targetStatus)
+      );
+      
+      await Promise.all(updatePromises);
+      
+      // Optimistic UI Update
+      setAllListings(prev => prev.map(item => 
+          selectedItems.has(item.listingId) 
+          ? { ...item, status: isActivate ? 'Available' : 'Inactive' } 
+          : item
+      ));
+      
+      setSelectedItems(new Set()); 
+      showSuccess(`Successfully marked ${numToUpdate} items as ${statusText}.`);
+    } catch (err) {
+       console.error("Failed to update items:", err);
+       showError("Some items could not be updated.");
+    }
+  };
+
+  // Basic bulk mark as sold (without assigning a specific buyer)
+  const handleBulkMarkSold = async () => {
+    const numToUpdate = selectedItems.size;
+    if (numToUpdate === 0) return;
+
+    const isConfirmed = await confirm({
+      title: 'Mark as Sold?',
+      message: `Mark ${numToUpdate} selected items as Sold? (Note: This won't assign a specific buyer)`,
+      confirmText: 'Mark Sold',
+      isDangerous: false
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const updatePromises = Array.from(selectedItems).map(id => 
+          updateListingStatus(id, 'Sold')
+      );
+      
+      await Promise.all(updatePromises);
+      
+      setAllListings(prev => prev.map(item => 
+          selectedItems.has(item.listingId) ? { ...item, status: 'Sold' } : item
+      ));
+      
+      setSelectedItems(new Set()); 
+      showSuccess(`Marked ${numToUpdate} items as Sold.`);
+    } catch (err) {
+       console.error("Failed to update items:", err);
+       showError("Some items could not be updated.");
     }
   };
 
   const handleBulkDelete = async () => {
-    setBulkActionMessage("");
     const numToDelete = selectedItems.size;
     if (numToDelete === 0) return;
 
-    if (window.confirm(`Delete ${numToDelete} selected listing(s)?`)) {
-      try {
-        const deletePromises = Array.from(selectedItems).map(id => deleteListing(id));
-        await Promise.all(deletePromises);
-        
-        setAllListings(prev => prev.filter(item => !selectedItems.has(item.listingId)));
-        setSelectedItems(new Set());
-        setBulkActionMessage(`Deleted ${numToDelete} listing(s)`);
-      } catch (err) {
-         console.error("Failed to delete items:", err);
-         setBulkActionMessage(`Error: Could not delete all selected items.`);
-      } finally {
-         setTimeout(() => setBulkActionMessage(''), 2000);
-      }
+    const isConfirmed = await confirm({
+      title: 'Delete Selected Items?',
+      message: `You are about to delete ${numToDelete} listings. This action is permanent.`,
+      confirmText: `Delete ${numToDelete} Items`,
+      isDangerous: true
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const deletePromises = Array.from(selectedItems).map(id => deleteListing(id));
+      await Promise.all(deletePromises);
+      
+      setAllListings(prev => prev.filter(item => !selectedItems.has(item.listingId)));
+      setSelectedItems(new Set());
+      showSuccess(`Deleted ${numToDelete} listings.`);
+    } catch (err) {
+       console.error("Failed to delete items:", err);
+       showError("Could not delete all selected items.");
     }
   };
 
-  // Calculate counts for tabs
+  // Calculate counts for tab badges
   const counts = allListings.reduce((acc, item) => {
        const status = item.status?.toLowerCase() || 'other';
        if (status === 'active' || status === 'available') acc.active++;
@@ -360,13 +446,12 @@ export default function ManageListingsPage() {
   }, { active: 0, inactive: 0, others: 0 });
 
   
-  // Notification Handling
   const handleNotificationClick = async (notification) => {
     const urlParts = notification.linkUrl?.split('/');
     const listingId = urlParts ? parseInt(urlParts[urlParts.length - 1], 10) : null;
 
     if (!listingId) {
-      alert("Could not open this notification: Invalid link.");
+      showError("Invalid notification link.");
       return;
     }
 
@@ -379,14 +464,13 @@ export default function ManageListingsPage() {
       else throw new Error(`Listing ${listingId} not found.`);
     } catch (err) {
       console.error("Failed to fetch listing for notification:", err);
-      alert(`Could not load item: ${err.message}.`);
+      showError("Could not load the listing referenced in the notification.");
       navigate('/browse');
     } finally {
       setIsNotificationLoading(false);
     }
   };
 
-  // Modal Helpers
   const openModal = (listing) => {
     setSelectedListing(listing);
     setIsModalOpen(true);
@@ -396,7 +480,6 @@ export default function ManageListingsPage() {
     setIsModalOpen(false);
   };
 
-  // Like / Unlike
   const handleLikeToggle = async (listingId) => {
     if (likingInProgress.has(listingId)) return;
     setLikingInProgress(prev => new Set(prev).add(listingId));
@@ -412,14 +495,13 @@ export default function ManageListingsPage() {
       if (isCurrentlyLiked) await unlikeListing(listingId);
       else await likeListing(listingId);
     } catch (err) {
-      console.error("Failed to toggle like:", err);
-      // Revert on failure
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
           if (isCurrentlyLiked) revertedIds.add(listingId);
           else revertedIds.delete(listingId);
           return revertedIds;
       });
+      showInfo("Could not update like status.");
     } finally {
       setLikingInProgress(prev => {
         const next = new Set(prev);
@@ -429,7 +511,6 @@ export default function ManageListingsPage() {
     }
   };
 
-  // Render Loading Skeleton only for initial load
   if (isLoading && currentPage === 0) {
       return (
           <div className="profile-page">
@@ -461,13 +542,31 @@ export default function ManageListingsPage() {
         <div className="bulk-actions-bar" role="region" aria-label="Bulk actions">
           <span>{selectedItems.size} selected</span>
           <div style={{ display: 'flex', gap: '1rem' }}>
-              <button 
-                className="btn btn-small btn-primary-accent" 
-                onClick={handleBulkMarkSold}
-              >
-                Mark as Sold
-              </button>
               
+              {/* Option 1: Active Tab -> Show "Mark Inactive" & "Mark Sold" */}
+              {filterStatus === 'available' && (
+                <>
+                    <button 
+                      className="btn btn-small btn-primary-accent" 
+                      onClick={() => handleBulkStatusUpdate('INACTIVE')}
+                    >
+                      Mark Inactive
+                    </button>
+                </>
+              )}
+
+              {/* Option 2: Inactive Tab -> Show "Mark Active" */}
+              {filterStatus === 'inactive' && (
+                <button 
+                  className="btn btn-small btn-success" 
+                  style={{ backgroundColor: '#2ecc71', color: 'white', border: 'none' }}
+                  onClick={() => handleBulkStatusUpdate('AVAILABLE')}
+                >
+                  Mark Active
+                </button>
+              )}
+              
+              {/* Always show Delete */}
               <button 
                 className="btn btn-small btn-delete" 
                 onClick={handleBulkDelete}
@@ -478,16 +577,10 @@ export default function ManageListingsPage() {
         </div>
       )}
 
-      {/* Feedback Snackbar */}
-      {bulkActionMessage && (
-        <div className="snackbar" role="status">{bulkActionMessage}</div>
-      )}
-
       <main className="manage-listings-page">
         <div className="manage-listings-header">
           <h1 className="manage-listings-title">Manage Listings</h1>
           
-          {/* Filters Area */}
           <div className="filters-container">
             <div className="filter-group">
               <label htmlFor="category-filter" className="filter-label">Category</label>
@@ -524,7 +617,6 @@ export default function ManageListingsPage() {
           </div>
         </div>
 
-        {/* Listings Data Table */}
         <div className="listings-card-container">
           <div className="listings-card-header">
             <div className="select-all-container">
@@ -538,7 +630,6 @@ export default function ManageListingsPage() {
               <label htmlFor="select-all" style={{fontWeight: 500}}>Select All</label>
             </div>
             
-            {/* Status Filter Tabs */}
             <div className="listing-counts">
               <button
                   className={`listing-count-item ${filterStatus === 'available' ? 'active' : ''}`}
@@ -589,12 +680,13 @@ export default function ManageListingsPage() {
                   {filteredListings.map(item => {
                     const coverImage = item.images?.find(img => img.coverPhoto)?.imageUrl || item.images?.[0]?.imageUrl || null;
                     const isSold = item.status?.toLowerCase() === 'sold';
+                    const isInactive = item.status?.toLowerCase() === 'inactive';
                     const statusClass = item.status?.toLowerCase() || 'other';
                     
                     const statusText = item.status?.toLowerCase() === 'available' ? 'Active' : 
-                                     item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
-                                     item.status?.toLowerCase() === 'sold' ? 'Sold' : 
-                                     item.status; 
+                                       item.status?.toLowerCase() === 'inactive' ? 'Inactive' : 
+                                       item.status?.toLowerCase() === 'sold' ? 'Sold' : 
+                                       item.status; 
 
                     return (
                       <tr key={item.listingId} onClick={() => openModal(item)} style={{ cursor: 'pointer' }}>
@@ -629,8 +721,24 @@ export default function ManageListingsPage() {
                         <td onClick={(e) => e.stopPropagation()}>
                           <div className="listing-actions">
                              
-                             {/* Only show "Mark Sold" if the item is not already sold */}
-                             {!isSold && (
+                             {/* 1. If Inactive Tab: Show "Mark Active" */}
+                             {isInactive && (
+                                <button
+                                  className="btn btn-small"
+                                  style={{ 
+                                      backgroundColor: 'transparent', 
+                                      color: '#2ecc71', 
+                                      border: '1px solid #2ecc71',
+                                      whiteSpace: 'nowrap'
+                                  }}
+                                  onClick={(e) => handleSingleStatusUpdate(e, item, 'AVAILABLE')}
+                                >
+                                  Mark Active
+                                </button>
+                             )}
+
+                             {/* 2. If Active Tab (not sold, not inactive): Show "Mark Sold" */}
+                             {!isSold && !isInactive && (
                                  <button
                                    className="btn btn-small"
                                    style={{ 
@@ -645,6 +753,7 @@ export default function ManageListingsPage() {
                                  </button>
                              )}
 
+                             {/* Edit Button (Available for both Active and Inactive) */}
                              {!isSold && (
                                <button
                                   className="btn btn-small btn-outline"
@@ -668,7 +777,6 @@ export default function ManageListingsPage() {
               </table>
             </div>
 
-            {/* Load More Button */}
             <LoadMoreButton 
                 onLoadMore={() => fetchData(currentPage + 1)}
                 isLoading={isLoading}
@@ -698,9 +806,6 @@ export default function ManageListingsPage() {
         </div>
       </main>
 
-       {/* Modals */}
-       
-       {/* 1. Product Detail Modal */}
        {isModalOpen && selectedListing && (
          <ProductDetailModal
            listing={selectedListing}
@@ -712,7 +817,6 @@ export default function ManageListingsPage() {
          />
        )}
 
-       {/* 2. Mark As Sold Modal */}
        {isMarkSoldModalOpen && listingToMarkSold && (
         <MarkAsSoldModal
             listing={listingToMarkSold}
@@ -722,7 +826,6 @@ export default function ManageListingsPage() {
         />
        )}
 
-       {/* 3. Skeleton Loader (for Notifications) */}
        {isNotificationLoading && (
          <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
        )}

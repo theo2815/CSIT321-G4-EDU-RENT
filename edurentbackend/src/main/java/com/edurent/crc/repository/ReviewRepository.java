@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import com.edurent.crc.entity.ReviewEntity;
 
@@ -40,5 +42,31 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     List<ReviewEntity> findWithDetailsByReviewedUserId(@Param("userId") Long userId);
 
     List<ReviewEntity> findByReviewedUser_UserId(Long userId);
+
+    // [NEW] Find reviews where the reviewer was the BUYER
+    @Query(value = "SELECT DISTINCT r FROM ReviewEntity r " + 
+           "LEFT JOIN FETCH r.transaction t " +
+           "LEFT JOIN FETCH t.listing l " +
+           "LEFT JOIN FETCH r.reviewer " +
+           "LEFT JOIN FETCH t.buyer " +
+           "LEFT JOIN FETCH t.seller " +
+           "WHERE r.reviewedUser.userId = :userId " +
+           "AND r.reviewer.userId = t.buyer.userId " + 
+           "ORDER BY r.createdAt DESC",
+           countQuery = "SELECT COUNT(r) FROM ReviewEntity r JOIN r.transaction t WHERE r.reviewedUser.userId = :userId AND r.reviewer.userId = t.buyer.userId")
+    Page<ReviewEntity> findReviewsFromBuyers(@Param("userId") Long userId, Pageable pageable);
+
+    // [NEW] Find reviews where the reviewer was the SELLER
+    @Query(value = "SELECT DISTINCT r FROM ReviewEntity r " + 
+           "LEFT JOIN FETCH r.transaction t " +
+           "LEFT JOIN FETCH t.listing l " +
+           "LEFT JOIN FETCH r.reviewer " +
+           "LEFT JOIN FETCH t.buyer " +
+           "LEFT JOIN FETCH t.seller " +
+           "WHERE r.reviewedUser.userId = :userId " +
+           "AND r.reviewer.userId = t.seller.userId " + 
+           "ORDER BY r.createdAt DESC",
+           countQuery = "SELECT COUNT(r) FROM ReviewEntity r JOIN r.transaction t WHERE r.reviewedUser.userId = :userId AND r.reviewer.userId = t.seller.userId")
+    Page<ReviewEntity> findReviewsFromSellers(@Param("userId") Long userId, Pageable pageable);
 
 }

@@ -1,33 +1,34 @@
-/*
- * ===================================
- * EDU-RENT: DASHBOARD *CONTENT* STYLES
- * (Header styles are now in Header.css)
- * ===================================
- */
+/* src/static/DashboardPage.css */
 
-/* --- 1. Color Palette (Keep for page content) --- */
+/* --- 1. Variables & Theme Configuration --- */
 :root {
-  --primary-color: #0077B6;   /* Deep Blue */
-  --secondary-color: #90E0EF; /* Light Cyan */
-  --accent-color: #00B4D8;    /* Aqua */
-  --bg-color: #F8F9FA;        /* Neutral Light Gray */
-  --text-color: #212529;    /* Almost Black */
-  --text-muted: #6C757D;      /* Muted text */
-  --bg-light: #FFFFFF;        /* Pure White (for cards) */
-  --border-color: #DEE2E6;   /* Light gray for borders */
+  /* Core Brand Colors */
+  --primary-color: #0077B6;
+  --secondary-color: #90E0EF;
+  --accent-color: #00B4D8;
+  
+  /* Backgrounds & Text */
+  --bg-color: #F8F9FA;
+  --bg-card: #FFFFFF;
+  --text-color: #212529;
+  --text-muted: #6C757D;
+  --border-color: #DEE2E6;
+
+  /* Card Physics (New modern look) */
+  --card-radius: 12px;
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --card-border: 1px solid rgba(229, 231, 235, 1);
 }
 
-/* --- 2. Dashboard Layout --- */
+/* --- 2. Main Page Layout --- */
 .dashboard-page {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: var(--bg-color); /* Use new bg-color */
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  color: var(--text-color);
+  background-color: var(--bg-color);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* --- 6. Dashboard Body --- */
 .dashboard-body {
   padding: 2rem;
   max-width: 1280px;
@@ -36,69 +37,77 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 2.5rem; /* Increased gap for a cleaner, less cluttered feel */
 }
 
-/* --- 7. Cards (Consistent Style) --- */
+/* --- 3. Base Card Style --- */
 .content-card {
-  background-color: var(--bg-light);
-  border-radius: 12px; /* Consistent radius */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  padding: 2rem; /* More padding */
+  background-color: var(--bg-card);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  border: var(--card-border);
+  padding: 2rem;
   overflow: hidden;
-  border: 1px solid #E9ECEF;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* --- Hero Section --- */
+/* --- 4. Hero Section --- */
 .hero-card {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  /* Subtle gradient makes the welcome area pop */
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
 }
 
 @media (min-width: 768px) {
   .hero-card {
     flex-direction: row;
     align-items: center;
+    padding: 3rem;
   }
 }
 
 .hero-left {
-  flex: 1.2; /* Give text slightly more space */
+  flex: 1.2;
 }
 
 .hero-title {
-  font-size: 2rem; /* Larger */
-  font-weight: 700;
-  color: var(--text-color);
-  margin-bottom: 0.75rem;
-  line-height: 1.3;
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #111827; /* Darker than standard text for emphasis */
+  margin-bottom: 1rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .hero-subtitle {
-  font-size: 1rem;
+  font-size: 1.1rem;
   color: var(--text-muted);
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   line-height: 1.6;
+  max-width: 90%;
 }
 
 .hero-button {
-  padding: 0.75rem 1.5rem; /* Larger hero button */
+  padding: 0.875rem 1.75rem;
   font-size: 1rem;
   font-weight: 600;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   text-decoration: none;
   display: inline-block;
   background-color: var(--accent-color);
-  color: var(--bg-light);
+  color: #fff;
+  box-shadow: 0 4px 6px rgba(0, 180, 216, 0.2);
 }
 
 .hero-button:hover {
   background-color: var(--primary-color);
-  box-shadow: 0 4px 15px rgba(0, 119, 182, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 119, 182, 0.3);
 }
 
 .hero-right {
@@ -110,190 +119,168 @@
 
 .hero-image-placeholder {
   width: 100%;
-  max-width: 350px;
-  height: 220px;
-  background-color: #E9ECEF; /* Lighter placeholder */
-  border-radius: 12px;
+  max-width: 400px;
+  height: 240px;
+  background-color: white;
+  border-radius: var(--card-radius);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: center;
   align-items: center;
   color: var(--text-muted);
-  font-style: italic;
-  font-size: 0.9rem;
+  border: 1px solid var(--border-color);
 }
 
-/* --- Section Titles --- */
+/* --- 5. Categories --- */
 .section-title {
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-color);
-  margin-bottom: 1.25rem;
-  border-bottom: 2px solid var(--border-color);
-  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-/* --- Category Section --- */
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1.25rem;
 }
 
 .category-card {
-  background-color: var(--bg-light);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background-color: var(--bg-card);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
   padding: 1.5rem 1rem;
   text-align: center;
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--text-muted);
-  min-height: 80px;
+  min-height: 100px;
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--card-shadow);
 }
 
 .category-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.07);
   color: var(--primary-color);
-  border-color: var(--accent-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-/* --- Call to Action Card --- */
+/* --- 6. CTA Section --- */
 .cta-card {
   text-align: center;
-  background: linear-gradient(135deg, var(--primary-color), #005A8C);
-  color: var(--bg-light);
+  background: linear-gradient(135deg, var(--primary-color), #0096c7);
+  color: white;
+  border: none;
+  padding: 4rem 2rem;
 }
 
 .cta-title {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--bg-light);
-  margin-bottom: 0.75rem;
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
 }
 
 .cta-subtitle {
-  font-size: 1rem;
-  color: var(--bg-light);
-  opacity: 0.9;
-  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 2rem;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
-  line-height: 1.6;
 }
 
 .cta-button {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 700;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  text-decoration: none;
-  display: inline-block;
-  background-color: var(--accent-color);
-  color: var(--bg-light);
+  transition: all 0.2s ease;
+  background-color: white;
+  color: var(--primary-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .cta-button:hover {
-  background-color: var(--secondary-color);
-  color: var(--text-color);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+  transform: translateY(-3px);
+  background-color: #f8f9fa;
 }
 
-/* --- 8. Loading Skeleton --- */
-.skeleton {
-  background: linear-gradient(90deg, #E9ECEF 25%, #F0F2F5 50%, #E9ECEF 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-}
-
-@keyframes loading {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-.skeleton-hero {
-  height: 250px;
-  border-radius: 12px;
-  margin-bottom: 1rem;
-}
-
-.skeleton-text {
-  height: 1rem;
-  border-radius: 4px;
-  margin-bottom: 0.75rem;
-}
-
-.skeleton-text.large {
-  height: 2rem;
-  margin-bottom: 1rem;
-}
-
-/* --- 9. Listing Cards --- */
+/* --- 7. Listing Cards (Modernized) --- */
 .listing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.75rem;
 }
 
 .listing-card {
-  background-color: var(--bg-light);
-  border-radius: 12px;
+  background-color: var(--bg-card);
+  border-radius: var(--card-radius);
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  border: 1px solid #E9ECEF;
-  transition: all 0.3s ease-in-out;
+  box-shadow: var(--card-shadow);
+  border: var(--card-border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .listing-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 8px 24px rgba(0, 119, 182, 0.15);
-  border-color: var(--accent-color);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
+/* Aspect-ratio ensures consistent image sizing regardless of upload size */
 .listing-image {
   width: 100%;
-  height: 180px;
-  background-color: #E9ECEF;
+  aspect-ratio: 4/3; 
+  background-color: #f3f4f6;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 3rem;
   overflow: hidden;
   position: relative;
 }
 
+.listing-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.listing-card:hover .listing-image img {
+  transform: scale(1.05); /* Subtle zoom effect */
+}
+
+/* Like Button logic */
 .like-button {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2; /* Make sure it's above the image */
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--border-color);
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+  border: none;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 1.2rem; /* Emoji size */
+  font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .like-button:hover {
@@ -302,19 +289,8 @@
 }
 
 .like-button.liked {
-  color: #e53935; /* Red for liked */
-  background: #ffebee; /* Light red background */
-  border-color: #e53935;
-}
-
-.like-button.liked:hover {
-  background: #ffcdd2; /* Darker red hover */
-}
-
-.listing-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  color: #e53935;
+  background: #ffebee;
 }
 
 .listing-content {
@@ -325,20 +301,21 @@
 }
 
 .listing-category {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 700;
   color: var(--accent-color);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
 }
 
 .listing-title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.1rem;
+  font-weight: 700;
   color: var(--text-color);
   margin-bottom: 0.5rem;
   line-height: 1.4;
+  /* Truncation for long titles */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -346,10 +323,11 @@
 }
 
 .listing-description {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   flex: 1;
+  line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -360,61 +338,125 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid #E9ECEF;
+  border-top: 1px solid var(--border-color);
   padding-top: 1rem;
+  margin-top: auto;
 }
 
 .listing-price {
   font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--primary-color);
+  font-weight: 800;
+  color: var(--text-color);
 }
 
+/* Modern Pill Badges */
 .listing-type {
   font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  background-color: var(--bg-color);
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
+  font-weight: 700;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .listing-type.rent {
-  background-color: #E3F2FD;
-  color: #1976D2;
+  background-color: #EFF6FF;
+  color: #2563EB;
 }
 
 .listing-type.sale {
-  background-color: #F3E5F5;
-  color: #7B1FA2;
+  background-color: #FDF4FF;
+  color: #C026D3;
 }
 
+/* --- 8. Status Styles (Sold/Rented) --- */
+.sold-item .listing-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.6);
+  z-index: 1;
+}
+
+.sold-badge-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+}
+
+.sold-badge-overlay span {
+  background-color: rgba(220, 38, 38, 0.95);
+  color: white;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  border-radius: 6px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+/* --- 9. Compact Listing Card (Chat Context) --- */
+.listing-card.compact {
+  flex-direction: row;
+  height: auto;
+  padding: 0.5rem;
+  gap: 0.75rem;
+  max-width: 100%;
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+  background: white;
+}
+
+.listing-card.compact:hover {
+  transform: none;
+  background-color: #f9fafb;
+}
+
+.listing-card.compact .listing-image {
+  width: 48px;
+  height: 48px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.listing-card.compact .listing-content {
+  padding: 0;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.listing-card.compact .listing-title {
+  font-size: 0.9rem;
+  margin-bottom: 0.1rem;
+  white-space: nowrap; 
+}
+
+.listing-card.compact .listing-price {
+  font-size: 0.85rem;
+  color: var(--primary-color);
+}
+
+.listing-card.compact .listing-footer {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* --- 10. Utilities (Skeletons & Errors) --- */
 .empty-state {
   text-align: center;
-  padding: 3rem 2rem;
+  padding: 4rem 2rem;
   color: var(--text-muted);
 }
 
 .empty-state-icon {
-  font-size: 3rem;
+  font-size: 3.5rem;
   margin-bottom: 1rem;
+  opacity: 0.8;
 }
 
-.empty-state-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-color);
-  margin-bottom: 0.5rem;
-}
-
-/* --- 10. Category Icons --- */
-.category-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-  display: block;
-}
-
-/* --- 12. Error Boundary --- */
 .error-container {
   background-color: #FFEBEE;
   border: 1px solid #EF5350;
@@ -422,16 +464,6 @@
   padding: 1.5rem;
   margin-bottom: 1.5rem;
   color: #C62828;
-}
-
-.error-title {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.error-message {
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
 }
 
 .error-retry-btn {
@@ -442,122 +474,20 @@
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.2s;
+  margin-top: 0.5rem;
 }
 
-.error-retry-btn:hover {
-  background-color: #E53935;
+/* Animation for loading states */
+.skeleton {
+  background: linear-gradient(90deg, #E9ECEF 25%, #F0F2F5 50%, #E9ECEF 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
 }
 
-/* --- Compact Listing Card (For Chat Header) --- */
-.listing-card.compact {
-  display: flex;
-  flex-direction: row; /* Horizontal layout */
-  width: 100%;
-  max-width: 260px;
-  height: 64px; /* Small fixed height */
-  padding: 4px;
-  gap: 10px;
-  align-items: center;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  background: #fff;
-  margin: 0; /* Reset margin */
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-.listing-card.compact:hover {
-    transform: none; /* Disable lift effect */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-/* Image adjustment */
-.listing-card.compact .listing-image {
-  width: 56px;
-  height: 56px;
-  flex-shrink: 0;
-  border-radius: 4px;
-}
-
-.listing-card.compact .listing-image img {
-  border-radius: 4px;
-}
-
-/* Smaller Like Button */
-.listing-card.compact .like-button {
-  top: 2px;
-  right: 2px;
-  width: 20px;
-  height: 20px;
-  font-size: 0.7rem;
-  background: rgba(255,255,255,0.9);
-}
-
-/* Content adjustment */
-.listing-card.compact .listing-content {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 2px;
-  flex-grow: 1;
-  min-width: 0; /* Allow text truncation */
-}
-
-.listing-card.compact .listing-title {
-  font-size: 0.85rem;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-}
-
-.listing-card.compact .listing-footer {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
-}
-
-.listing-card.compact .listing-price {
-  font-size: 0.85rem;
-  color: var(--primary-color);
-  font-weight: 600;
-}
-
-.listing-card.compact .fallback-icon {
-    font-size: 1.5rem !important;
-}
-
-/* --- SOLD Badge Styles --- */
-.sold-item {
-  opacity: 0.85; /* Slightly fade the entire card */
-}
-
-.sold-badge-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.4); /* Darken the image */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 5; /* Above image, below like button */
-  border-radius: 12px 12px 0 0; /* Match card radius */
-}
-
-.sold-badge-overlay span {
-  background-color: #e53935; /* Red background */
-  color: white;
-  padding: 0.5rem 1.5rem;
-  font-size: 1.2rem;
-  font-weight: 800;
-  border: 3px solid white;
-  border-radius: 8px;
-  transform: rotate(-15deg); /* Angled stamp look */
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
+.skeleton-hero { height: 250px; border-radius: 12px; margin-bottom: 1rem; }
+.skeleton-text { height: 1rem; border-radius: 4px; margin-bottom: 0.75rem; }

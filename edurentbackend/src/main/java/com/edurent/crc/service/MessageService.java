@@ -1,5 +1,6 @@
 package com.edurent.crc.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -16,13 +17,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.edurent.crc.entity.ConversationEntity;
+import com.edurent.crc.entity.ConversationEntity;
 import com.edurent.crc.entity.ConversationParticipantEntity;
 import com.edurent.crc.entity.ConversationParticipantIdEntity;
+import com.edurent.crc.entity.ListingEntity;
 import com.edurent.crc.entity.MessageEntity;
+import com.edurent.crc.entity.NotificationEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.ConversationParticipantRepository;
 import com.edurent.crc.repository.ConversationRepository;
+import com.edurent.crc.repository.ListingRepository;
 import com.edurent.crc.repository.MessageRepository;
+import com.edurent.crc.repository.NotificationRepository;
 import com.edurent.crc.repository.UserRepository;
 
 @Service
@@ -39,9 +45,12 @@ public class MessageService {
 
     @Autowired
     private ConversationParticipantRepository participantRepository;
+    
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Autowired
-    private SimpMessagingTemplate messagingTemplate; 
+    private SimpMessagingTemplate messagingTemplate;
 
     // 1. Get Messages (Updated to filter by deletion history)
     public List<MessageEntity> getMessagesForConversation(Long conversationId, Long userId, int page, int size) {
@@ -127,6 +136,51 @@ public class MessageService {
             .filter(p -> !p.getUser().getUserId().equals(senderId))
             .forEach(p -> {
                 Long recipientId = p.getUser().getUserId();
+                
+                String linkUrl = "/messages/" + conversationId;
+                String productName = conversation.getListing() != null ? conversation.getListing().getTitle() : "Item";
+                
+                // Find the latest notification for this conversation (Read OR Unread) to avoid duplicates
+                NotificationEntity notification = notificationRepository
+                    .findFirstByTypeAndUser_UserIdAndLinkUrlOrderByCreatedAtDesc("NEW_MESSAGE", recipientId, linkUrl)
+                    .orElse(new NotificationEntity());
+
+                // If new (ID is null), set basic fields
+                if (notification.getNotificationId() == null) {
+                    notification.setUser(p.getUser());
+                    notification.setType("NEW_MESSAGE");
+                    notification.setLinkUrl(linkUrl);
+                }
+
+                // Calculate Unread Count
+                long unreadCount = messageRepository.countByConversation_ConversationIdAndSender_UserIdAndIsReadFalse(
+                    conversationId, senderId
+                );
+
+                // Construct Content based on count
+                String content;
+                if (unreadCount > 1) {
+                    content = String.format("<strong>%s</strong> sent %d new messages about <strong>%s</strong>", 
+                                          sender.getFullName(), unreadCount, productName);
+                } else {
+                    content = String.format("<strong>%s</strong> messaged you about <strong>%s</strong>", 
+                                          sender.getFullName(), productName);
+                }
+
+                notification.setContent(content);
+                notification.setCreatedAt(LocalDateTime.now()); // Bump timestamp to top
+                notification.setIsRead(false); // Mark as unread again (resurrect if it was read)
+                
+                NotificationEntity savedNotification = notificationRepository.save(notification);
+
+                // Add notification fields to socket payload
+                socketResponse.put("type", "NEW_MESSAGE");
+                socketResponse.put("notificationId", savedNotification.getNotificationId());
+                socketResponse.put("notificationContent", content);
+                socketResponse.put("linkUrl", savedNotification.getLinkUrl());
+                socketResponse.put("isRead", false);
+                socketResponse.put("createdAt", savedNotification.getCreatedAt().toString());
+
                 // Clients subscribed to "/topic/user.{id}" will receive this
                 messagingTemplate.convertAndSend("/topic/user." + recipientId, socketResponse);
             });

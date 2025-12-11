@@ -6,14 +6,14 @@
 
 /* --- 1. Color Palette (Copied for a self-contained component) --- */
 :root {
-  --primary-color: #0077B6;   /* Deep Blue */
-  --secondary-color: #90E0EF; /* Light Cyan */
-  --accent-color: #00B4D8;    /* Aqua */
-  --bg-color: #F8F9FA;        /* Neutral Light Gray */
-  --text-color: #212529;    /* Almost Black */
-  --text-muted: #6C757D;      /* Muted text */
-  --bg-light: #FFFFFF;        /* Pure White (for cards) */
-  --border-color: #DEE2E6;   /* Light gray for borders */
+  --primary-color: var(--primary-color);
+  --secondary-color: var(--secondary-color);
+  --accent-color: var(--accent-color);
+  --bg-color: var(--bg-color);
+  --text-color: var(--text-color);
+  --text-muted: var(--text-muted);
+  --bg-light: var(--bg-light);
+  --border-color: var(--border-color);
 }
 
 /* --- 2. Top Header --- */
@@ -21,7 +21,7 @@
   background-color: var(--bg-light); /* White background */
   padding: 0.75rem 2rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
-  border-bottom: 1px solid #E9ECEF;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -38,9 +38,23 @@
   flex-shrink: 0; /* Prevent shrinking */
 }
 
+.header-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* Space between logo and text */
+  text-decoration: none; /* Remove underline from link */
+}
+
 .header-logo {
   height: 36px; /* Adjust as needed */
   display: block;
+}
+
+.header-logo-text {
+  font-size: 1.5rem; /* Make it prominent */
+  font-weight: 700; /* Bold */
+  color: var(--primary-color); /* Use a theme color */
+  display: none; /* Hide on very small screens by default */
 }
 
 .header-nav {
@@ -49,6 +63,9 @@
 }
 
 @media (min-width: 768px) { /* Show on medium screens and up */
+  .header-logo-text {
+    display: block;
+  }
   .header-nav {
     display: flex;
   }
@@ -183,7 +200,7 @@
   min-width: 10rem;
   z-index: 20;
   overflow: hidden;
-  border: 1px solid #E9ECEF;
+  border: 1px solid var(--border-color);
 }
 
 .dropdown-item {
@@ -254,4 +271,3 @@
   line-height: 1;
   pointer-events: none; /* Don't let badge block clicks */
 }
-

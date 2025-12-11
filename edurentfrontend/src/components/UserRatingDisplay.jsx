@@ -4,7 +4,6 @@ import { getUserReviews } from '../services/apiService';
 
 // initialData prop
 export default function UserRatingDisplay({ userId, align = 'left', initialData = null }) {
-  // If initialData is provided, use it and set loading to false immediately
   const [stats, setStats] = useState({ 
     avg: initialData ? initialData.avg : 0, 
     count: initialData ? initialData.count : 0, 

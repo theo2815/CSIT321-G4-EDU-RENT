@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 // Shared styling for authentication pages
 import '../static/Auth.css'; 
 
-import eduRentLogo from '../assets/edurentlogo.png'; 
+import eduRentLogo from '../assets/edurentAllBlackTest.png'; 
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -55,7 +55,10 @@ export default function ForgotPasswordPage() {
       
       {/* Left Side: Branding and Logo */}
       <div className="auth-branding-panel">
-        <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
+        <Link to="/" className="auth-logo-wrapper">
+          <img src={eduRentLogo} alt="Edu-Rent Logo" className="auth-logo" />
+          <span className="auth-branding-text">Edu-Rent</span>
+        </Link>
         <p className="auth-tagline">
           Your Campus Marketplace for Students.
         </p>
