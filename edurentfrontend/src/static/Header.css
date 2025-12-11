@@ -50,6 +50,11 @@
   display: block;
 }
 
+/* Dark mode: Make logo white */
+[data-theme="dark"] .header-logo {
+  filter: brightness(0) invert(1);
+}
+
 .header-logo-text {
   font-size: 1.5rem; /* Make it prominent */
   font-weight: 700; /* Bold */
@@ -86,6 +91,12 @@
   border-bottom-color: var(--primary-color);
 }
 
+.nav-link.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  font-weight: 600;
+}
+
 .header-right {
   display: flex;
   align-items: center;
@@ -115,6 +126,11 @@
 
 .icon-link:hover .header-icon {
   opacity: 0.7;
+}
+
+/* Dark mode icon color filter for heart, notification, and messenger icons */
+[data-theme="dark"] .header-icon {
+  filter: brightness(0) saturate(100%) invert(62%) sepia(7%) saturate(579%) hue-rotate(174deg) brightness(89%) contrast(89%);
 }
 
 /* --- 3. Buttons (Consistent Style) --- */

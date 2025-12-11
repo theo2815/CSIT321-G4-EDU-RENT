@@ -117,6 +117,11 @@ body {
   margin-bottom: 0; /* Let wrapper handle spacing */
 }
 
+/* Dark mode: Make logo white */
+[data-theme="dark"] .auth-logo {
+  filter: brightness(0) invert(1);
+}
+
 .auth-tagline {
   font-size: 1.25rem;
   font-weight: 500;
@@ -225,7 +230,7 @@ body {
 .auth-btn-primary {
   /* Use Accent for the primary "action" color */
   background: linear-gradient(180deg, var(--accent-color), #08a4c6);
-  color: var(--bg-light);
+  color: white;
 }
 
 .auth-btn-primary:hover {

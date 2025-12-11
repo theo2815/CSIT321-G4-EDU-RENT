@@ -100,7 +100,7 @@
 
   font-weight: 600;
 
-  background-color: transparent; /* MODIFIED: No bg on mobile active */
+  background-color: #f0f0f0; /* Light gray background for selected */
 
   border-bottom-color: var(--primary-color); /* MODIFIED: Blue indicator on bottom */
 
@@ -674,6 +674,15 @@
 
 }
 
+/* Dark mode: Make toggle slider fit dark theme */
+[data-theme="dark"] .toggle-slider {
+  background-color: #30363d;
+}
+
+[data-theme="dark"] .toggle-slider:before {
+  background-color: #8b949e;
+}
+
 
 
 input:checked + .toggle-slider {
@@ -1009,6 +1018,13 @@ input:checked + .toggle-slider:before {
   background-size: 200% 100%;
 
   animation: loading 1.5s infinite;
+  
+}
+
+/* Dark mode: Make skeleton elements gray to fit dark theme */
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, #21262d 25%, #30363d 50%, #21262d 75%);
+  background-size: 200% 100%;
 
 }
 
@@ -1030,7 +1046,69 @@ input:checked + .toggle-slider:before {
 
 }
 
-/* Dark-mode specific hover requirement */
+/* Dark-mode specific hover and active states */
 [data-theme="dark"] .settings-nav-item a:hover {
-  color: #000;
+  background-color: #21262d;
+  color: var(--text-color);
+}
+
+[data-theme="dark"] .settings-nav-item a.active {
+  background-color: #30363d;
+}
+
+/* Dark mode: Settings form elements */
+[data-theme="dark"] .settings-card {
+  background-color: #161B22;
+  border: 1px solid #30363d;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .settings-card:hover {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .settings-card-title {
+  color: #C9D1D9;
+  border-bottom: 1px solid #30363d;
+}
+
+[data-theme="dark"] .form-input {
+  background-color: #0D1117;
+  border: 2px solid #30363d;
+  color: #C9D1D9;
+}
+
+[data-theme="dark"] .form-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 119, 182, 0.2);
+}
+
+[data-theme="dark"] .form-input:hover {
+  border-color: var(--primary-color);
+}
+
+[data-theme="dark"] .form-input.readonly {
+  background-color: #161B22;
+  opacity: 0.7;
+}
+
+[data-theme="dark"] .form-section {
+  border-bottom: 1px solid #30363d;
+}
+
+[data-theme="dark"] .form-section-label {
+  color: #8B949E;
+}
+
+[data-theme="dark"] .save-button-container {
+  border-top: 1px solid #30363d;
+}
+
+[data-theme="dark"] .profile-photo-placeholder {
+  background-color: #30363d;
+  border: 3px solid var(--primary-color);
+}
+
+[data-theme="dark"] .edit-icon-overlay {
+  border: 2px solid #161B22;
 }

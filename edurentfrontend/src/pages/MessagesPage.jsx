@@ -195,6 +195,13 @@ export default function MessagesPage() {
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   
+  // Image preview state
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+
+  // Image modal state
+  const [selectedImage, setSelectedImage] = useState(null);
+
   // Scroll management
   const { 
     chatContentRef, 
@@ -311,31 +318,89 @@ export default function MessagesPage() {
     return result;
   }, [activeFilter, searchQuery, conversations, userData, listingFilterId]);
 
-  // Upload an image attachment
-  const handleFileSelect = async (e) => {
+  // Handle file selection - preview instead of sending immediately
+  const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file || !selectedConversation) return;
+    
+    // Create preview URL
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+      setImageFile(file);
+    };
+    reader.readAsDataURL(file);
+    
+    // Clear file input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Handle paste event for images
+  const handlePaste = useCallback((e) => {
+    if (!selectedConversation) return;
+    
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        
+        // Create preview URL
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result);
+          setImageFile(file);
+        };
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  }, [selectedConversation]);
+
+  // Remove image preview
+  const removeImagePreview = () => {
+    setImagePreview(null);
+    setImageFile(null);
+  };
+
+  // Send message with or without image
+  const sendMessageWithAttachment = async () => {
+    if (!selectedConversation) return;
+    
+    const messageText = newMessage.trim();
+    let imageUrl = null;
+    
     try {
-      const response = await uploadMessageImage(selectedConversation.id, file);
-      const imageUrl = response.data.url;
-
-      const tempTimestamp = new Date();
-      const optimisticMsg = {
-          id: Date.now(),
-          senderId: userData.userId,
-          text: '',
-          attachmentUrl: imageUrl,
-          timestamp: formatChatTimestamp(tempTimestamp),
-          rawDate: tempTimestamp.toISOString()
-      };
-      setMessages(prev => [...prev, optimisticMsg]);
-
-      await sendMessage('', selectedConversation.id, userData.userId, imageUrl);
+      // Upload image if present
+      if (imageFile) {
+        const response = await uploadMessageImage(selectedConversation.id, imageFile);
+        imageUrl = response.data.url;
+      }
+      
+      // Send message (with or without image)
+      if (messageText || imageUrl) {
+        const tempTimestamp = new Date();
+        const optimisticMsg = {
+            id: Date.now(),
+            senderId: userData.userId,
+            text: messageText,
+            attachmentUrl: imageUrl,
+            timestamp: formatChatTimestamp(tempTimestamp),
+            rawDate: tempTimestamp.toISOString()
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+        
+        await sendMessage(messageText, selectedConversation.id, userData.userId, imageUrl);
+        
+        // Clear inputs
+        setNewMessage('');
+        removeImagePreview();
+      }
     } catch (error) {
-      console.error("Failed to send image", error);
-      toast.showError("Failed to upload image. Please try again.");
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      console.error("Failed to send message", error);
+      toast.showError("Failed to send message. Please try again.");
     }
   };
 
@@ -735,31 +800,45 @@ export default function MessagesPage() {
   };
 
   const handleSendMessage = async () => {
-      if (!newMessage.trim() || !selectedConversation || !userData) return;
-      const textToSend = newMessage;
+      if ((!newMessage.trim() && !imageFile) || !selectedConversation || !userData) return;
+      
+      const textToSend = newMessage.trim();
+      let imageUrl = null;
+      
       setNewMessage(''); 
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
       const tempTimestamp = new Date();
       
-      const optimisticMsg = {
-          id: Date.now(), senderId: userData.userId, text: textToSend,
-          timestamp: formatChatTimestamp(tempTimestamp), rawDate: tempTimestamp.toISOString()
-      };
-      setMessages(prev => [...prev, optimisticMsg]);
-      
-      setConversations(prevConvs => {
-          const updatedConvs = [...prevConvs];
-          const index = updatedConvs.findIndex(c => c.id === selectedConversation.id);
-          if (index > -1) {
-              const conv = updatedConvs[index];
-              updatedConvs.splice(index, 1); 
-              updatedConvs.unshift({ ...conv, lastMessagePreview: textToSend, lastMessageDate: tempTimestamp.toISOString(), isUnread: false });
+      try {
+          // Upload image if present
+          if (imageFile) {
+              const response = await uploadMessageImage(selectedConversation.id, imageFile);
+              imageUrl = response.data.url;
+              removeImagePreview();
           }
-          return updatedConvs;
-      });
+          
+          const optimisticMsg = {
+              id: Date.now(), 
+              senderId: userData.userId, 
+              text: textToSend,
+              attachmentUrl: imageUrl,
+              timestamp: formatChatTimestamp(tempTimestamp), 
+              rawDate: tempTimestamp.toISOString()
+          };
+          setMessages(prev => [...prev, optimisticMsg]);
+          
+          setConversations(prevConvs => {
+              const updatedConvs = [...prevConvs];
+              const index = updatedConvs.findIndex(c => c.id === selectedConversation.id);
+              if (index > -1) {
+                  const conv = updatedConvs[index];
+                  updatedConvs.splice(index, 1); 
+                  updatedConvs.unshift({ ...conv, lastMessagePreview: textToSend || '📷 Image', lastMessageDate: tempTimestamp.toISOString(), isUnread: false });
+              }
+              return updatedConvs;
+          });
 
-      try { 
-          await sendMessage(textToSend, selectedConversation.id, userData.userId); 
+          await sendMessage(textToSend, selectedConversation.id, userData.userId, imageUrl); 
       } catch (error) { 
           console.error("Failed to send", error); 
           toast.showError("Message failed to send.");
@@ -1106,7 +1185,7 @@ export default function MessagesPage() {
                                   src={msg.attachmentUrl} 
                                   alt="Attachment" 
                                   className="message-attachment"
-                                  onClick={() => window.open(msg.attachmentUrl, '_blank')}
+                                  onClick={() => setSelectedImage(msg.attachmentUrl)}
                               />
                           )}
                           {msg.text && <div>{msg.text}</div>}
@@ -1135,24 +1214,37 @@ export default function MessagesPage() {
                     accept="image/*"
                     onChange={handleFileSelect} 
                 />
-                <textarea
-                  ref={textareaRef}
-                  className="chat-input"
-                  placeholder="Type here..."
-                  value={newMessage}
-                  onChange={handleTextareaChange}
-                  onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                  rows={1}
-                />
-                {newMessage.trim() ? (
-                  <button className="icon-button send-button" onClick={handleSendMessage} aria-label="Send message">
-                    <Icons.Send />
-                  </button>
-                ) : (
-                  <button className="icon-button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()}>
-                    <Icons.Attachment />
-                  </button>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '0.5rem' }}>
+                  {imagePreview && (
+                    <div className="image-preview-container">
+                      <img src={imagePreview} alt="Preview" className="image-preview" />
+                      <button className="remove-preview-btn" onClick={removeImagePreview} aria-label="Remove image">
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', width: '100%' }}>
+                    <textarea
+                      ref={textareaRef}
+                      className="chat-input"
+                      placeholder="Type here..."
+                      value={newMessage}
+                      onChange={handleTextareaChange}
+                      onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                      onPaste={handlePaste}
+                      rows={1}
+                    />
+                    {(newMessage.trim() || imageFile) ? (
+                      <button className="icon-button send-button" onClick={handleSendMessage} aria-label="Send message">
+                        <Icons.Send />
+                      </button>
+                    ) : (
+                      <button className="icon-button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()}>
+                        <Icons.Attachment />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </>
           ) : (
@@ -1181,6 +1273,16 @@ export default function MessagesPage() {
               onClose={() => setIsReviewModalOpen(false)}
               onSuccess={handleReviewSuccess}
           />
+        </div>
+      )}
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div className="image-modal-overlay" onClick={() => setSelectedImage(null)}>
+          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="image-modal-close" onClick={() => setSelectedImage(null)}>✕</button>
+            <img src={selectedImage} alt="Full size" className="image-modal-img" />
+          </div>
         </div>
       )}
 

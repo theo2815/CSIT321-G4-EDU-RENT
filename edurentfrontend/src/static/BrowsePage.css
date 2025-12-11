@@ -91,6 +91,22 @@
   animation: loading 1.5s infinite;
 }
 
+/* Dark mode: Make skeleton elements gray to fit dark theme */
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, #21262d 25%, #30363d 50%, #21262d 75%);
+  background-size: 200% 100%;
+}
+
+[data-theme="dark"] .skeleton-listing-card {
+  background-color: #161B22;
+  border-color: #30363d;
+}
+
+[data-theme="dark"] .skeleton-listing-image,
+[data-theme="dark"] .skeleton-listing-text {
+  background-color: #21262d;
+}
+
 @keyframes loading {
   0% {
     background-position: 200% 0;

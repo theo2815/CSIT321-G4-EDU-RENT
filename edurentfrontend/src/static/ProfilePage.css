@@ -107,6 +107,11 @@
   color: var(--text-color);
 }
 
+/* Dark mode: Color share icon to #8b949e */
+[data-theme="dark"] .icon-button img {
+  filter: brightness(0) saturate(100%) invert(62%) sepia(7%) saturate(579%) hue-rotate(174deg) brightness(89%) contrast(89%);
+}
+
 @media (max-width: 768px) {
   .profile-card {
     grid-template-columns: auto 1fr;
@@ -412,6 +417,12 @@
   background: linear-gradient(90deg, #E9ECEF 25%, #F0F2F5 50%, #E9ECEF 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
+}
+
+/* Dark mode: Make skeleton elements gray to fit dark theme */
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, #21262d 25%, #30363d 50%, #21262d 75%);
+  background-size: 200% 100%;
 }
 
 @keyframes loading {
