@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import {
   markNotificationAsRead,
   deleteNotification,
@@ -130,8 +131,9 @@ export default function NotificationsPopup({
   const hasMore = notifications.length > visibleCount;
 
   const renderNotificationText = (notification) => {
-    return <span dangerouslySetInnerHTML={{ __html: notification.content }} />;
-  };
+    const cleanContent = DOMPurify.sanitize(notification.content);
+    return <span dangerouslySetInnerHTML={{ __html: cleanContent }} />;
+  }
 
   const getNotificationIcon = (type) => {
     switch (type) {
