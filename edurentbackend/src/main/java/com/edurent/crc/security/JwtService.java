@@ -7,6 +7,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.stereotype.Service;
 
 import com.edurent.crc.entity.UserEntity;
@@ -19,9 +23,21 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtService.class);
+
     // Secret key injected from application.properties
     @org.springframework.beans.factory.annotation.Value("${jwt.secret}")
     private String secretKey;
+
+    @PostConstruct
+    public void init() {
+        try {
+            Base64.getDecoder().decode(secretKey);
+        } catch (IllegalArgumentException e) {
+            log.warn(
+                    "WARNING: 'jwt.secret' is NOT a valid Base64 string. Falling back to using raw bytes. Usage of Base64 encoded secrets is recommended.");
+        }
+    }
 
     // Token validity (e.g., 24 hours)
     private static final long JWT_TOKEN_VALIDITY = 1000 * 60 * 60 * 24;
@@ -48,8 +64,13 @@ public class JwtService {
 
     // 3. Get the signing key
     private Key getSigningKey() {
-        byte[] keyBytes = Base64.getDecoder().decode(secretKey);
-        return Keys.hmacShaKeyFor(keyBytes);
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(secretKey);
+            return Keys.hmacShaKeyFor(keyBytes);
+        } catch (IllegalArgumentException e) {
+            // Fallback to raw bytes if secret is not Base64
+            return Keys.hmacShaKeyFor(secretKey.getBytes());
+        }
     }
 
     // 4. Extract all claims from a token

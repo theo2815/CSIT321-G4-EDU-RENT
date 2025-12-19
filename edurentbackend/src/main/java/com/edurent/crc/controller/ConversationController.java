@@ -49,73 +49,74 @@ public class ConversationController {
     @Autowired
     private MessageImageService messageImageService;
 
-    @Autowired 
+    @Autowired
     private TransactionRepository transactionRepository;
 
-    @Autowired 
+    @Autowired
     private ReviewRepository reviewRepository;
 
     // --- 1. Get User's Conversations (DTO) ---
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<ConversationDTO>> getConversationsForUser(@PathVariable Long userId) {
         List<ConversationEntity> entities = conversationService.getConversationsForUser(userId);
-        
+
         List<ConversationDTO> dtos = entities.stream().map(entity -> {
             ConversationDTO dto = new ConversationDTO();
             dto.setConversationId(entity.getConversationId());
             dto.setLastMessageContent(entity.getLastMessageContent());
             dto.setLastMessageTimestamp(entity.getLastMessageTimestamp());
             dto.setIsUnread(entity.getIsUnread());
-            
+
             if (entity.getListing() != null) {
                 ListingDTO listingDto = new ListingDTO();
                 listingDto.setListingId(entity.getListing().getListingId());
                 listingDto.setTitle(entity.getListing().getTitle());
                 listingDto.setPrice(entity.getListing().getPrice());
-                
+
                 if (entity.getListing().getImages() != null && !entity.getListing().getImages().isEmpty()) {
                     listingDto.setImageUrl(entity.getListing().getImages().iterator().next().getImageUrl());
                 }
-                
+
                 if (entity.getListing().getUser() != null) {
-                     UserDTO ownerDto = new UserDTO(
-                         entity.getListing().getUser().getUserId(),
-                         entity.getListing().getUser().getFullName(),
-                         entity.getListing().getUser().getProfilePictureUrl()
-                     );
-                     listingDto.setOwner(ownerDto);
+                    UserDTO ownerDto = new UserDTO(
+                            entity.getListing().getUser().getUserId(),
+                            entity.getListing().getUser().getFullName(),
+                            entity.getListing().getUser().getProfilePictureUrl());
+                    listingDto.setOwner(ownerDto);
                 }
                 dto.setListing(listingDto);
 
-                Optional<TransactionEntity> transaction = transactionRepository.findLatestByListingId(entity.getListing().getListingId());
-                
+                Optional<TransactionEntity> transaction = transactionRepository
+                        .findLatestByListingId(entity.getListing().getListingId());
+
                 if (transaction.isPresent()) {
                     TransactionEntity t = transaction.get();
-                    
-                    Set<Long> chatParticipantIds = entity.getParticipants().stream()
-                        .map(p -> p.getUser().getUserId())
-                        .collect(Collectors.toSet());
 
-                    boolean isCorrectChat = chatParticipantIds.contains(t.getBuyer().getUserId()) 
-                                         && chatParticipantIds.contains(t.getSeller().getUserId());
-                    
+                    Set<Long> chatParticipantIds = entity.getParticipants().stream()
+                            .map(p -> p.getUser().getUserId())
+                            .collect(Collectors.toSet());
+
+                    boolean isCorrectChat = chatParticipantIds.contains(t.getBuyer().getUserId())
+                            && chatParticipantIds.contains(t.getSeller().getUserId());
+
                     if (isCorrectChat) {
                         dto.setTransactionId(t.getTransactionId());
-                        boolean hasReviewed = reviewRepository.existsByTransaction_TransactionIdAndReviewer_UserId(t.getTransactionId(), userId);
+                        boolean hasReviewed = reviewRepository
+                                .existsByTransaction_TransactionIdAndReviewer_UserId(t.getTransactionId(), userId);
                         dto.setHasReviewed(hasReviewed);
                     }
                 }
             }
-            
+
             List<UserDTO> participants = entity.getParticipants().stream().map(p -> {
-                UserDTO u = new UserDTO(p.getUser().getUserId(), p.getUser().getFullName(), p.getUser().getProfilePictureUrl());
+                UserDTO u = new UserDTO(p.getUser().getUserId(), p.getUser().getFullName(),
+                        p.getUser().getProfilePictureUrl());
                 u.setSchoolName(p.getUser().getSchool() != null ? p.getUser().getSchool().getName() : "N/A");
                 return u;
             }).collect(Collectors.toList());
-            
+
             dto.setParticipants(participants);
-            
-            
+
             return dto;
         }).collect(Collectors.toList());
 
@@ -129,7 +130,8 @@ public class ConversationController {
             @RequestParam Long starterId,
             @RequestParam Long receiverId) {
         try {
-            ConversationEntity newConversation = conversationService.startConversation(listingId, starterId, receiverId);
+            ConversationEntity newConversation = conversationService.startConversation(listingId, starterId,
+                    receiverId);
             return new ResponseEntity<>(newConversation, HttpStatus.CREATED);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(null);
@@ -146,7 +148,8 @@ public class ConversationController {
     ) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         // Pass userId to service
-        List<MessageEntity> messages = messageService.getMessagesForConversation(conversationId, currentUser.getUserId(), page, size);
+        List<MessageEntity> messages = messageService.getMessagesForConversation(conversationId,
+                currentUser.getUserId(), page, size);
         return ResponseEntity.ok(messages);
     }
 
@@ -156,7 +159,7 @@ public class ConversationController {
             @PathVariable Long conversationId,
             @RequestBody MessageEntity message,
             Authentication authentication) {
-        
+
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
             MessageEntity sentMessage = messageService.sendMessage(message, conversationId, currentUser.getUserId());
@@ -226,8 +229,8 @@ public class ConversationController {
     @PostMapping("/{conversationId}/messages/upload-image")
     public ResponseEntity<Map<String, String>> uploadMessageImage(
             @PathVariable Long conversationId,
-            @RequestParam("image") MultipartFile image
-    ) {
+            @RequestParam("image") MultipartFile image,
+            Authentication authentication) {
         try {
             System.out.println("✅ CONTROLLER REACHED: Uploading image for conversation " + conversationId);
             String imageUrl = messageImageService.uploadImage(image);
@@ -238,4 +241,3 @@ public class ConversationController {
         }
     }
 }
-

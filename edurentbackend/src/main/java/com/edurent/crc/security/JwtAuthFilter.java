@@ -60,10 +60,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             userEmail = jwtService.extractUsername(jwt);
             log.info("Extracted email from JWT: {}", userEmail);
 
-            if (jwtService.isTokenExpired(jwt)) {
-                log.warn("JWT token is expired for email: {}", userEmail);
-            }
-
         } catch (ExpiredJwtException eje) {
             log.warn("JWT token is expired: {}", eje.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
