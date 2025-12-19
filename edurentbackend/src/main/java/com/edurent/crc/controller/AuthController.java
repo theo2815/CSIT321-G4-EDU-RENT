@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 @CrossOrigin(origins = "*")
@@ -30,9 +32,11 @@ public class AuthController {
         this.passwordResetService = passwordResetService;
     }
 
+
+
     // Endpoints
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> registerUser(@RequestBody RegisterRequest registerRequest) {
+    public ResponseEntity<AuthResponse> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
             AuthResponse authResponse = userService.registerUser(registerRequest);
             return new ResponseEntity<>(authResponse, HttpStatus.CREATED);
@@ -46,7 +50,7 @@ public class AuthController {
 
     // Login Endpoint
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> loginUser(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<AuthResponse> loginUser(@Valid @RequestBody LoginRequest loginRequest) {
         try {
             AuthResponse authResponse = userService.loginUser(loginRequest);
             return ResponseEntity.ok(authResponse);

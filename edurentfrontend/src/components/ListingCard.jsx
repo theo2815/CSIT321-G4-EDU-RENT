@@ -180,6 +180,7 @@ export default function ListingCard({
         
         {coverImageUrl ? (
           <img 
+            loading="lazy"
             src={getFullImageUrl(coverImageUrl)} 
             alt={title} 
             onError={(e) => { 

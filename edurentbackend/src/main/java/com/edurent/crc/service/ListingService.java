@@ -6,6 +6,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -90,42 +92,70 @@ public class ListingService {
     // --- Core Listing Logic ---
 
     @Transactional
-    public ListingEntity createListingWithImages(ListingEntity listing, Long userId, Long categoryId, List<MultipartFile> images) throws IOException {
-        UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
-        CategoryEntity category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Category not found: " + categoryId));
+public ListingEntity createListingWithImages(ListingEntity listing, Long userId, Long categoryId, List<MultipartFile> images) throws IOException {
+    // 1. Fetch User and Category
+    UserEntity user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+    CategoryEntity category = categoryRepository.findById(categoryId)
+            .orElseThrow(() -> new RuntimeException("Category not found: " + categoryId));
 
-        listing.setUser(user);
-        listing.setCategory(category);
-        listing.setCreatedAt(LocalDateTime.now());
-        listing.setStatus("Available"); 
+    // 2. Setup Listing Details
+    listing.setUser(user);
+    listing.setCategory(category);
+    listing.setCreatedAt(LocalDateTime.now());
+    listing.setStatus("Available"); 
 
-        ListingEntity savedListing = listingRepository.save(listing);
-        Long listingId = savedListing.getListingId();
+    // 3. Save Listing First (to get the ID)
+    ListingEntity savedListing = listingRepository.save(listing);
+    Long listingId = savedListing.getListingId();
 
-        if (images != null && !images.isEmpty()) {
-            boolean isFirstImage = true;
-            for (MultipartFile imageFile : images) {
-                if (!imageFile.isEmpty()) {
+    // 4. Handle Images in Parallel
+    if (images != null && !images.isEmpty()) {
+        
+        // Create a list of async tasks (Futures)
+        List<CompletableFuture<ListingImageEntity>> uploadFutures = images.stream()
+            .filter(img -> !img.isEmpty()) // Skip empty files
+            .map(imageFile -> CompletableFuture.supplyAsync(() -> {
+                try {
+                    // Generate Filename
                     String originalFilename = imageFile.getOriginalFilename();
+                    // Fallback if filename is null
+                    if (originalFilename == null) originalFilename = "image.jpg"; 
                     String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
                     String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
 
+                    // Upload to Supabase (The slow part runs here in parallel)
                     String publicUrl = uploadFileToSupabase(imageFile, uniqueFilename);
 
+                    // Create Entity object (but don't save to DB yet)
                     ListingImageEntity listingImage = new ListingImageEntity();
                     listingImage.setListing(savedListing);
                     listingImage.setImageUrl(publicUrl);
-                    listingImage.setCoverPhoto(isFirstImage);
-                    listingImageRepository.save(listingImage);
-
-                    isFirstImage = false;
+                    listingImage.setCoverPhoto(false); // Default false, we set true later
+                    
+                    return listingImage;
+                } catch (IOException e) {
+                    throw new RuntimeException("Image upload failed", e);
                 }
-            }
+            }))
+            .collect(Collectors.toList());
+
+        // Wait for ALL uploads to finish and collect results
+        List<ListingImageEntity> listingImages = uploadFutures.stream()
+            .map(CompletableFuture::join) // This waits for the threads to finish
+            .collect(Collectors.toList());
+
+        // Set the first image as Cover Photo
+        if (!listingImages.isEmpty()) {
+            listingImages.get(0).setCoverPhoto(true);
         }
-        return savedListing; 
+
+        // Save all image records to the database in one batch
+        listingImageRepository.saveAll(listingImages);
     }
+
+    return savedListing; 
+}
 
     @Transactional
     public ListingEntity updateListing(

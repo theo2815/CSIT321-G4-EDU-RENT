@@ -19,9 +19,10 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
 
-    // Secret key for signing the JWT (Base64 encoded)
-    private static final String SECRET_KEY = "2cfa00c56ea9fdf997275b9c3e846b3147c890895084b5814960d50c0d570fec";
-    
+    // Secret key injected from application.properties
+    @org.springframework.beans.factory.annotation.Value("${jwt.secret}")
+    private String secretKey;
+
     // Token validity (e.g., 24 hours)
     private static final long JWT_TOKEN_VALIDITY = 1000 * 60 * 60 * 24;
 
@@ -30,7 +31,7 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getUserId());
         claims.put("fullName", user.getFullName());
-        
+
         return createToken(claims, user.getEmail());
     }
 
@@ -47,7 +48,7 @@ public class JwtService {
 
     // 3. Get the signing key
     private Key getSigningKey() {
-        byte[] keyBytes = Base64.getDecoder().decode(SECRET_KEY);
+        byte[] keyBytes = Base64.getDecoder().decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -87,4 +88,3 @@ public class JwtService {
         return (username.equals(user.getEmail()) && !isTokenExpired(token));
     }
 }
-

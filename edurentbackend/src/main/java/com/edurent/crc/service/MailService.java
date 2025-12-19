@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Async;
 
 @Service
 public class MailService {
@@ -66,6 +67,7 @@ public class MailService {
     /**
      * Send a generic email (for future use)
      */
+    @Async
     public void sendEmail(String to, String subject, String body) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();

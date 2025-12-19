@@ -24,9 +24,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.edurent.crc.repository.UserRepository;
 import com.edurent.crc.security.JwtAuthFilter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Autowired
     private JwtAuthFilter jwtAuthFilter;
@@ -38,57 +43,57 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // Disable CSRF for simplicity in this example
-            .csrf(csrf -> csrf.disable())
-            
-            // Enable CORS with dedicated bean
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // Disable CSRF for simplicity in this example
+                .csrf(csrf -> csrf.disable())
 
-            // Debug for logging auth errors
-            .exceptionHandling(e -> e
-                .authenticationEntryPoint((request, response, authException) -> {
-                    System.out.println("⚠️ SECURITY BLOCK (401): " + authException.getMessage());
-                    response.sendError(401, authException.getMessage());
-                })
-                .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    System.out.println("⚠️ SECURITY BLOCK (403): " + accessDeniedException.getMessage());
-                    response.sendError(403, "Access Denied: " + accessDeniedException.getMessage());
-                })
-            )
-            
-            .authorizeHttpRequests(authz -> authz
-                // --- Public Endpoints ---
-                .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/api/v1/schools/**").permitAll()
-                .requestMatchers("/ws/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/uploads/listing-images/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}").permitAll() 
-                .requestMatchers(HttpMethod.GET, "/api/v1/reviews/user/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/reviews/transaction/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/listings/**").permitAll()
-                .requestMatchers("/api/v1/transactions/test-scheduler").permitAll()
-                
-                // This forces a simple path match, bypassing strict MVC matcher issues
-                .requestMatchers("/api/v1/conversations/{id}/messages/upload-image").permitAll()
+                // Enable CORS with dedicated bean
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // --- Private Endpoints ---
-                .requestMatchers("/api/v1/conversations/**").authenticated()
-                .anyRequest().authenticated()
-            )
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                // Debug for logging auth errors
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            log.error("⚠️ SECURITY BLOCK (401): {}", authException.getMessage());
+                            response.sendError(401, authException.getMessage());
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            log.error("⚠️ SECURITY BLOCK (403): {}", accessDeniedException.getMessage());
+                            response.sendError(403, "Access Denied: " + accessDeniedException.getMessage());
+                        }))
+
+                .authorizeHttpRequests(authz -> authz
+                        // --- Public Endpoints ---
+                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/metrics/**").permitAll()
+                        .requestMatchers("/api/v1/schools/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/uploads/listing-images/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews/user/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews/transaction/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/listings/**").permitAll()
+                        .requestMatchers("/api/v1/transactions/test-scheduler").permitAll()
+
+                        // This forces a simple path match, bypassing strict MVC matcher issues
+                        .requestMatchers("/api/v1/conversations/{id}/messages/upload-image").permitAll()
+
+                        // --- Private Endpoints ---
+                        .requestMatchers("/api/v1/conversations/**").authenticated()
+                        .anyRequest().authenticated())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // --- 3. Dedicated CORS Bean  ---
+    // --- 3. Dedicated CORS Bean ---
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000")); 
-        
+
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

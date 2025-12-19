@@ -7,6 +7,7 @@ import usePageLogic from '../hooks/usePageLogic';
 
 // New Feedback Hook
 import { useToast } from '../context/ToastContext';
+import imageCompression from 'browser-image-compression';
 
 // Components
 import Header from '../components/Header';
@@ -132,6 +133,17 @@ export default function ListItemPage() {
     }
   }, [userData]); 
 
+  // CLEANUP: Revoke object URLs to avoid memory leaks when component unmounts
+  useEffect(() => {
+    return () => {
+      photos.forEach(photo => {
+        if (photo.previewUrl) {
+          URL.revokeObjectURL(photo.previewUrl);
+        }
+      });
+    };
+  }, [photos]);
+
   // --- Photo Handling ---
 
   // Triggered when files are selected via the dialog
@@ -166,7 +178,14 @@ export default function ListItemPage() {
 
   // Remove a photo from the list
   const removePhoto = (indexToRemove) => {
-    setPhotos(prevPhotos => prevPhotos.filter((_, index) => index !== indexToRemove));
+    setPhotos(prevPhotos => {
+      const targetPhoto = prevPhotos[indexToRemove];
+      if (targetPhoto && targetPhoto.previewUrl) {
+        // Free up memory immediately
+        URL.revokeObjectURL(targetPhoto.previewUrl);
+      }
+      return prevPhotos.filter((_, index) => index !== indexToRemove);
+    });
   };
 
   // UI feedback for drag-and-drop interactions
@@ -220,14 +239,24 @@ export default function ListItemPage() {
     setIsSubmitting(true);
     setError(null);
 
+    const compressedPhotos = await Promise.all(
+        photos.map(async (photo) => {
+            if (photo.file instanceof File) {
+                const options = {
+                    maxSizeMB: 1,          // Cap size at 1MB
+                    maxWidthOrHeight: 1920, // Resize large 4k images
+                    useWebWorker: true
+                };
+                return await imageCompression(photo.file, options);
+            }
+            return photo.file;
+        })
+    );
+
     // We use FormData to handle file uploads alongside text data
     const listingData = new FormData();
-    photos.forEach(photo => {
-        if (photo.file instanceof File) {
-             listingData.append('images', photo.file);
-        } else {
-             console.warn("Skipping invalid photo data:", photo);
-        }
+    compressedPhotos.forEach(file => {
+        listingData.append('images', file); // Append the SMALLER file
     });
     
     listingData.append('categoryId', selectedCategory);

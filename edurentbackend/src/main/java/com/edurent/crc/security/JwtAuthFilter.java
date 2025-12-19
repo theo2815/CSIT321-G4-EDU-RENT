@@ -55,7 +55,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         jwt = authHeader.substring(7);
-        log.debug("Extracted JWT: {}", jwt);
 
         try {
             userEmail = jwtService.extractUsername(jwt);
@@ -66,22 +65,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
 
         } catch (ExpiredJwtException eje) {
-             log.warn("JWT token is expired: {}", eje.getMessage());
-             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-             response.getWriter().write("JWT Token Expired");
-             return;
+            log.warn("JWT token is expired: {}", eje.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("JWT Token Expired");
+            return;
         } catch (JwtException | IllegalArgumentException e) {
             log.error("Error processing JWT: {}", e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("Invalid JWT Token");
             return;
         } catch (Exception e) {
-             log.error("Unexpected error during JWT email extraction: {}", e.getMessage(), e);
-             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-             response.getWriter().write("Internal server error during token processing");
-             return;
+            log.error("Unexpected error during JWT email extraction: {}", e.getMessage(), e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().write("Internal server error during token processing");
+            return;
         }
-
 
         // Check if the user is already authenticated
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -90,29 +88,28 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             UserEntity user = null;
             try {
                 user = this.userRepository.findByEmail(userEmail)
-                    .orElse(null);
+                        .orElse(null);
 
                 if (user == null) {
                     log.warn("User not found in database for email: {}", userEmail);
                 } else {
-                     log.info("User found in database: ID={}, Email={}", user.getUserId(), user.getEmail());
-                     log.debug("User authorities: {}", user.getAuthorities());
+                    log.info("User found in database: ID={}, Email={}", user.getUserId(), user.getEmail());
+                    log.debug("User authorities: {}", user.getAuthorities());
                 }
             } catch (Exception e) {
-                 log.error("Error loading user from database for email {}: {}", userEmail, e.getMessage(), e);
+                log.error("Error loading user from database for email {}: {}", userEmail, e.getMessage(), e);
             }
-
 
             // Check if the token is valid
             boolean isTokenValid = false;
             if (user != null) {
-                 try {
-                     isTokenValid = jwtService.validateToken(jwt, user);
-                     log.info("JWT token validation result for user {}: {}", userEmail, isTokenValid);
-                 } catch (Exception e) {
-                     log.error("Error during JWT validation for user {}: {}", userEmail, e.getMessage(), e);
-                     isTokenValid = false;
-                 }
+                try {
+                    isTokenValid = jwtService.validateToken(jwt, user);
+                    log.info("JWT token validation result for user {}: {}", userEmail, isTokenValid);
+                } catch (Exception e) {
+                    log.error("Error during JWT validation for user {}: {}", userEmail, e.getMessage(), e);
+                    isTokenValid = false;
+                }
             }
 
             // If valid, set authentication in context
@@ -121,17 +118,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         user,
                         null,
-                        user.getAuthorities()
-                );
+                        user.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
                 log.info("Authentication successfully set in SecurityContext for user: {}", userEmail);
             } else {
-                 log.warn("Token validation failed or user not found for email {}, authentication not set.", userEmail);
+                log.warn("Token validation failed or user not found for email {}, authentication not set.", userEmail);
             }
         } else {
-             if (userEmail == null) { log.warn("User email is null after extraction attempt."); }
-             else { log.info("User {} already authenticated, filter passes through.", userEmail); }
+            if (userEmail == null) {
+                log.warn("User email is null after extraction attempt.");
+            } else {
+                log.info("User {} already authenticated, filter passes through.", userEmail);
+            }
         }
 
         // Continue the filter chain
