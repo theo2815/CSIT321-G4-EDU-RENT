@@ -5,24 +5,18 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.edurent.crc.entity.CategoryEntity;
@@ -46,14 +40,8 @@ public class ListingService {
     @Autowired
     private ListingImageRepository listingImageRepository;
 
-    @Value("${supabase.url}")
-    private String supabaseUrl;
-    @Value("${supabase.key}")
-    private String supabaseKey;
-    @Value("${supabase.bucket}")
-    private String bucketName;
-
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     // Centralized list of statuses visible to the public (Dashboard, Browse,
     // Categories)
@@ -62,42 +50,6 @@ public class ListingService {
     // Statuses visible on a user's public profile (Includes Sold history)
     private final List<String> PROFILE_STATUSES = Arrays.asList("Available", "Rented", "Sold", "AVAILABLE", "RENTED",
             "SOLD");
-
-    // --- Helper Methods ---
-
-    private String uploadFileToSupabase(MultipartFile file, String fileName) throws IOException {
-        String storageUrl = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + fileName;
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + supabaseKey);
-        headers.set("apikey", supabaseKey);
-        headers.setContentType(MediaType.valueOf(file.getContentType()));
-
-        HttpEntity<byte[]> requestEntity = new HttpEntity<>(file.getBytes(), headers);
-        restTemplate.exchange(storageUrl, HttpMethod.POST, requestEntity, String.class);
-
-        return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + fileName;
-    }
-
-    private void deleteFileFromSupabase(String imageUrl) {
-        try {
-            String[] parts = imageUrl.split("/" + bucketName + "/");
-            if (parts.length < 2)
-                return;
-
-            String fileName = parts[1];
-            String storageUrl = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + fileName;
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Bearer " + supabaseKey);
-            headers.set("apikey", supabaseKey);
-
-            HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
-            restTemplate.exchange(storageUrl, HttpMethod.DELETE, requestEntity, String.class);
-        } catch (Exception e) {
-            System.err.println("Failed to delete file from Supabase: " + e.getMessage());
-        }
-    }
 
     // --- Core Listing Logic ---
 
@@ -118,7 +70,7 @@ public class ListingService {
 
         // 3. Save Listing First (to get the ID)
         ListingEntity savedListing = listingRepository.save(listing);
-        Long listingId = savedListing.getListingId();
+        // Long listingId = savedListing.getListingId(); // Removed as unused
 
         // 4. Handle Images in Parallel
         if (images != null && !images.isEmpty()) {
@@ -128,16 +80,8 @@ public class ListingService {
                     .filter(img -> !img.isEmpty()) // Skip empty files
                     .map(imageFile -> CompletableFuture.supplyAsync(() -> {
                         try {
-                            // Generate Filename
-                            String originalFilename = imageFile.getOriginalFilename();
-                            // Fallback if filename is null
-                            if (originalFilename == null)
-                                originalFilename = "image.jpg";
-                            String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
-                            String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
-
-                            // Upload to Supabase (The slow part runs here in parallel)
-                            String publicUrl = uploadFileToSupabase(imageFile, uniqueFilename);
+                            // Upload to Cloudinary
+                            String publicUrl = cloudinaryService.uploadImage(imageFile, "listings");
 
                             // Create Entity object (but don't save to DB yet)
                             ListingImageEntity listingImage = new ListingImageEntity();
@@ -206,7 +150,7 @@ public class ListingService {
 
             for (ListingImageEntity image : imagesToRemove) {
                 if (image.getListing().getListingId().equals(listingId)) {
-                    deleteFileFromSupabase(image.getImageUrl());
+                    cloudinaryService.deleteImage(image.getImageUrl());
                     existingListing.getImages().remove(image);
                 }
             }
@@ -222,13 +166,8 @@ public class ListingService {
                     .filter(img -> !img.isEmpty())
                     .map(imageFile -> CompletableFuture.supplyAsync(() -> {
                         try {
-                            String originalFilename = imageFile.getOriginalFilename();
-                            if (originalFilename == null)
-                                originalFilename = "image.jpg";
-                            String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
-                            String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
 
-                            String publicUrl = uploadFileToSupabase(imageFile, uniqueFilename);
+                            String publicUrl = cloudinaryService.uploadImage(imageFile, "listings");
 
                             ListingImageEntity listingImage = new ListingImageEntity();
                             listingImage.setListing(existingListing);
@@ -318,7 +257,7 @@ public class ListingService {
         // Clean up cloud storage before DB deletion
         if (existingListing.getImages() != null) {
             for (ListingImageEntity image : existingListing.getImages()) {
-                deleteFileFromSupabase(image.getImageUrl());
+                cloudinaryService.deleteImage(image.getImageUrl());
             }
         }
         listingRepository.delete(existingListing);

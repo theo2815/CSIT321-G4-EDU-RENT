@@ -62,6 +62,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(authz -> authz
                         // --- Public Endpoints ---
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Allow preflight checks
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/metrics/**").permitAll()

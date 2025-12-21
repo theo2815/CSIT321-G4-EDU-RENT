@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 // Custom hooks for managing auth state, likes, and global UI logic
-import useAuth from '../hooks/useAuth'; 
-import useLikes from '../hooks/useLikes'; 
-import usePageLogic from '../hooks/usePageLogic'; 
+import useAuth from '../hooks/useAuth';
+import useLikes from '../hooks/useLikes';
+import usePageLogic from '../hooks/usePageLogic';
 
 // New Feedback Hook
 import { useToast } from '../context/ToastContext';
@@ -14,14 +14,13 @@ import Header from '../components/Header';
 import defaultAvatar from '../assets/default-avatar.png';
 
 // API & Services
-import { 
-  getCurrentUser, 
+import {
+  getCurrentUser,
   updateUserProfile,
   changePassword,
-  getNotificationPreferences,
   upsertNotificationPreferences,
+  uploadProfilePicture // NEW
 } from '../services/apiService';
-import { supabase } from '../supabaseClient';
 
 // Styles
 import '../static/SettingsPage.css';
@@ -86,21 +85,21 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
     const result = await onSave(e);
     if (result !== false) setEditMode(false);
   };
-  
+
   // Logic to decide which image to display: the new upload, the existing one, or a default
   const getProfileSrc = () => {
     // 1. Show the newly uploaded preview if available
     if (profileData.profilePictureUrl) return profileData.profilePictureUrl;
-    
+
     // 2. Show the existing photo from the database
     if (userData?.profilePictureUrl) {
-        // Check if it's already a full URL (Supabase) or needs the backend host (Local)
-        if (userData.profilePictureUrl.startsWith('http')) {
-            return userData.profilePictureUrl;
-        }
-        return `http://localhost:8080${userData.profilePictureUrl}`;
+      // Check if it's already a full URL (Supabase) or needs the backend host (Local)
+      if (userData.profilePictureUrl.startsWith('http')) {
+        return userData.profilePictureUrl;
+      }
+      return `http://localhost:8080${userData.profilePictureUrl}`;
     }
-    
+
     // 3. Fallback to default
     return defaultAvatar;
   };
@@ -211,92 +210,92 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
 
 // Allows the user to change their password
 function ChangePasswordForm({ userEmail }) {
-    const { showSuccess, showError } = useToast();
-    const [passwords, setPasswords] = useState({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-    });
-    const [loading, setLoading] = useState(false);
+  const { showSuccess, showError } = useToast();
+  const [passwords, setPasswords] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [loading, setLoading] = useState(false);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setPasswords(prev => ({ ...prev, [name]: value }));
-    };
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setPasswords(prev => ({ ...prev, [name]: value }));
+  };
 
-    const validateStrength = (pwd) => {
-      // Basic strength rule: min 8 chars with a number
-      const minLen = pwd.length >= 8;
-      const hasNumber = /\d/.test(pwd);
-      return minLen && hasNumber;
-    };
+  const validateStrength = (pwd) => {
+    // Basic strength rule: min 8 chars with a number
+    const minLen = pwd.length >= 8;
+    const hasNumber = /\d/.test(pwd);
+    return minLen && hasNumber;
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-        if (passwords.newPassword !== passwords.confirmPassword) {
-            showError('New passwords do not match.');
-            return;
-        }
-        if (!validateStrength(passwords.newPassword)) {
-             showError('New password must be at least 8 characters and include a number.');
-             return;
-        }
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      showError('New passwords do not match.');
+      return;
+    }
+    if (!validateStrength(passwords.newPassword)) {
+      showError('New password must be at least 8 characters and include a number.');
+      return;
+    }
 
-        setLoading(true);
-        try {
-          // Delegate to backend: verifies current and updates to new
-          await changePassword(passwords.currentPassword, passwords.newPassword);
-          showSuccess('Password changed successfully!');
-          setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        } catch (err) {
-          console.error('Password change failed:', err);
-          const serverMsg = err?.response?.data?.message;
-          showError(serverMsg || 'Failed to change password.');
-        } finally {
-          setLoading(false);
-        }
-    };
+    setLoading(true);
+    try {
+      // Delegate to backend: verifies current and updates to new
+      await changePassword(passwords.currentPassword, passwords.newPassword);
+      showSuccess('Password changed successfully!');
+      setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      console.error('Password change failed:', err);
+      const serverMsg = err?.response?.data?.message;
+      showError(serverMsg || 'Failed to change password.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return (
-        <section className="settings-card">
-             <h2 className="settings-card-title">Change password</h2>
-             <form onSubmit={handleSubmit} className="password-form-section">
-                <div className="password-input-group">
-                      <div>
-                        <label htmlFor="currentPassword" className="form-label">Current password</label>
-                        <input type="password" id="currentPassword" name="currentPassword" value={passwords.currentPassword} onChange={handleChange} required className="form-input"/>
-                      </div>
-                      <div>
-                        <label htmlFor="newPassword" className="form-label">New password</label>
-                        <input type="password" id="newPassword" name="newPassword" value={passwords.newPassword} onChange={handleChange} required className="form-input"/>
-                        <div className="form-hint" style={{ marginTop: '0.4rem' }}>Use at least 8 characters and include a number.</div>
-                      </div>
-                      <div>
-                        <label htmlFor="confirmPassword" className="form-label">Confirm password</label>
-                        <input type="password" id="confirmPassword" name="confirmPassword" value={passwords.confirmPassword} onChange={handleChange} required className="form-input"/>
-                      </div>
-                </div>
-                
-                <div className="save-button-container">
-                  <button type="submit" className="btn-save" disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-            </form>
-        </section>
-    );
+  return (
+    <section className="settings-card">
+      <h2 className="settings-card-title">Change password</h2>
+      <form onSubmit={handleSubmit} className="password-form-section">
+        <div className="password-input-group">
+          <div>
+            <label htmlFor="currentPassword" className="form-label">Current password</label>
+            <input type="password" id="currentPassword" name="currentPassword" value={passwords.currentPassword} onChange={handleChange} required className="form-input" />
+          </div>
+          <div>
+            <label htmlFor="newPassword" className="form-label">New password</label>
+            <input type="password" id="newPassword" name="newPassword" value={passwords.newPassword} onChange={handleChange} required className="form-input" />
+            <div className="form-hint" style={{ marginTop: '0.4rem' }}>Use at least 8 characters and include a number.</div>
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className="form-label">Confirm password</label>
+            <input type="password" id="confirmPassword" name="confirmPassword" value={passwords.confirmPassword} onChange={handleChange} required className="form-input" />
+          </div>
+        </div>
+
+        <div className="save-button-container">
+          <button type="submit" className="btn-save" disabled={loading}>
+            {loading ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
 }
 
 // Manages notification preferences
 function NotificationSettingsForm({ userId }) {
-    const { showError } = useToast();
-    const [notifications, setNotifications] = useState({
-        all: true,
-        likes: true,
-        messages: true,
-        email: false,
-    });
+  const { showError } = useToast();
+  const [notifications, setNotifications] = useState({
+    all: true,
+    likes: true,
+    messages: true,
+    email: false,
+  });
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -342,66 +341,66 @@ function NotificationSettingsForm({ userId }) {
     }
   };
 
-    const handleToggle = (key) => {
-        setNotifications(prev => {
-            const newState = { ...prev, [key]: !prev[key] };
-            
-            // Logic to sync "All notifications" switch with sub-switches
-            if (key === 'all') {
-                const allValue = newState.all;
-            const next = { all: allValue, likes: allValue, messages: allValue, email: allValue };
-            persist(next);
-            return next;
-            } else {
-                const othersOn = newState.likes && newState.messages && newState.email;
-            const next = { ...newState, all: othersOn };
-            persist(next);
-            return next;
-            }
-        });
-    };
+  const handleToggle = (key) => {
+    setNotifications(prev => {
+      const newState = { ...prev, [key]: !prev[key] };
 
-    return (
-        <section className="settings-card">
-            <h2 className="settings-card-title">Notification</h2>
-            <div className="notification-settings-list">
-                <div className="notification-item">
-                    <span className="notification-label">All notification</span>
-                    <label className="toggle-switch">
-                        <input type="checkbox" checked={notifications.all} onChange={() => handleToggle('all')} disabled={!loaded || saving} />
-                        <span className="toggle-slider"></span>
-                    </label>
-                </div>
-                <div className="notification-item">
-                    <span className="notification-label">Like of my listing</span>
-                    <label className="toggle-switch">
-                        <input type="checkbox" checked={notifications.likes} onChange={() => handleToggle('likes')} disabled={notifications.all || !loaded || saving} />
-                        <span className="toggle-slider"></span>
-                    </label>
-                </div>
-                <div className="notification-item">
-                    <span className="notification-label">Message</span>
-                    <label className="toggle-switch">
-                        <input type="checkbox" checked={notifications.messages} onChange={() => handleToggle('messages')} disabled={notifications.all || !loaded || saving} />
-                        <span className="toggle-slider"></span>
-                    </label>
-                </div>
-                <div className="notification-item">
-                    <span className="notification-label">Email</span>
-                    <label className="toggle-switch">
-                        <input type="checkbox" checked={notifications.email} onChange={() => handleToggle('email')} disabled={notifications.all || !loaded || saving} />
-                        <span className="toggle-slider"></span>
-                    </label>
-                </div>
-                {!loaded && (
-                  <div className="form-hint" style={{ marginTop: '0.5rem' }}>Loading preferences…</div>
-                )}
-                {saving && (
-                  <div className="form-hint" style={{ marginTop: '0.5rem' }}>Saving…</div>
-                )}
-            </div>
-        </section>
-    );
+      // Logic to sync "All notifications" switch with sub-switches
+      if (key === 'all') {
+        const allValue = newState.all;
+        const next = { all: allValue, likes: allValue, messages: allValue, email: allValue };
+        persist(next);
+        return next;
+      } else {
+        const othersOn = newState.likes && newState.messages && newState.email;
+        const next = { ...newState, all: othersOn };
+        persist(next);
+        return next;
+      }
+    });
+  };
+
+  return (
+    <section className="settings-card">
+      <h2 className="settings-card-title">Notification</h2>
+      <div className="notification-settings-list">
+        <div className="notification-item">
+          <span className="notification-label">All notification</span>
+          <label className="toggle-switch">
+            <input type="checkbox" checked={notifications.all} onChange={() => handleToggle('all')} disabled={!loaded || saving} />
+            <span className="toggle-slider"></span>
+          </label>
+        </div>
+        <div className="notification-item">
+          <span className="notification-label">Like of my listing</span>
+          <label className="toggle-switch">
+            <input type="checkbox" checked={notifications.likes} onChange={() => handleToggle('likes')} disabled={notifications.all || !loaded || saving} />
+            <span className="toggle-slider"></span>
+          </label>
+        </div>
+        <div className="notification-item">
+          <span className="notification-label">Message</span>
+          <label className="toggle-switch">
+            <input type="checkbox" checked={notifications.messages} onChange={() => handleToggle('messages')} disabled={notifications.all || !loaded || saving} />
+            <span className="toggle-slider"></span>
+          </label>
+        </div>
+        <div className="notification-item">
+          <span className="notification-label">Email</span>
+          <label className="toggle-switch">
+            <input type="checkbox" checked={notifications.email} onChange={() => handleToggle('email')} disabled={notifications.all || !loaded || saving} />
+            <span className="toggle-slider"></span>
+          </label>
+        </div>
+        {!loaded && (
+          <div className="form-hint" style={{ marginTop: '0.5rem' }}>Loading preferences…</div>
+        )}
+        {saving && (
+          <div className="form-hint" style={{ marginTop: '0.5rem' }}>Saving…</div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 // Allows switching between Light and Dark mode
@@ -418,34 +417,34 @@ function ThemeSettingsForm() {
     setTheme(next);
   };
 
-    return (
-        <section className="settings-card">
-            <h2 className="settings-card-title">Theme</h2>
-            <div className="theme-options-container">
-                <div 
-                    className={`theme-option-box light-theme ${selectedTheme === 'light' ? 'selected' : ''}`}
-                    onClick={() => handleThemeSelect('light')}
-                    role="button" tabIndex={0}
-                >
-                    <div className="theme-preview-header"></div>
-                    <div className="theme-preview-line"></div>
-                    <div className="theme-preview-line short"></div>
-                    <div className="theme-option-label">Light</div>
-                </div>
+  return (
+    <section className="settings-card">
+      <h2 className="settings-card-title">Theme</h2>
+      <div className="theme-options-container">
+        <div
+          className={`theme-option-box light-theme ${selectedTheme === 'light' ? 'selected' : ''}`}
+          onClick={() => handleThemeSelect('light')}
+          role="button" tabIndex={0}
+        >
+          <div className="theme-preview-header"></div>
+          <div className="theme-preview-line"></div>
+          <div className="theme-preview-line short"></div>
+          <div className="theme-option-label">Light</div>
+        </div>
 
-                <div 
-                    className={`theme-option-box dark-theme ${selectedTheme === 'dark' ? 'selected' : ''}`}
-                    onClick={() => handleThemeSelect('dark')}
-                    role="button" tabIndex={0}
-                >
-                    <div className="theme-preview-header"></div>
-                    <div className="theme-preview-line"></div>
-                    <div className="theme-preview-line short"></div>
-                    <div className="theme-option-label">Dark</div>
-                </div>
-            </div>
-        </section>
-    );
+        <div
+          className={`theme-option-box dark-theme ${selectedTheme === 'dark' ? 'selected' : ''}`}
+          onClick={() => handleThemeSelect('dark')}
+          role="button" tabIndex={0}
+        >
+          <div className="theme-preview-header"></div>
+          <div className="theme-preview-line"></div>
+          <div className="theme-preview-line short"></div>
+          <div className="theme-option-label">Dark</div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 // --- MAIN PAGE COMPONENT ---
@@ -476,17 +475,17 @@ export default function SettingsPage() {
 
   // Connect shared logic for notifications
   const likesHook = useLikes();
-  const { 
-    handleNotificationClick, 
-    ModalComponent, 
+  const {
+    handleNotificationClick,
+    ModalComponent,
   } = usePageLogic(userData, likesHook);
 
   // Determine which tab is active based on the URL path
   const activeSetting = (() => {
-      if (location.pathname.includes('/password')) return 'change-password';
-      if (location.pathname.includes('/notifications')) return 'notification';
-      if (location.pathname.includes('/theme')) return 'theme';
-      return 'edit-profile';
+    if (location.pathname.includes('/password')) return 'change-password';
+    if (location.pathname.includes('/notifications')) return 'notification';
+    if (location.pathname.includes('/theme')) return 'theme';
+    return 'edit-profile';
   })();
 
   // Fetch current user details when the page loads
@@ -498,7 +497,7 @@ export default function SettingsPage() {
         const response = await getCurrentUser();
         const fetchedUser = response.data;
         setUserData(fetchedUser);
-        
+
         // Fill the form with existing data
         setProfileData({
           fullName: fetchedUser.fullName || '',
@@ -513,7 +512,7 @@ export default function SettingsPage() {
         console.error("Failed to fetch user data:", err);
         setError("Could not load user data.");
         if (err.message === "No authentication token found.") {
-           navigate('/login');
+          navigate('/login');
         }
       } finally {
         setIsLoading(false);
@@ -527,35 +526,18 @@ export default function SettingsPage() {
     setProfileData(prevData => ({ ...prevData, [name]: value }));
   };
 
-  // Handles uploading the new avatar image to Supabase storage
+  // Handles uploading the new avatar image to Backend (Cloudinary)
   const handleUploadPhoto = async (file) => {
     if (!file || !userData?.userId) return;
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      // Create a unique path for the user's image
-      const path = `${userData.userId}/${Date.now()}.${ext}`;
-
-      // TO DO: Ensure the 'profile-images' bucket exists in Supabase and has public read access
-      const { error: uploadError } = await supabase.storage
-        .from('profile-images') 
-        .upload(path, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('profile-images')
-        .getPublicUrl(path);
-      
-      const publicUrl = data.publicUrl;
+      // Use the new API service method
+      const publicUrl = await uploadProfilePicture(file);
       console.log("New Profile Pic URL:", publicUrl);
 
       // Update the preview immediately
       setProfileData(prev => ({ ...prev, profilePictureUrl: publicUrl }));
-      
+
     } catch (err) {
       console.error('Avatar upload failed:', err);
       showError('Failed to upload profile picture. Please try again.');
@@ -573,7 +555,7 @@ export default function SettingsPage() {
         address: profileData.address,
         bio: profileData.bio,
         phoneNumber: profileData.phoneNumber,
-        profilePictureUrl: profileData.profilePictureUrl 
+        profilePictureUrl: profileData.profilePictureUrl
       };
 
       // 1. Send update to the backend
@@ -594,31 +576,31 @@ export default function SettingsPage() {
     }
   };
 
-  
+
   if (isLoading) {
-      return (
-        <div className="profile-page">
-           <Header userName="" onLogout={logout} />
-           <SettingsSkeleton />
-        </div>
-      );
+    return (
+      <div className="profile-page">
+        <Header userName="" onLogout={logout} />
+        <SettingsSkeleton />
+      </div>
+    );
   }
 
-   if (error) {
-     return (
-       <div className="profile-page">
-          <Header userName="" onLogout={logout} />
-          <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
-       </div>
-     );
+  if (error) {
+    return (
+      <div className="profile-page">
+        <Header userName="" onLogout={logout} />
+        <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>Error: {error}</div>
+      </div>
+    );
   }
 
   return (
     <div className="profile-page">
-      <Header userName={userData?.fullName?.split(' ')[0]} 
+      <Header userName={userData?.fullName?.split(' ')[0]}
         profilePictureUrl={userData?.profilePictureUrl}
-        onLogout={logout} 
-        onNotificationClick={handleNotificationClick} 
+        onLogout={logout}
+        onNotificationClick={handleNotificationClick}
       />
 
       <div className="settings-page">
@@ -646,12 +628,12 @@ export default function SettingsPage() {
         <main className="settings-content">
           {activeSetting === 'edit-profile' && (
             <EditProfileForm
-                userData={userData}
-                profileData={profileData}
-                onChange={handleProfileChange}
-                onSave={handleProfileSave}
-                onPickPhoto={() => fileInputRef.current?.click()}
-                uploading={uploading}
+              userData={userData}
+              profileData={profileData}
+              onChange={handleProfileChange}
+              onSave={handleProfileSave}
+              onPickPhoto={() => fileInputRef.current?.click()}
+              uploading={uploading}
             />
           )}
           {activeSetting === 'change-password' && (
@@ -673,10 +655,10 @@ export default function SettingsPage() {
         accept="image/*"
         ref={fileInputRef}
         onChange={(e) => {
-            if (e.target.files && e.target.files[0]) {
-                handleUploadPhoto(e.target.files[0]);
-            }
-            e.target.value = '';
+          if (e.target.files && e.target.files[0]) {
+            handleUploadPhoto(e.target.files[0]);
+          }
+          e.target.value = '';
         }}
         style={{ display: 'none' }}
       />

@@ -17,7 +17,7 @@ const getAuthToken = () => {
       return JSON.parse(storedData).token;
     } catch (e) {
       console.error("Error parsing stored user data", e);
-      localStorage.removeItem('eduRentUserData'); 
+      localStorage.removeItem('eduRentUserData');
     }
   }
   return null;
@@ -45,7 +45,7 @@ apiClient.interceptors.response.use(
     const status = error?.response?.status;
     if (status === 401) {
       // Optional: clear stale token and redirect
-      localStorage.removeItem('eduRentUserData');
+      // localStorage.removeItem('eduRentUserData'); // Commented out to prevent auto-logout loops during debugging
       // Preserve SPA flow; let caller decide UI message
     }
     return Promise.reject(error);
@@ -57,13 +57,13 @@ apiClient.interceptors.response.use(
 export const registerUser = async (userData) => {
   try {
     const registerData = {
-        fullName: userData.fullName,
-        studentIdNumber: userData.studentIdNumber,
-        email: userData.email,
-        phoneNumber: userData.phoneNumber,
-        address: userData.address,
-        password: userData.passwordHash,
-        schoolId: userData.schoolId
+      fullName: userData.fullName,
+      studentIdNumber: userData.studentIdNumber,
+      email: userData.email,
+      phoneNumber: userData.phoneNumber,
+      address: userData.address,
+      password: userData.passwordHash,
+      schoolId: userData.schoolId
     };
     const response = await apiClient.post(`/auth/register`, registerData);
     return response;
@@ -112,9 +112,9 @@ export const getCurrentUser = async () => {
 
 // Retrieves all listings created by a specific user
 export const getUserListings = (userId, page = 0, size = 10, includeInactive = false) => {
-    return apiClient.get(`/listings/user/${userId}`, {
-        params: { page, size, includeInactive }
-    });
+  return apiClient.get(`/listings/user/${userId}`, {
+    params: { page, size, includeInactive }
+  });
 };
 
 // Gets all reviews received by a specific user
@@ -129,6 +129,23 @@ export const updateUserProfile = async (payload) => {
     return response;
   } catch (error) {
     console.error("Error during updateUserProfile API call:", error.response || error.message);
+    throw error;
+  }
+};
+
+// Uploads a new profile picture
+export const uploadProfilePicture = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiClient.post(`/users/me/image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    // The backend returns the public URL as a plain string
+    return response.data;
+  } catch (error) {
+    console.error("Error uploading profile picture:", error.response || error.message);
     throw error;
   }
 };
@@ -170,7 +187,7 @@ export const getCategoryById = async (id) => {
 export const getListings = async (page = 0, size = 10) => {
   try {
     const response = await apiClient.get(`/listings`, {
-        params: { page, size }
+      params: { page, size }
     });
     return response;
   } catch (error) {
@@ -182,7 +199,7 @@ export const getListings = async (page = 0, size = 10) => {
 export const getListingsByCategoryId = async (categoryId, page = 0, size = 10) => {
   try {
     const response = await apiClient.get(`/listings/category/${categoryId}`, {
-        params: { page, size }
+      params: { page, size }
     });
     return response;
   } catch (error) {
@@ -205,7 +222,7 @@ export const getListingsByType = async (type, page = 0, size = 10) => {
   try {
     // type should be 'rent' or 'sale' to match the Controller logic above
     const response = await apiClient.get(`/listings/type/${type}`, {
-        params: { page, size }
+      params: { page, size }
     });
     return response;
   } catch (error) {
@@ -216,54 +233,54 @@ export const getListingsByType = async (type, page = 0, size = 10) => {
 
 // Creates a new listing. Supports file uploads via FormData.
 export const createListing = async (listingData) => {
-    try {
-      const response = await apiClient.post(`/listings`, listingData, {
-          headers: {
-              // 'Content-Type': 'multipart/form-data', // Browser sets this automatically
-          }
-      });
-      return response;
-    } catch (error) {
-      console.error("Error during createListing API call:", error.response || error.message);
-      throw error;
-    }
+  try {
+    const response = await apiClient.post(`/listings`, listingData, {
+      headers: {
+        // 'Content-Type': 'multipart/form-data', // Browser sets this automatically
+      }
+    });
+    return response;
+  } catch (error) {
+    console.error("Error during createListing API call:", error.response || error.message);
+    throw error;
+  }
 };
 
 // Fetches details for a single listing (used for edit pages and modals)
 export const getListingById = async (listingId) => {
   try {
-      const response = await apiClient.get(`/listings/${listingId}`);
-      return response;
+    const response = await apiClient.get(`/listings/${listingId}`);
+    return response;
   } catch (error) {
-      console.error(`Error during getListingById(${listingId}) API call:`, error.response || error.message);
-      throw error;
+    console.error(`Error during getListingById(${listingId}) API call:`, error.response || error.message);
+    throw error;
   }
 };
 
 // Updates an existing listing, including text fields and images
 export const updateListing = async (listingId, listingData) => {
-    try {
-        const response = await apiClient.put(`/listings/${listingId}`, listingData, {
-           headers: {
-             // 'Content-Type': 'multipart/form-data', 
-           }
-        });
-        return response;
-    } catch (error) {
-        console.error(`Error during updateListing(${listingId}) API call:`, error.response || error.message);
-        throw error;
-    }
+  try {
+    const response = await apiClient.put(`/listings/${listingId}`, listingData, {
+      headers: {
+        // 'Content-Type': 'multipart/form-data', 
+      }
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error during updateListing(${listingId}) API call:`, error.response || error.message);
+    throw error;
+  }
 };
 
 // Permanently removes a listing
 export const deleteListing = async (listingId) => {
-    try {
-        const response = await apiClient.delete(`/listings/${listingId}`);
-        return response;
-    } catch (error) {
-        console.error(`Error during deleteListing(${listingId}) API call:`, error.response || error.message);
-        throw error;
-    }
+  try {
+    const response = await apiClient.delete(`/listings/${listingId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during deleteListing(${listingId}) API call:`, error.response || error.message);
+    throw error;
+  }
 };
 
 // Changes the status of a listing (e.g., to 'Sold' or 'Inactive')
@@ -282,33 +299,33 @@ export const updateListingStatus = async (listingId, status) => {
 // --- Likes / Favorites ---
 
 export const getLikedListings = async () => {
-    try {
-        const response = await apiClient.get('/likes/my-likes');
-        return response;
-    } catch (error) {
-        console.error("Error during getLikedListings API call:", error.response || error.message);
-        throw error;
-    }
+  try {
+    const response = await apiClient.get('/likes/my-likes');
+    return response;
+  } catch (error) {
+    console.error("Error during getLikedListings API call:", error.response || error.message);
+    throw error;
+  }
 };
 
 export const likeListing = async (listingId) => {
-    try {
-        const response = await apiClient.post(`/likes/${listingId}`);
-        return response;
-    } catch (error) {
-        console.error(`Error during likeListing(${listingId}) API call:`, error.response || error.message);
-        throw error;
-    }
+  try {
+    const response = await apiClient.post(`/likes/${listingId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during likeListing(${listingId}) API call:`, error.response || error.message);
+    throw error;
+  }
 };
 
 export const unlikeListing = async (listingId) => {
-    try {
-        const response = await apiClient.delete(`/likes/${listingId}`);
-        return response;
-    } catch (error) {
-        console.error(`Error during unlikeListing(${listingId}) API call:`, error.response || error.message);
-        throw error;
-    }
+  try {
+    const response = await apiClient.delete(`/likes/${listingId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during unlikeListing(${listingId}) API call:`, error.response || error.message);
+    throw error;
+  }
 };
 
 // --- Notifications ---
@@ -449,7 +466,7 @@ export const getConversationsForUser = async (userId) => {
 export const getMessages = async (conversationId, page = 0, size = 20) => {
   try {
     const response = await apiClient.get(`/conversations/${conversationId}/messages`, {
-        params: { page, size }
+      params: { page, size }
     });
     return response;
   } catch (error) {
@@ -459,11 +476,12 @@ export const getMessages = async (conversationId, page = 0, size = 20) => {
 };
 
 export const sendMessage = async (content, conversationId, senderId, attachmentUrl = null) => {
-    try {
-    const response = await apiClient.post(`/conversations/${conversationId}/messages`, 
-      { content,
-        attachmentUrl 
-      }, 
+  try {
+    const response = await apiClient.post(`/conversations/${conversationId}/messages`,
+      {
+        content,
+        attachmentUrl
+      },
       { params: { senderId } }
     );
     return response;
@@ -519,10 +537,10 @@ export const uploadMessageImage = async (conversationId, file) => {
   try {
     const formData = new FormData();
     formData.append('image', file);
-    
+
     const response = await apiClient.post(
-        `/conversations/${conversationId}/messages/upload-image`, 
-        formData
+      `/conversations/${conversationId}/messages/upload-image`,
+      formData
     );
     return response;
   } catch (error) {
@@ -537,7 +555,7 @@ export const uploadMessageImage = async (conversationId, file) => {
 export const createTransaction = async (transactionData) => {
   try {
     const { listingId, buyerId, ...body } = transactionData;
-    
+
     const response = await apiClient.post(`/transactions`, body, {
       params: {
         listingId,
@@ -586,7 +604,7 @@ export const getReviewByTransaction = async (transactionId) => {
   } catch (error) {
     // 404 is valid if no review exists yet
     if (error.response && error.response.status !== 404) {
-        console.error(`Error fetching review for transaction ${transactionId}:`, error);
+      console.error(`Error fetching review for transaction ${transactionId}:`, error);
     }
     throw error;
   }
@@ -597,7 +615,7 @@ export const updateReview = async (reviewId, data) => {
     const formData = new FormData();
     if (data.rating) formData.append('rating', data.rating);
     if (data.comment) formData.append('comment', data.comment);
-    
+
     // Append IDs of images to delete
     if (data.imagesToDelete && data.imagesToDelete.length > 0) {
       data.imagesToDelete.forEach(id => formData.append('imagesToDelete', id));
@@ -609,7 +627,7 @@ export const updateReview = async (reviewId, data) => {
     }
 
     const response = await apiClient.put(`/reviews/${reviewId}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response;
   } catch (error) {
@@ -656,20 +674,20 @@ export const getReviewsFromSellers = async (userId, page = 0, size = 5) => {
 
 // NEW
 export const getTransactionByListing = async (listingId) => {
-    return apiClient.get(`/transactions/listing/${listingId}`);
+  return apiClient.get(`/transactions/listing/${listingId}`);
 };
 
 // NEW
 export const updateRentalDates = async (transactionId, startDate, endDate) => {
-    const formData = new FormData();
-    formData.append('startDate', startDate);
-    formData.append('endDate', endDate);
-    return apiClient.put(`/transactions/${transactionId}/dates`, null, {
-        params: { startDate, endDate }
-    });
+  const formData = new FormData();
+  formData.append('startDate', startDate);
+  formData.append('endDate', endDate);
+  return apiClient.put(`/transactions/${transactionId}/dates`, null, {
+    params: { startDate, endDate }
+  });
 };
 
 // NEW
 export const returnRental = async (transactionId) => {
-    return apiClient.put(`/transactions/${transactionId}/return`);
+  return apiClient.put(`/transactions/${transactionId}/return`);
 };

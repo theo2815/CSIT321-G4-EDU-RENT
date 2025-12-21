@@ -1,20 +1,13 @@
 package com.edurent.crc.service;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
-import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -39,7 +32,7 @@ public class ReviewService {
 
     @Autowired
     private TransactionRepository transactionRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
 
@@ -49,58 +42,16 @@ public class ReviewService {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
-    // --- Supabase Config ---
-    @Value("${supabase.url}") private String supabaseUrl;
-    @Value("${supabase.key}") private String supabaseKey;
-    @Value("${supabase.review-bucket}") private String reviewBucket;
-
-    private final RestTemplate restTemplate = new RestTemplate();
-
-    // --- Upload Helper ---
-    private String uploadImage(MultipartFile file) throws IOException {
-        String filename = "review_" + UUID.randomUUID() + "_" + file.getOriginalFilename().replaceAll("[^a-zA-Z0-9.-]", "_");
-        String storageUrl = supabaseUrl + "/storage/v1/object/" + reviewBucket + "/" + filename;
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + supabaseKey);
-        headers.set("apikey", supabaseKey);
-        headers.setContentType(MediaType.valueOf(file.getContentType()));
-
-        HttpEntity<byte[]> requestEntity = new HttpEntity<>(file.getBytes(), headers);
-        restTemplate.exchange(storageUrl, HttpMethod.POST, requestEntity, String.class);
-
-        return supabaseUrl + "/storage/v1/object/public/" + reviewBucket + "/" + filename;
-    }
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     public List<ReviewEntity> getReviewsForUser(Long userId) {
         return reviewRepository.findWithDetailsByReviewedUserId(userId);
     }
-    
+
     public Optional<ReviewEntity> getReviewByTransactionId(Long transactionId) {
         List<ReviewEntity> reviews = reviewRepository.findAllByTransactionId(transactionId);
         return reviews.stream().findFirst();
-    }
-
-    // --- NEW HELPER: Delete Image from Supabase ---
-    private void deleteFileFromSupabase(String imageUrl) {
-        try {
-            String[] parts = imageUrl.split("/" + reviewBucket + "/");
-            if (parts.length < 2) return; 
-            
-            String fileName = parts[1];
-            String storageUrl = supabaseUrl + "/storage/v1/object/" + reviewBucket + "/" + fileName;
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Bearer " + supabaseKey);
-            headers.set("apikey", supabaseKey);
-
-            HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
-            restTemplate.exchange(storageUrl, HttpMethod.DELETE, requestEntity, String.class);
-            
-            System.out.println("Deleted review image: " + fileName);
-        } catch (Exception e) {
-            System.err.println("Failed to delete file from Supabase: " + e.getMessage());
-        }
     }
 
     // [NEW] Paginated Buyer Reviews
@@ -116,15 +67,20 @@ public class ReviewService {
     }
 
     @Transactional
-    public ReviewEntity createReview(ReviewEntity review, Long transactionId, Long reviewerId, List<MultipartFile> images) throws IOException {
-        boolean exists = reviewRepository.existsByTransaction_TransactionIdAndReviewer_UserId(transactionId, reviewerId);
+    public ReviewEntity createReview(ReviewEntity review, Long transactionId, Long reviewerId,
+            List<MultipartFile> images) throws IOException {
+        if (transactionId == null || reviewerId == null) {
+            throw new IllegalArgumentException("Transaction ID and Reviewer ID must not be null");
+        }
+        boolean exists = reviewRepository.existsByTransaction_TransactionIdAndReviewer_UserId(transactionId,
+                reviewerId);
         if (exists) {
             throw new IllegalStateException("You have already reviewed this transaction.");
         }
-        
+
         TransactionEntity transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction not found: " + transactionId));
-        
+
         UserEntity reviewer = userRepository.findById(reviewerId)
                 .orElseThrow(() -> new RuntimeException("Reviewer not found: " + reviewerId));
 
@@ -145,20 +101,23 @@ public class ReviewService {
         if (images != null && !images.isEmpty()) {
             for (MultipartFile file : images) {
                 if (!file.isEmpty()) {
-                    String publicUrl = uploadImage(file);
+                    String publicUrl = cloudinaryService.uploadImage(file, "reviews");
                     ReviewImageEntity imageEntity = new ReviewImageEntity(publicUrl, review);
                     review.addImage(imageEntity);
                 }
             }
         }
-        
+
         ReviewEntity savedReview = reviewRepository.save(review);
         sendReviewNotification(savedReview, false);
         return savedReview;
     }
 
     @Transactional
-    public ReviewEntity updateReview(Long reviewId, Long userId, Integer rating, String comment, List<Long> imageIdsToDelete, List<MultipartFile> newImages) throws IOException {
+    public ReviewEntity updateReview(Long reviewId, Long userId, Integer rating, String comment,
+            List<Long> imageIdsToDelete, List<MultipartFile> newImages) throws IOException {
+        if (reviewId == null)
+            throw new IllegalArgumentException("Review ID must not be null");
         ReviewEntity review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("Review not found"));
 
@@ -168,19 +127,21 @@ public class ReviewService {
         }
 
         // 1. Update Text Fields
-        if (rating != null) review.setRating(rating);
-        if (comment != null) review.setComment(comment);
+        if (rating != null)
+            review.setRating(rating);
+        if (comment != null)
+            review.setComment(comment);
 
         // 2. Handle Deletions
         if (imageIdsToDelete != null && !imageIdsToDelete.isEmpty()) {
             // Filter images to remove
             List<ReviewImageEntity> toRemove = review.getImages().stream()
-                .filter(img -> imageIdsToDelete.contains(img.getImageId()))
-                .toList();
+                    .filter(img -> imageIdsToDelete.contains(img.getImageId()))
+                    .toList();
 
             for (ReviewImageEntity img : toRemove) {
-                // Delete from Supabase
-                deleteFileFromSupabase(img.getImageUrl());
+                // Delete from Cloudinary
+                cloudinaryService.deleteImage(img.getImageUrl());
                 // Remove from relationship (JPA orphanRemoval will delete from DB)
                 review.getImages().remove(img);
             }
@@ -190,7 +151,7 @@ public class ReviewService {
         if (newImages != null && !newImages.isEmpty()) {
             for (MultipartFile file : newImages) {
                 if (!file.isEmpty()) {
-                    String publicUrl = uploadImage(file);
+                    String publicUrl = cloudinaryService.uploadImage(file, "reviews");
                     ReviewImageEntity imageEntity = new ReviewImageEntity(publicUrl, review);
                     review.addImage(imageEntity);
                 }
@@ -216,17 +177,19 @@ public class ReviewService {
 
             String content;
             if (isEdit) {
-                content = String.format("<strong>%s</strong> edited a review about <strong>%s</strong>. Check it under the Review tab!", 
-                                      reviewer.getFullName(), listingTitle);
+                content = String.format(
+                        "<strong>%s</strong> edited a review about <strong>%s</strong>. Check it under the Review tab!",
+                        reviewer.getFullName(), listingTitle);
             } else {
-                content = String.format("<strong>%s</strong> reviewed you about <strong>%s</strong>", 
-                                      reviewer.getFullName(), listingTitle);
+                content = String.format("<strong>%s</strong> reviewed you about <strong>%s</strong>",
+                        reviewer.getFullName(), listingTitle);
             }
 
             // Stock-Up Logic: Check for existing notification for this specific link
             NotificationEntity notification = notificationRepository
-                .findFirstByTypeAndUser_UserIdAndLinkUrlOrderByCreatedAtDesc("NEW_REVIEW", recipient.getUserId(), linkUrl)
-                .orElse(new NotificationEntity());
+                    .findFirstByTypeAndUser_UserIdAndLinkUrlOrderByCreatedAtDesc("NEW_REVIEW", recipient.getUserId(),
+                            linkUrl)
+                    .orElse(new NotificationEntity());
 
             if (notification.getNotificationId() == null) {
                 notification.setUser(recipient);
@@ -248,6 +211,8 @@ public class ReviewService {
 
     @Transactional
     public void deleteReview(Long reviewId, Long userId) {
+        if (reviewId == null)
+            throw new IllegalArgumentException("Review ID must not be null");
         ReviewEntity review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("Review not found"));
 
@@ -262,7 +227,7 @@ public class ReviewService {
         // 1. Delete actual files from Supabase
         if (review.getImages() != null && !review.getImages().isEmpty()) {
             for (ReviewImageEntity image : review.getImages()) {
-                deleteFileFromSupabase(image.getImageUrl());
+                cloudinaryService.deleteImage(image.getImageUrl());
             }
         }
 
@@ -275,7 +240,7 @@ public class ReviewService {
             UserEntity recipient = review.getReviewedUser();
             UserEntity reviewer = review.getReviewer();
             String listingTitle = review.getTransaction().getListing().getTitle();
-            
+
             // Link to the profile (reviews tab) generally, as the specific review is gone
             String linkUrl = String.format("/profile/%d?tab=reviews", recipient.getUserId());
 
@@ -283,12 +248,12 @@ public class ReviewService {
             notification.setUser(recipient);
             notification.setType("REVIEW_DELETED");
             notification.setLinkUrl(linkUrl);
-            
-            String content = String.format("<strong>%s</strong> deleted a review about <strong>%s</strong>", 
-                                          reviewer.getFullName(), listingTitle);
+
+            String content = String.format("<strong>%s</strong> deleted a review about <strong>%s</strong>",
+                    reviewer.getFullName(), listingTitle);
             notification.setContent(content);
             notification.setCreatedAt(LocalDateTime.now());
-            
+
             NotificationEntity savedNotif = notificationRepository.save(notification);
             messagingTemplate.convertAndSend("/topic/user." + recipient.getUserId(), savedNotif);
         } catch (Exception e) {

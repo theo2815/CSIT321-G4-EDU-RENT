@@ -81,7 +81,7 @@ public class ListingEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
-    // @JsonBackReference(value = "category-listings")
+    @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
     private CategoryEntity category;
 
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)

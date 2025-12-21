@@ -1,8 +1,11 @@
 package com.edurent.crc.service;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -35,9 +38,6 @@ public class UserService {
     private JwtService jwtService;
     @Autowired
     private AuthenticationManager authenticationManager;
-
-    @Autowired
-    private StorageService storageService;
 
     // --- Auth Methods ---
     public AuthResponse registerUser(RegisterRequest request) {
@@ -136,7 +136,7 @@ public class UserService {
 
             // Only delete if there was an old image and the URL has actually changed
             if (oldUrl != null && !oldUrl.isEmpty() && !oldUrl.equals(newUrl)) {
-                storageService.deleteProfileImageAsync(oldUrl);
+                cloudinaryService.deleteImage(oldUrl);
             }
 
             currentUser.setProfilePictureUrl(newUrl);
@@ -158,5 +158,22 @@ public class UserService {
         // update hash
         currentUser.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(currentUser);
+    }
+
+    @Autowired
+    private CloudinaryService cloudinaryService;
+
+    public String uploadProfilePicture(UserEntity user, MultipartFile file) throws IOException {
+        String publicUrl = cloudinaryService.uploadImage(file, "profiles");
+
+        // Delete old image if exists
+        String oldUrl = user.getProfilePictureUrl();
+        if (oldUrl != null && !oldUrl.isEmpty()) {
+            cloudinaryService.deleteImage(oldUrl);
+        }
+
+        user.setProfilePictureUrl(publicUrl);
+        userRepository.save(user);
+        return publicUrl;
     }
 }
