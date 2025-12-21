@@ -37,22 +37,31 @@ import com.edurent.crc.repository.UserRepository;
 @Service
 public class ListingService {
 
-    @Autowired private ListingRepository listingRepository;
-    @Autowired private UserRepository userRepository;
-    @Autowired private CategoryRepository categoryRepository;
-    @Autowired private ListingImageRepository listingImageRepository;
+    @Autowired
+    private ListingRepository listingRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private CategoryRepository categoryRepository;
+    @Autowired
+    private ListingImageRepository listingImageRepository;
 
-    @Value("${supabase.url}") private String supabaseUrl;
-    @Value("${supabase.key}") private String supabaseKey;
-    @Value("${supabase.bucket}") private String bucketName;
+    @Value("${supabase.url}")
+    private String supabaseUrl;
+    @Value("${supabase.key}")
+    private String supabaseKey;
+    @Value("${supabase.bucket}")
+    private String bucketName;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // Centralized list of statuses visible to the public (Dashboard, Browse, Categories)
+    // Centralized list of statuses visible to the public (Dashboard, Browse,
+    // Categories)
     private final List<String> PUBLIC_STATUSES = Arrays.asList("Available", "Rented", "AVAILABLE", "RENTED");
-    
+
     // Statuses visible on a user's public profile (Includes Sold history)
-    private final List<String> PROFILE_STATUSES = Arrays.asList("Available", "Rented", "Sold", "AVAILABLE", "RENTED", "SOLD");
+    private final List<String> PROFILE_STATUSES = Arrays.asList("Available", "Rented", "Sold", "AVAILABLE", "RENTED",
+            "SOLD");
 
     // --- Helper Methods ---
 
@@ -73,8 +82,9 @@ public class ListingService {
     private void deleteFileFromSupabase(String imageUrl) {
         try {
             String[] parts = imageUrl.split("/" + bucketName + "/");
-            if (parts.length < 2) return;
-            
+            if (parts.length < 2)
+                return;
+
             String fileName = parts[1];
             String storageUrl = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + fileName;
 
@@ -92,70 +102,72 @@ public class ListingService {
     // --- Core Listing Logic ---
 
     @Transactional
-public ListingEntity createListingWithImages(ListingEntity listing, Long userId, Long categoryId, List<MultipartFile> images) throws IOException {
-    // 1. Fetch User and Category
-    UserEntity user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found: " + userId));
-    CategoryEntity category = categoryRepository.findById(categoryId)
-            .orElseThrow(() -> new RuntimeException("Category not found: " + categoryId));
+    public ListingEntity createListingWithImages(ListingEntity listing, Long userId, Long categoryId,
+            List<MultipartFile> images) throws IOException {
+        // 1. Fetch User and Category
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+        CategoryEntity category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new RuntimeException("Category not found: " + categoryId));
 
-    // 2. Setup Listing Details
-    listing.setUser(user);
-    listing.setCategory(category);
-    listing.setCreatedAt(LocalDateTime.now());
-    listing.setStatus("Available"); 
+        // 2. Setup Listing Details
+        listing.setUser(user);
+        listing.setCategory(category);
+        listing.setCreatedAt(LocalDateTime.now());
+        listing.setStatus("Available");
 
-    // 3. Save Listing First (to get the ID)
-    ListingEntity savedListing = listingRepository.save(listing);
-    Long listingId = savedListing.getListingId();
+        // 3. Save Listing First (to get the ID)
+        ListingEntity savedListing = listingRepository.save(listing);
+        Long listingId = savedListing.getListingId();
 
-    // 4. Handle Images in Parallel
-    if (images != null && !images.isEmpty()) {
-        
-        // Create a list of async tasks (Futures)
-        List<CompletableFuture<ListingImageEntity>> uploadFutures = images.stream()
-            .filter(img -> !img.isEmpty()) // Skip empty files
-            .map(imageFile -> CompletableFuture.supplyAsync(() -> {
-                try {
-                    // Generate Filename
-                    String originalFilename = imageFile.getOriginalFilename();
-                    // Fallback if filename is null
-                    if (originalFilename == null) originalFilename = "image.jpg"; 
-                    String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
-                    String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
+        // 4. Handle Images in Parallel
+        if (images != null && !images.isEmpty()) {
 
-                    // Upload to Supabase (The slow part runs here in parallel)
-                    String publicUrl = uploadFileToSupabase(imageFile, uniqueFilename);
+            // Create a list of async tasks (Futures)
+            List<CompletableFuture<ListingImageEntity>> uploadFutures = images.stream()
+                    .filter(img -> !img.isEmpty()) // Skip empty files
+                    .map(imageFile -> CompletableFuture.supplyAsync(() -> {
+                        try {
+                            // Generate Filename
+                            String originalFilename = imageFile.getOriginalFilename();
+                            // Fallback if filename is null
+                            if (originalFilename == null)
+                                originalFilename = "image.jpg";
+                            String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
+                            String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
 
-                    // Create Entity object (but don't save to DB yet)
-                    ListingImageEntity listingImage = new ListingImageEntity();
-                    listingImage.setListing(savedListing);
-                    listingImage.setImageUrl(publicUrl);
-                    listingImage.setCoverPhoto(false); // Default false, we set true later
-                    
-                    return listingImage;
-                } catch (IOException e) {
-                    throw new RuntimeException("Image upload failed", e);
-                }
-            }))
-            .collect(Collectors.toList());
+                            // Upload to Supabase (The slow part runs here in parallel)
+                            String publicUrl = uploadFileToSupabase(imageFile, uniqueFilename);
 
-        // Wait for ALL uploads to finish and collect results
-        List<ListingImageEntity> listingImages = uploadFutures.stream()
-            .map(CompletableFuture::join) // This waits for the threads to finish
-            .collect(Collectors.toList());
+                            // Create Entity object (but don't save to DB yet)
+                            ListingImageEntity listingImage = new ListingImageEntity();
+                            listingImage.setListing(savedListing);
+                            listingImage.setImageUrl(publicUrl);
+                            listingImage.setCoverPhoto(false); // Default false, we set true later
 
-        // Set the first image as Cover Photo
-        if (!listingImages.isEmpty()) {
-            listingImages.get(0).setCoverPhoto(true);
+                            return listingImage;
+                        } catch (IOException e) {
+                            throw new RuntimeException("Image upload failed", e);
+                        }
+                    }))
+                    .collect(Collectors.toList());
+
+            // Wait for ALL uploads to finish and collect results
+            List<ListingImageEntity> listingImages = uploadFutures.stream()
+                    .map(CompletableFuture::join) // This waits for the threads to finish
+                    .collect(Collectors.toList());
+
+            // Set the first image as Cover Photo
+            if (!listingImages.isEmpty()) {
+                listingImages.get(0).setCoverPhoto(true);
+            }
+
+            // Save all image records to the database in one batch
+            listingImageRepository.saveAll(listingImages);
         }
 
-        // Save all image records to the database in one batch
-        listingImageRepository.saveAll(listingImages);
+        return savedListing;
     }
-
-    return savedListing; 
-}
 
     @Transactional
     public ListingEntity updateListing(
@@ -163,10 +175,9 @@ public ListingEntity createListingWithImages(ListingEntity listing, Long userId,
             Long currentUserId,
             Long categoryId,
             ListingEntity updateData,
-            List<Long> imagesToDelete, 
-            List<MultipartFile> newImages
-    ) throws IOException {
-        
+            List<Long> imagesToDelete,
+            List<MultipartFile> newImages) throws IOException {
+
         ListingEntity existingListing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
 
@@ -192,7 +203,7 @@ public ListingEntity createListingWithImages(ListingEntity listing, Long userId,
         // Handle image deletions
         if (imagesToDelete != null && !imagesToDelete.isEmpty()) {
             List<ListingImageEntity> imagesToRemove = listingImageRepository.findAllById(imagesToDelete);
-            
+
             for (ListingImageEntity image : imagesToRemove) {
                 if (image.getListing().getListingId().equals(listingId)) {
                     deleteFileFromSupabase(image.getImageUrl());
@@ -202,37 +213,56 @@ public ListingEntity createListingWithImages(ListingEntity listing, Long userId,
             listingImageRepository.deleteAll(imagesToRemove);
         }
 
-        // Handle new image uploads
         if (newImages != null && !newImages.isEmpty()) {
             boolean needsNewCover = existingListing.getImages().stream().noneMatch(ListingImageEntity::isCoverPhoto);
+            final boolean finalNeedsNewCover = needsNewCover; // For lambda access
 
-            for (MultipartFile imageFile : newImages) {
-                if (!imageFile.isEmpty()) {
-                    String originalFilename = imageFile.getOriginalFilename();
-                    String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
-                    String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
+            // Create parallel upload tasks
+            List<CompletableFuture<ListingImageEntity>> uploadFutures = newImages.stream()
+                    .filter(img -> !img.isEmpty())
+                    .map(imageFile -> CompletableFuture.supplyAsync(() -> {
+                        try {
+                            String originalFilename = imageFile.getOriginalFilename();
+                            if (originalFilename == null)
+                                originalFilename = "image.jpg";
+                            String safeFilename = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
+                            String uniqueFilename = listingId + "_" + UUID.randomUUID().toString() + "_" + safeFilename;
 
-                    String publicUrl = uploadFileToSupabase(imageFile, uniqueFilename);
+                            String publicUrl = uploadFileToSupabase(imageFile, uniqueFilename);
 
-                    ListingImageEntity listingImage = new ListingImageEntity();
-                    listingImage.setListing(existingListing);
-                    listingImage.setImageUrl(publicUrl);
-                    
-                    if (needsNewCover) {
-                        listingImage.setCoverPhoto(true);
-                        needsNewCover = false;
-                    } else {
-                        listingImage.setCoverPhoto(false);
-                    }
-                    
-                    existingListing.getImages().add(listingImage);
+                            ListingImageEntity listingImage = new ListingImageEntity();
+                            listingImage.setListing(existingListing);
+                            listingImage.setImageUrl(publicUrl);
+                            listingImage.setCoverPhoto(false); // We handle this after collecting
+
+                            return listingImage;
+                        } catch (IOException e) {
+                            throw new RuntimeException("Image upload failed", e);
+                        }
+                    }))
+                    .collect(Collectors.toList());
+
+            // Wait for all
+            List<ListingImageEntity> uploadedImages = uploadFutures.stream()
+                    .map(CompletableFuture::join)
+                    .collect(Collectors.toList());
+
+            // Set cover photo logic
+            boolean setCoverForBatch = false;
+            for (ListingImageEntity img : uploadedImages) {
+                if (finalNeedsNewCover && !setCoverForBatch) {
+                    img.setCoverPhoto(true);
+                    setCoverForBatch = true; // Only set one from the new batch
+                } else {
+                    img.setCoverPhoto(false);
                 }
+                existingListing.getImages().add(img);
             }
         }
-        
+
         // Ensure there is always a cover photo if images exist
-        if (!existingListing.getImages().isEmpty() && 
-             existingListing.getImages().stream().noneMatch(ListingImageEntity::isCoverPhoto)) {
+        if (!existingListing.getImages().isEmpty() &&
+                existingListing.getImages().stream().noneMatch(ListingImageEntity::isCoverPhoto)) {
             existingListing.getImages().iterator().next().setCoverPhoto(true);
         }
 
@@ -241,30 +271,30 @@ public ListingEntity createListingWithImages(ListingEntity listing, Long userId,
 
     // --- Data Retrieval Methods ---
 
-    public Page<ListingEntity> getAllListings(int page, int size) { 
+    public Page<ListingEntity> getAllListings(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         // Only return visible statuses to the public feed
         return listingRepository.findByStatusIn(PUBLIC_STATUSES, pageable);
     }
 
-    public Optional<ListingEntity> getListingById(Long listingId) { 
-        return listingRepository.findById(listingId); 
+    public Optional<ListingEntity> getListingById(Long listingId) {
+        return listingRepository.findById(listingId);
     }
 
     // Fetches listings for a specific user.
     // If includeInactive is true, returns EVERYTHING (for "Manage Listings").
     // If false, returns only PUBLIC items (for public profile view).
-    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size, boolean includeInactive) { 
+    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size, boolean includeInactive) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        
+
         if (includeInactive) {
-            return listingRepository.findByUser_UserId(userId, pageable); 
+            return listingRepository.findByUserId(userId, pageable);
         } else {
             return listingRepository.findByUser_UserIdAndStatusIn(userId, PROFILE_STATUSES, pageable);
         }
     }
 
-    public Page<ListingEntity> getListingsByCategoryId(Long categoryId, int page, int size) { 
+    public Page<ListingEntity> getListingsByCategoryId(Long categoryId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return listingRepository.findByCategory_CategoryIdAndStatusIn(categoryId, PUBLIC_STATUSES, pageable);
     }
@@ -280,7 +310,7 @@ public ListingEntity createListingWithImages(ListingEntity listing, Long userId,
     public void deleteListing(Long listingId, Long currentUserId) {
         ListingEntity existingListing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
-        
+
         if (!existingListing.getUser().getUserId().equals(currentUserId)) {
             throw new AccessDeniedException("User does not have permission to delete this listing.");
         }

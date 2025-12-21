@@ -33,7 +33,8 @@ public class UserController {
     // Example endpoint to get the currently authenticated user
     @GetMapping("/me")
     public ResponseEntity<UserEntity> getMyProfile(Authentication authentication) {
-        // Spring Security, via the JwtAuthFilter, places the UserEntity in the 'principal'
+        // Spring Security, via the JwtAuthFilter, places the UserEntity in the
+        // 'principal'
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         return ResponseEntity.ok(currentUser);
     }
@@ -45,17 +46,28 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
-    // Get User by ID
+    // Get User by ID (Public Profile - Returns DTO to hide sensitive info)
     @GetMapping("/{id}")
-    public ResponseEntity<UserEntity> getUserById(@PathVariable Long id) {
+    public ResponseEntity<com.edurent.crc.dto.UserDTO> getUserById(@PathVariable Long id) {
         return userService.getUserById(id)
+                .map(user -> new com.edurent.crc.dto.UserDTO(
+                        user.getUserId(),
+                        user.getFullName(),
+                        user.getProfilePictureUrl()))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Delete User by ID
+    // Delete User by ID (Secured: Users can only delete their own account)
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
+        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+
+        if (!currentUser.getUserId().equals(id)) {
+            // Log this security event if you have a logger
+            return ResponseEntity.status(403).build();
+        }
+
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
@@ -63,10 +75,9 @@ public class UserController {
     // Update Current User Profile
     @PutMapping("/me")
     public ResponseEntity<UserEntity> updateMyProfile(Authentication authentication,
-                                                      @RequestBody UpdateUserRequest request) {
+            @RequestBody UpdateUserRequest request) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         UserEntity updated = userService.updateCurrentUser(currentUser, request);
         return ResponseEntity.ok(updated);
     }
 }
-

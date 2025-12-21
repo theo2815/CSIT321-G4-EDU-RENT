@@ -23,10 +23,9 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
-
 @Entity
 @Table(name = "listings")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class ListingEntity {
 
     @Id
@@ -74,18 +73,18 @@ public class ListingEntity {
     private LocalDateTime updatedAt;
 
     // --- Relationships ---
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     // @JsonBackReference(value = "user-listings")
-    @JsonIgnoreProperties({"listings", "hibernateLazyInitializer", "handler"}) 
+    @JsonIgnoreProperties({ "listings", "hibernateLazyInitializer", "handler" })
     private UserEntity user;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     // @JsonBackReference(value = "category-listings")
     private CategoryEntity category;
 
-    @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true) 
+    @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @JsonManagedReference(value = "listing-images")
     private Set<ListingImageEntity> images;
 
@@ -100,7 +99,6 @@ public class ListingEntity {
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<ConversationEntity> conversations;
-
 
     // Constructors
     public ListingEntity() {
@@ -270,8 +268,10 @@ public class ListingEntity {
     // equals, hashCode, toString (excluding relationships)
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         ListingEntity that = (ListingEntity) o;
         return Objects.equals(listingId, that.listingId);
     }
@@ -296,4 +296,3 @@ public class ListingEntity {
         updatedAt = LocalDateTime.now();
     }
 }
-

@@ -23,7 +23,7 @@ import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "conversations")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class ConversationEntity {
 
     @Id
@@ -32,18 +32,18 @@ public class ConversationEntity {
     private Long conversationId;
 
     // --- Relationships ---
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "listing_id", nullable = true)
-    //@JsonIgnoreProperties("conversations")
-    @JsonIgnoreProperties({"conversations", "hibernateLazyInitializer", "handler"})
+    // @JsonIgnoreProperties("conversations")
+    @JsonIgnoreProperties({ "conversations", "hibernateLazyInitializer", "handler" })
     private ListingEntity listing;
 
-    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference(value = "conversation-participants")
     private Set<ConversationParticipantEntity> participants;
 
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonIgnore 
+    @JsonIgnore
     private Set<MessageEntity> messages;
 
     // --- NEW: Transient fields for frontend display ---
@@ -107,6 +107,7 @@ public class ConversationEntity {
     public void setIsUnread(boolean isUnread) {
         this.isUnread = isUnread;
     }
+
     public String getLastMessageContent() {
         return lastMessageContent;
     }
@@ -135,8 +136,10 @@ public class ConversationEntity {
     // equals, hashCode, toString (excluding relationships)
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         ConversationEntity that = (ConversationEntity) o;
         return Objects.equals(conversationId, that.conversationId);
     }
@@ -153,4 +156,3 @@ public class ConversationEntity {
                 '}';
     }
 }
-
