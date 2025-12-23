@@ -50,7 +50,7 @@ export default function ForSalePage() {
   // Likes and Page Logic
   const likesHook = useLikes();
   const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
-  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook); 
+  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook, listings); 
 
   // Fetches "Sale" type listings from the server
   const fetchData = useCallback(async (page = 0, isLoadMore = false) => {

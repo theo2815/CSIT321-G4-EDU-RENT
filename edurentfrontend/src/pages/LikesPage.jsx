@@ -50,7 +50,7 @@ export default function LikesPage() {
     openModal,
     handleNotificationClick, 
     ModalComponent 
-  } = usePageLogic(userData, likesHook); 
+  } = usePageLogic(userData, likesHook, likedListings); 
 
   // Consolidate loading and error flags from different sources
   const isPageLoading = isLoadingAuth || isLoadingLikes;

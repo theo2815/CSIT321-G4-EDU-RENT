@@ -1,6 +1,7 @@
 // This Component provides a modal for creating or editing reviews, including image uploads
 import React, { useState, useRef, useEffect } from 'react';
 import { createReview, updateReview } from '../services/apiService';
+import LoadingOverlay from './LoadingOverlay';
 import '../static/ProductDetailModal.css';
 
 // New Feedback Hook
@@ -243,6 +244,7 @@ export default function ReviewModal({
           </button>
         </form>
       </div>
+      <LoadingOverlay isVisible={isSubmitting} message={isEditMode ? "Updating Review..." : "Submitting Review..."} />
     </div>
   );
 }

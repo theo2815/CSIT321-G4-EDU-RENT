@@ -1,24 +1,7 @@
 /* src/static/DashboardPage.css */
 
 /* --- 1. Variables & Theme Configuration --- */
-:root {
-  /* Core Brand Colors */
-  --primary-color: #0077B6;
-  --secondary-color: #90E0EF;
-  --accent-color: #00B4D8;
-  
-  /* Backgrounds & Text */
-  --bg-color: #F8F9FA;
-  --bg-card: #FFFFFF;
-  --text-color: #212529;
-  --text-muted: #6C757D;
-  --border-color: #DEE2E6;
-
-  /* Card Physics (New modern look) */
-  --card-radius: 12px;
-  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --card-border: 1px solid rgba(229, 231, 235, 1);
-}
+/* --- Variables inherited from index.css --- */
 
 /* --- 2. Main Page Layout --- */
 .dashboard-page {

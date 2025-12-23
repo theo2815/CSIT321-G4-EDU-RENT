@@ -11,25 +11,7 @@
  */
 
 /* --- 1. Color Palette & Base Setup --- */
-:root {
-  --primary-color: #0077B6;   /* Deep Blue */
-  --primary-color-dark: #005a86; /* Darker blue for gradients */
-  --secondary-color: #90E0EF; /* Light Cyan */
-  --secondary-color-strong: #58C3DB; /* Stronger for focus ring */
-  --accent-color: #00B4D8;    /* Aqua */
-  --bg-color: #F8F9FA;        /* Neutral Light Gray */
-  --text-color: #212529;    /* Almost Black */
-  --text-muted: #6C757D;     /* Muted text */
-  --bg-light: #FFFFFF;        /* Pure White (for cards) */
-  --border-color: #CED4DA;   /* Light gray for borders */
-  --error-color: #DC3545;    /* Semantic red */
-  --success-bg: #E3F8FA;     /* Success tint */
-  --success-border: var(--accent-color);
-  --success-text: #005F73;
-  --info-bg: #E7F1FA;       /* Light blue tint */
-  --info-text: #004A7C;     /* Dark blue text */
-  --info-border: #B8D6F0;   /* Light blue border */
-}
+/* Variables inherited from index.css */
 
 /* Base styles */
 body {
@@ -71,7 +53,7 @@ body {
   justify-content: center;
   align-items: center;
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%);
-  color: var(--bg-light);
+  color: #ffffff;
   padding: 3rem;
   text-align: center;
   position: relative;
@@ -107,7 +89,7 @@ body {
 .auth-branding-text {
   font-size: 2rem;
   font-weight: 700;
-  color: var(--bg-light);
+  color: #ffffff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
   letter-spacing: 0.05em;
 }

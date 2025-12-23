@@ -140,7 +140,7 @@
 .btn-primary-accent {
   /* Use Accent for primary actions */
   background-color: var(--accent-color);
-  color: var(--bg-light);
+  color: white;
 }
 
 .btn-primary-accent:hover {
@@ -160,7 +160,7 @@
   text-decoration: none;
   display: inline-block;
   background-color: var(--accent-color);
-  color: var(--bg-light);
+  color: white;
 }
 
 .sell-button:hover {

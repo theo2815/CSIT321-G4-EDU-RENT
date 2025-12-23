@@ -292,7 +292,8 @@ export default function ProfilePage() {
   const { userData: loggedInUser, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
   const likesHook = useLikes();
   const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
-  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(loggedInUser, likesHook);
+
+  // usePageLogic moved down to access originalListings
 
   // Initialize feedback tools
   const { showSuccess, showError } = useToast();
@@ -301,6 +302,8 @@ export default function ProfilePage() {
   // Local Data State
   const [profileUser, setProfileUser] = useState(null); 
   const [originalListings, setOriginalListings] = useState([]); 
+
+  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(loggedInUser, likesHook, originalListings); 
   
   // Split Review State: Separates reviews received as Seller from reviews received as Buyer
   const [buyerReviews, setBuyerReviews] = useState([]); // Reviews from Buyers (User is Seller)

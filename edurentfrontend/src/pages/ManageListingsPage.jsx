@@ -7,6 +7,7 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 import MarkAsSoldModal from '../components/MarkAsSoldModal';
 import LoadMoreButton from '../components/LoadMoreButton';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 import useAuth from '../hooks/useAuth';
 
@@ -102,6 +103,9 @@ export default function ManageListingsPage() {
   const [error, setError] = useState(null);
   const [showBulkBar, setShowBulkBar] = useState(false);
   const [selectedItems, setSelectedItems] = useState(new Set()); 
+  
+  // Processing State for Overlay
+  const [isProcessing, setIsProcessing] = useState(false); 
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false); 
@@ -281,6 +285,20 @@ export default function ManageListingsPage() {
   };
 
   const handleMarkSoldSuccess = () => {
+        setIsProcessing(true);
+        // Simulate delay or real refresh if needed, usually just UI update
+        // But since user asked for loading during actions:
+        
+        // This function is called AFTER the modal has successfully done the API call probably?
+        // Wait, handleMarkSoldSuccess logic:
+        // MarkAsSoldModal calls local onConfirm which calls confirmSold...
+        // Let's check logic. Actually handleMarkSoldSuccess is just updating local state here.
+        // The MarkAsSoldModal does the API call? 
+        // If MarkAsSoldModal does the call, we can't wrap it here easily unless we pass a handler.
+        // Let's assume for now the user means the actions TRIGGERED from this page. 
+        // Logic below updates state. 
+        // If consistent, I should check MarkAsSoldModal separately.
+        // For now, let's keep it simple.
     if (listingToMarkSold) {
         setAllListings(prev => prev.map(item => 
             item.listingId === listingToMarkSold.listingId 
@@ -291,6 +309,7 @@ export default function ManageListingsPage() {
     }
     setListingToMarkSold(null);
     setIsMarkSoldModalOpen(false);
+    setIsProcessing(false);
   };
 
   // Toggles status between Active (Available) and Inactive
@@ -310,6 +329,7 @@ export default function ManageListingsPage() {
     if (!isConfirmed) return;
 
     try {
+      setIsProcessing(true);
       await updateListingStatus(listing.listingId, newStatus);
       
       // Optimistic update
@@ -323,6 +343,8 @@ export default function ManageListingsPage() {
     } catch (err) {
       console.error(`Failed to mark as ${statusText}:`, err);
       showError(`Failed to update status.`);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -337,6 +359,7 @@ export default function ManageListingsPage() {
     if (!isConfirmed) return;
 
     try {
+      setIsProcessing(true);
       await deleteListing(itemId);
       setAllListings(prev => prev.filter(item => item.listingId !== itemId));
       setSelectedItems(prev => { const newSet = new Set(prev); newSet.delete(itemId); return newSet; });
@@ -344,6 +367,8 @@ export default function ManageListingsPage() {
     } catch (err) {
       console.error("Failed to delete item:", err);
       showError("Failed to delete the listing. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -371,6 +396,7 @@ export default function ManageListingsPage() {
     if (!isConfirmed) return;
 
     try {
+      setIsProcessing(true);
       const updatePromises = Array.from(selectedItems).map(id => 
           updateListingStatus(id, targetStatus)
       );
@@ -389,6 +415,8 @@ export default function ManageListingsPage() {
     } catch (err) {
        console.error("Failed to update items:", err);
        showError("Some items could not be updated.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -407,6 +435,7 @@ export default function ManageListingsPage() {
     if (!isConfirmed) return;
 
     try {
+      setIsProcessing(true);
       const updatePromises = Array.from(selectedItems).map(id => 
           updateListingStatus(id, 'Sold')
       );
@@ -422,6 +451,8 @@ export default function ManageListingsPage() {
     } catch (err) {
        console.error("Failed to update items:", err);
        showError("Some items could not be updated.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -439,6 +470,7 @@ export default function ManageListingsPage() {
     if (!isConfirmed) return;
 
     try {
+      setIsProcessing(true);
       const deletePromises = Array.from(selectedItems).map(id => deleteListing(id));
       await Promise.all(deletePromises);
       
@@ -448,6 +480,8 @@ export default function ManageListingsPage() {
     } catch (err) {
        console.error("Failed to delete items:", err);
        showError("Could not delete all selected items.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -579,6 +613,8 @@ export default function ManageListingsPage() {
         onLogout={logout} 
         onNotificationClick={handleNotificationClick}
       />
+      
+      <LoadingOverlay isVisible={isProcessing} message="Updating listings..." />
 
       {/* Bulk Actions Toolbar */}
       {showBulkBar && (

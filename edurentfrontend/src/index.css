@@ -8,6 +8,15 @@
   --primary-color: #0077B6;
   --secondary-color: #90E0EF;
   --accent-color: #00B4D8;
+  --primary-color-dark: #005a86; /* Darker blue for gradients */
+  --secondary-color-strong: #58C3DB; /* Stronger for focus ring */
+  --error-color: #DC3545;    /* Semantic red */
+  --success-bg: #E3F8FA;     /* Success tint */
+  --success-border: var(--accent-color);
+  --success-text: #005F73;
+  --info-bg: #E7F1FA;       /* Light blue tint */
+  --info-text: #004A7C;     /* Dark blue text */
+  --info-border: #B8D6F0;   /* Light blue border */
   
   /* Modernized Neutrals */
   --bg-color: #F9FAFB;        /* Slightly warmer/softer gray for page background */
@@ -30,6 +39,16 @@
   --primary-color: #58a6ff;
   --secondary-color: #79c0ff;
   --accent-color: #1f6feb;
+  
+  --primary-color-dark: #1f407a; /* Darker blue for dark mode gradients */
+  --secondary-color-strong: #388bfd;
+  --error-color: #f85149;
+  --success-bg: rgba(46, 160, 67, 0.15);
+  --success-border: rgba(46, 160, 67, 0.4);
+  --success-text: #3fb950;
+  --info-bg: rgba(56, 139, 253, 0.15);
+  --info-text: #58a6ff;
+  --info-border: rgba(56, 139, 253, 0.4);
   
   --bg-color: #0D1117;
   --bg-card: #161B22;

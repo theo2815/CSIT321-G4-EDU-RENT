@@ -6,7 +6,7 @@ import { getListingById, getUserReviews, getConversationsForUser } from '../serv
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 
-export default function usePageLogic(userData, likeData = null) {
+export default function usePageLogic(userData, likeData = null, availableListings = []) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -163,7 +163,7 @@ export default function usePageLogic(userData, likeData = null) {
     }
   }, [handleOpenListing]);
 
-  // Handles notification clicks by extracting listing ID and opening the modal
+// Handles notification clicks by extracting listing ID and opening the modal
   const handleNotificationClick = useCallback(async (notification) => {
     if (!notification.linkUrl) return;
 
@@ -200,12 +200,19 @@ export default function usePageLogic(userData, likeData = null) {
             return;
         }
 
-        handleOpenListing(listingId, { initialReviewAction: shouldReview });
+        // Try to find the listing in the already loaded data (availableListings)
+        // This makes the modal open instantly if the user is on a page where the item exists
+        let cachedListing = null;
+        if (availableListings && availableListings.length > 0) {
+            cachedListing = availableListings.find(l => l.listingId === listingId);
+        }
+
+        handleOpenListing(listingId, { initialReviewAction: shouldReview }, cachedListing);
     } catch (e) {
         console.error("Error parsing notification URL:", e);
         navigate(notification.linkUrl);
     }
-  }, [handleOpenListing, navigate]);
+  }, [handleOpenListing, navigate, availableListings]);
 
   // --- 3. Render Helper ---
   
@@ -240,7 +247,8 @@ export default function usePageLogic(userData, likeData = null) {
       likingInProgress,
       isModalLoading,
       sellerRatingData,
-      modalContext
+      modalContext,
+      isContextLoading
   ]);
 
   return {

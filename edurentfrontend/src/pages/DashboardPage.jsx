@@ -111,7 +111,7 @@ export default function DashboardPage() {
     openModal,
     handleNotificationClick, 
     ModalComponent
-  } = usePageLogic(userData, likesHook); 
+  } = usePageLogic(userData, likesHook, allListings); 
   
   const navigate = useNavigate(); 
 

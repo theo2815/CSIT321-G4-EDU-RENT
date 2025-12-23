@@ -172,7 +172,7 @@ export default function BrowsePage() {
     openModal,
     handleNotificationClick, 
     ModalComponent
-  } = usePageLogic(userData, likesHook);
+  } = usePageLogic(userData, likesHook, [...(saleListings || []), ...(rentListings || [])]);
 
   // Check if any part of the page is still loading (initial load only)
   const isPageLoading = isLoadingAuth || (isLoadingSale || isLoadingRent) || isLoadingLikes;

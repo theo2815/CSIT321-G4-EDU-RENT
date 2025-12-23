@@ -9,7 +9,7 @@
 /* Disable hover effect for read-only inputs */
 .form-input.readonly,
 .form-input[readonly] {
-  background: #f7f7f7;
+  background: var(--bg-color);
   cursor: default;
 }
 .form-input.readonly:hover,
@@ -105,7 +105,7 @@
 
 .settings-nav-item a:hover {
 
-  background-color: #f8f9fa;
+  background-color: var(--bg-card);
 
   color: var(--text-color);
 
@@ -119,7 +119,7 @@
 
   font-weight: 600;
 
-  background-color: #f0f0f0; /* Light gray background for selected */
+  background-color: var(--bg-card); /* Light gray background for selected */
 
   border-bottom-color: var(--primary-color); /* MODIFIED: Blue indicator on bottom */
 
@@ -479,7 +479,7 @@
 
 .form-input.readonly {
 
-  background-color: #f4f4f5; /* A light gray background */
+  background-color: var(--bg-color); /* A light gray background */
 
   cursor: not-allowed;
 
@@ -661,7 +661,7 @@
 
   bottom: 0;
 
-  background-color: #e4e4e7;
+  background-color: var(--border-color);
 
   transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 

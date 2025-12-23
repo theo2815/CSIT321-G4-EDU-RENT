@@ -5,6 +5,7 @@ import { startConversation, getTransactionByListing, updateRentalDates, returnRe
 import MarkAsSoldModal from './MarkAsSoldModal';
 import ReviewModal from './ReviewModal';
 import UserRatingDisplay from './UserRatingDisplay';
+import LoadingOverlay from './LoadingOverlay';
 
 import { useAuthModal } from '../context/AuthModalContext';
 
@@ -149,24 +150,36 @@ export default function ProductDetailModal({
   const [showMarkSoldModal, setShowMarkSoldModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false); 
   
+  // Local listing state to support live updates without page reload
+  const [currentListing, setCurrentListing] = useState(listing);
+
+  // Update local state if prop changes (e.g. parent re-renders)
+  useEffect(() => {
+    setCurrentListing(listing);
+  }, [listing]); 
+  
   // New state for managing active rental transactions
   const [showEditDatesModal, setShowEditDatesModal] = useState(false);
   const [activeTransaction, setActiveTransaction] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Status checks
-  const isSold = listing.status === 'Sold';
-  const isRented = listing.status === 'Rented';
-  const isOwner = currentUserId && currentUserId === listing?.user?.userId;
-  const seller = getSellerInfo(listing.user);
+  // Status checks using local state
+  const isSold = currentListing.status === 'Sold';
+  const isRented = currentListing.status === 'Rented';
+  const isOwner = currentUserId && currentUserId === currentListing?.user?.userId;
+  const seller = getSellerInfo(currentListing.user);
 
-  const isRentType = listing.listingType?.toUpperCase().includes('RENT');
-  const priceDisplay = `₱${(listing.price || 0).toFixed(2)}`;
+  const isRentType = currentListing.listingType?.toUpperCase().includes('RENT');
+  const priceDisplay = `₱${(currentListing.price || 0).toFixed(2)}`;
 
-  // --- Fetch Active Transaction Logic ---
-  useEffect(() => {
-    // Fetch transaction if Rented OR if Owner needs to see Sold info (for reviews)
-    if (isRented || (isSold && isOwner)) {
-        getTransactionByListing(listing.listingId)
+  // Helper to fetch transaction data
+  const fetchActiveTransaction = () => {
+      // Fetch transaction if Rented OR if Owner needs to see Sold info (for reviews)
+      // We check the LOCAL state status here
+      const shouldFetch = currentListing.status === 'Rented' || (currentListing.status === 'Sold' && isOwner);
+
+      if (shouldFetch) {
+        getTransactionByListing(currentListing.listingId)
             .then(res => {
                 const transaction = res.data;
                 setActiveTransaction(transaction);
@@ -176,14 +189,20 @@ export default function ProductDetailModal({
                     r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
                 );
 
-                // Auto-open review modal ONLY if NOT reviewed yet
+                // Auto-open review modal ONLY if NOT reviewed yet (and explicit initial action)
                 if (initialAction === 'review' && isOwner && !userHasReviewed) {
                     setShowReviewModal(true);
                 }
             })
             .catch(err => console.error("Could not load transaction info:", err));
     }
-  }, [isRented, isSold, isOwner, listing.listingId, initialAction, currentUserId, showSuccess]);
+  };
+
+  // Initial Fetch Logic
+  useEffect(() => {
+    fetchActiveTransaction();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentListing.status, isOwner, currentListing.listingId, initialAction, currentUserId]);
 
   // Helper to format dates using local time to avoid shifts
   const formatRentalDate = (dateString) => {
@@ -212,22 +231,31 @@ export default function ProductDetailModal({
 
       if (isConfirmed) {
           try {
+              setIsProcessing(true);
               await returnRental(activeTransaction.transactionId);
               showSuccess("Item marked as returned successfully.");
-              onClose();
-              window.location.reload(); 
+              
+              // Local update instead of reload
+              setCurrentListing(prev => ({ ...prev, status: 'Available' }));
+              setActiveTransaction(null); // Clear transaction as it's closed/returned
+              // onClose(); // Optional: keep modal open to show updated status? User usually wants to verify.
+              // Let's keep modal open but updated.
           } catch (error) {
               showError("Failed to return item. Please try again. ",error);
+          } finally {
+              setIsProcessing(false);
           }
       }
   };
 
+
+
   // Optimistic Like Count
-  const serverLikeCount = listing.likes ? listing.likes.length : 0;
+  const serverLikeCount = currentListing.likes ? currentListing.likes.length : 0;
   const wasLikedInitial = useMemo(() => {
-    if (!listing.likes || !currentUserId) return false;
-    return listing.likes.some(like => like.id?.userId === currentUserId);
-  }, [listing.likes, currentUserId]);
+    if (!currentListing.likes || !currentUserId) return false;
+    return currentListing.likes.some(like => like.id?.userId === currentUserId);
+  }, [currentListing.likes, currentUserId]);
 
   let displayLikeCount = serverLikeCount;
   if (!isSold) {
@@ -237,7 +265,7 @@ export default function ProductDetailModal({
   displayLikeCount = Math.max(0, displayLikeCount);
 
   // Image Logic
-  const rawImages = listing.listingImages || listing.images || [];
+  const rawImages = currentListing.listingImages || currentListing.images || [];
   const images = Array.isArray(rawImages) ? rawImages.map(img => img.imageUrl) : [];
   const initialImageIndex = Math.max(0, images.findIndex(img => 
       rawImages.find(li => li.imageUrl === img)?.isCoverPhoto 
@@ -268,11 +296,11 @@ export default function ProductDetailModal({
   const handleLikeClick = (e) => {
     e.stopPropagation(); 
     if (!currentUserId) { openLogin(); return; }
-    if (onLikeClick) onLikeClick(listing.listingId);
+    if (onLikeClick) onLikeClick(currentListing.listingId);
   };
 
   const handleViewChats = () => {
-    navigate('/messages', { state: { filterByListingId: listing.listingId } });
+    navigate('/messages', { state: { filterByListingId: currentListing.listingId } });
     onClose();
   };
 
@@ -297,11 +325,11 @@ export default function ProductDetailModal({
     const sellerId = listing?.user?.userId;
     if (!sellerId) return;
 
-    navigate('/messages', { state: { initiateChat: { listingId: listing.listingId, sellerId: sellerId } } });
+    navigate('/messages', { state: { initiateChat: { listingId: currentListing.listingId, sellerId: sellerId } } });
     onClose();
 
     try {
-        const response = await startConversation(listing.listingId, currentUserId, sellerId);
+        const response = await startConversation(currentListing.listingId, currentUserId, sellerId);
         const fullConversation = response.data;
         navigate('/messages', { state: { openConversation: fullConversation, openConversationId: fullConversation.conversationId } });
     } catch (error) {
@@ -318,7 +346,7 @@ export default function ProductDetailModal({
         <section className="product-image-section">
           <img
             src={getFullImageUrl(currentImageUrl)}
-            alt={`${listing.title || 'Listing'} - Image ${currentImageIndex + 1}`}
+            alt={`${currentListing.title || 'Listing'} - Image ${currentImageIndex + 1}`}
             className="product-image-main"
             onError={(e) => { e.target.onerror = null; e.target.src="https://via.placeholder.com/400x400?text=Image+Error"; }}
           />
@@ -337,7 +365,7 @@ export default function ProductDetailModal({
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
               <h2 className="product-info-name" style={{ margin: 0 }}>
-                {listing.title || 'No Title'}
+                {currentListing.title || 'No Title'}
                 {isSold && (
                   <span style={{ color: '#e53935', fontSize: '0.6em', marginLeft: '10px', verticalAlign: 'middle', border: '1px solid #e53935', padding: '2px 6px', borderRadius: '4px' }}>SOLD</span>
                 )}
@@ -572,10 +600,10 @@ export default function ProductDetailModal({
                    // --- Available Controls ---
                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                       <button className="btn-chat" style={{ backgroundColor: "var(--text-muted)", flex: 1 }} onClick={() => { 
-                        navigate(`/edit-listing/${listing.listingId}`, { 
+                        navigate(`/edit-listing/${currentListing.listingId}`, { 
                           state: { 
                             returnTo: window.location.pathname, 
-                            openListingId: listing.listingId 
+                            openListingId: currentListing.listingId 
                           } 
                         }); 
                         onClose(); 
@@ -665,13 +693,21 @@ export default function ProductDetailModal({
       {/* --- Modals --- */}
       {showMarkSoldModal && (
         <MarkAsSoldModal 
-          listing={listing}
+          listing={currentListing}
           currentUser={{ userId: currentUserId }}
           onClose={() => setShowMarkSoldModal(false)}
           onSuccess={() => {
             setShowMarkSoldModal(false);
-            onClose(); 
-            window.location.reload(); 
+            // Local update: Set status to Sold/Rented
+            // Note: isRentType calc might need care if we just update status.
+            const newStatus = isRentType ? 'Rented' : 'Sold';
+            setCurrentListing(prev => ({ ...prev, status: newStatus }));
+            
+            // Allow state effect to fetch transaction
+            // But fetchActiveTransaction depends on status change which just happened 
+            // So we can also call it manually to be safe or rely on useEffect
+            // Triggering explicit fetch is safer for immediate feedback
+            setTimeout(() => fetchActiveTransaction(), 300); // Small delay to ensure DB update
           }}
         />
       )}
@@ -686,7 +722,8 @@ export default function ProductDetailModal({
                 onClose={() => setShowReviewModal(false)}
                 onSuccess={() => {
                     setShowReviewModal(false);
-                    window.location.reload();
+                    // Reload transaction to get new review
+                    fetchActiveTransaction();
                 }}
             />
           </div>
@@ -700,10 +737,14 @@ export default function ProductDetailModal({
               onSuccess={() => {
                   setShowEditDatesModal(false);
                   // Refresh transaction data instantly
-                  getTransactionByListing(listing.listingId).then(res => setActiveTransaction(res.data));
+                  fetchActiveTransaction();
               }}
           />
       )}
+
+
+      
+      <LoadingOverlay isVisible={isProcessing} message="Returns in progress..." />
 
     </div>
   );

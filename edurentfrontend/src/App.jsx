@@ -6,6 +6,7 @@ import PageLoader from './components/PageLoader.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmationProvider } from './context/ConfirmationContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Lazy-loaded Pages (Code-splitting for faster navigation)
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage.jsx'));
@@ -33,6 +34,7 @@ const RootRoute = () => {
 
 function App() {
   return (
+    <ThemeProvider>
     <ToastProvider>
       <ConfirmationProvider>
       <Suspense fallback={<PageLoader />}>
@@ -79,6 +81,7 @@ function App() {
       </Suspense>
   </ConfirmationProvider>
     </ToastProvider>
+    </ThemeProvider>
   )
 }
 

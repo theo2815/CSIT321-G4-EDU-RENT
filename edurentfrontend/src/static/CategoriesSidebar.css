@@ -1,8 +1,5 @@
 
-:root {
-  --primary-color: #007bff;
-  --primary-dark: #0056b3; /* Darker shade for hover */
-}
+/* Variables inherited from index.css */
 
 .categories-sidebar-overlay {
   position: fixed;

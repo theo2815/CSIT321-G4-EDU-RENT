@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getConversationsForUser, createTransaction } from '../services/apiService';
 import defaultAvatar from '../assets/default-avatar.png';
+import LoadingOverlay from './LoadingOverlay';
 import '../static/ProductDetailModal.css';
 
 // Import Feedback Hook
@@ -206,6 +207,8 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
           </button>
         </div>
       </div>
+      <LoadingOverlay isVisible={submitting} message={`Marking as ${pastTenseLabel}...`} />
+      <LoadingOverlay isVisible={loading} message="Loading buyers..." />
     </div>
   );
 }

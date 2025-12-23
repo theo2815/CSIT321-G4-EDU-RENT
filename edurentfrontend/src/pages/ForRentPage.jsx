@@ -50,7 +50,7 @@ export default function ForRentPage() {
   // Likes and Page Logic
   const likesHook = useLikes();
   const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
-  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook); 
+  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook, listings); 
 
   // Fetches only "Rent" type listings from the server
   const fetchData = useCallback(async (page = 0, isLoadMore = false) => {
