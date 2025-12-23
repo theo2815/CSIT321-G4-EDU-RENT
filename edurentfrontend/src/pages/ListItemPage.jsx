@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 
 // Custom hooks for auth and global UI logic
 import useAuth from '../hooks/useAuth';
@@ -11,6 +12,7 @@ import imageCompression from 'browser-image-compression';
 
 // Components
 import Header from '../components/Header';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 // API services
 import { 
@@ -82,11 +84,12 @@ export default function ListItemPage() {
 
   // Local state for dropdown data
   const [categories, setCategories] = useState([]);
-  const [schools, setSchools] = useState([]);
+  // const [schools, setSchools] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true); 
   const [error, setError] = useState(null); 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
+  const [loadingStatus, setLoadingStatus] = useState(''); // Dynamic status message
+  // const navigate = useNavigate();
 
   // Form input state
   const [photos, setPhotos] = useState([]); 
@@ -114,13 +117,13 @@ export default function ListItemPage() {
           const categoriesPromise = getCategories();
           const schoolsPromise = getSchools(); 
 
-          const [categoriesResponse, schoolsResponse] = await Promise.all([
+          const [categoriesResponse] = await Promise.all([
             categoriesPromise,
             schoolsPromise
           ]);
 
           setCategories(categoriesResponse.data || []);
-          setSchools(schoolsResponse.data || []);
+          // setSchools(schoolsResponse.data || []);
 
         } catch (err) {
           console.error("Failed to fetch initial data:", err);
@@ -237,21 +240,32 @@ export default function ListItemPage() {
     }
     
     setIsSubmitting(true);
+    setLoadingStatus('Optimizing images...');
     setError(null);
 
+    // Optimized compression: Skip small images, use faster settings
     const compressedPhotos = await Promise.all(
         photos.map(async (photo) => {
             if (photo.file instanceof File) {
+                // Skip compression if file is already small (under 800KB)
+                const fileSizeKB = photo.file.size / 1024;
+                if (fileSizeKB < 800) {
+                    return photo.file;
+                }
+                
                 const options = {
-                    maxSizeMB: 1,          // Cap size at 1MB
-                    maxWidthOrHeight: 1920, // Resize large 4k images
-                    useWebWorker: true
+                    maxSizeMB: 1,              // Increased from 0.5MB for faster processing
+                    maxWidthOrHeight: 1280,   // Reduced from 1920 - still good for web display
+                    useWebWorker: true,
+                    initialQuality: 0.8,       // Slightly higher quality, still fast
+                    alwaysKeepResolution: false,
                 };
                 return await imageCompression(photo.file, options);
             }
             return photo.file;
         })
     );
+
 
     // We use FormData to handle file uploads alongside text data
     const listingData = new FormData();
@@ -272,7 +286,8 @@ export default function ListItemPage() {
     listingData.append('allowDelivery', allowDelivery);
     if (allowDelivery) listingData.append('deliveryOptions', deliveryOption);
     
-    console.log("Submitting FormData..."); 
+    console.log("Submitting FormData...");
+    setLoadingStatus('Creating your listing...');
     
     try {
       const response = await createListing(listingData);
@@ -280,7 +295,8 @@ export default function ListItemPage() {
       
       showSuccess("Item listed successfully!");
       handleClearDetails(); 
-      navigate('/profile'); 
+      // Optimized: Stay on page to allow listing another item immediately
+      // navigate('/profile'); 
 
     } catch (err) {
       console.error("Failed to list item:", err);
@@ -289,6 +305,7 @@ export default function ListItemPage() {
       showError(`Error: ${errorMsg}`);
     } finally {
       setIsSubmitting(false);
+      setLoadingStatus('');
     }
   };
 
@@ -297,6 +314,8 @@ export default function ListItemPage() {
     try {
         baseHandleNotificationClick(notification);
     } catch (err) {
+        // Log error but don't crash
+        console.warn("Notification error", err);
         showError("Could not open notification.");
     }
   };
@@ -527,6 +546,12 @@ export default function ListItemPage() {
           </section>
         </div>
       </form>
+      
+      {/* Loading overlay for form submission */}
+      <LoadingOverlay 
+        isVisible={isSubmitting} 
+        message={loadingStatus || "Creating your listing..."} 
+      />
       
       {/* Modal rendered by usePageLogic */}
       <ModalComponent />

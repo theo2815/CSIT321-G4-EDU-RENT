@@ -331,6 +331,7 @@ export default function ProfilePage() {
   const [listingFilter, setListingFilter] = useState('all'); 
   
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
+  const [isLoadingMoreListings, setIsLoadingMoreListings] = useState(false);
   const [pageDataError, setPageDataError] = useState(null);
 
   // Modals
@@ -380,9 +381,15 @@ export default function ProfilePage() {
   }, []);
   
   // Fetches main profile data; triggers separate review fetches on initial load
-  const fetchProfileData = useCallback(async (targetId, page = 0) => {
-    setIsLoadingPageData(true);
-    setPageDataError(null);
+  const fetchProfileData = useCallback(async (targetId, page = 0, isLoadMore = false) => {
+    // Use different loading states for initial load vs load more
+    if (isLoadMore) {
+      setIsLoadingMoreListings(true);
+    } else {
+      setIsLoadingPageData(true);
+      setPageDataError(null);
+    }
+    
     try {
       // 1. Fetch User Data (Only needed on first load)
       if (page === 0) {
@@ -426,13 +433,22 @@ export default function ProfilePage() {
       setCurrentPage(listingsData.number);
       setHasMore(listingsData.number < listingsData.totalPages - 1);
 
-      refetchLikes();
+      // Only refetch likes on initial load, not on load more
+      if (!isLoadMore) {
+        refetchLikes();
+      }
 
     } catch (err) {
       console.error("Failed to fetch profile data:", err);
-      setPageDataError(err.message || "Could not load profile data.");
+      if (!isLoadMore) {
+        setPageDataError(err.message || "Could not load profile data.");
+      }
     } finally {
-      setIsLoadingPageData(false);
+      if (isLoadMore) {
+        setIsLoadingMoreListings(false);
+      } else {
+        setIsLoadingPageData(false);
+      }
     }
   }, [profileId, refetchLikes, fetchBuyerReviews, fetchSellerReviews]); 
 
@@ -446,9 +462,10 @@ export default function ProfilePage() {
 
   // Handler for Load More Listings
   const handleLoadMoreListings = () => {
+    if (isLoadingMoreListings) return;
     const idToFetch = profileId || loggedInUser?.userId;
     if (idToFetch) {
-        fetchProfileData(idToFetch, currentPage + 1);
+        fetchProfileData(idToFetch, currentPage + 1, true); // Pass true for isLoadMore
     }
   };
 
@@ -816,7 +833,7 @@ export default function ProfilePage() {
                         />
                       ))}
                     </div>
-                    <LoadMoreButton onLoadMore={handleLoadMoreListings} isLoading={isLoadingPageData} hasMore={hasMore} />
+                    <LoadMoreButton onLoadMore={handleLoadMoreListings} isLoading={isLoadingMoreListings} hasMore={hasMore} />
                   </>
                 ) : (
                   <div className="empty-state">

@@ -4,23 +4,28 @@ import { getListings, getCategories } from '../services/apiService';
 // Removed the 'isUserAuthenticated' dependency
 export default function usePageData() {
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // Separate state for load more
   const [dataError, setDataError] = useState(null);
   const [allListings, setAllListings] = useState([]);
   const [categories, setCategories] = useState([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const pageSize = 10; // Default size
   const [hasMore, setHasMore] = useState(false);
 
-  const fetchData = useCallback(async (page = 0) => {
-    setIsLoadingData(true);
-    if (page === 0) setDataError(null);
+  const fetchData = useCallback(async (page = 0, isLoadMore = false) => {
+    // Use different loading states for initial load vs load more
+    if (isLoadMore) {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoadingData(true);
+      setDataError(null);
+    }
+
     try {
       // Fetch listings and categories in parallel
-      const listingsPromise = getListings(page, 10);
-      const categoriesPromise = getCategories();
+      const listingsPromise = getListings(page, 8);
+      const categoriesPromise = page === 0 ? getCategories() : Promise.resolve({ data: categories });
 
       const [listingsResponse, categoriesResponse] = await Promise.all([
         listingsPromise,
@@ -32,14 +37,15 @@ export default function usePageData() {
       if (data.content) {
           setAllListings(prev => page === 0 ? data.content : [...prev, ...data.content]);
           setCurrentPage(data.number);
-          setTotalPages(data.totalPages);
           setHasMore(data.number < data.totalPages - 1);
       } else {
           setAllListings(data || []);
           setHasMore(false);
       }
       
-      setCategories(categoriesResponse.data || []);
+      if (page === 0) {
+        setCategories(categoriesResponse.data || []);
+      }
 
     } catch (err) {
       console.error("Failed to fetch page data:", err);
@@ -48,27 +54,32 @@ export default function usePageData() {
         setDataError("Could not load page data. Please try again.");
       }
     } finally {
-      setIsLoadingData(false);
+      if (isLoadMore) {
+        setIsLoadingMore(false);
+      } else {
+        setIsLoadingData(false);
+      }
     }
-  }, []); 
+  }, [categories]); 
 
-  // Fetch data immediately on mount
+ // Fetch data immediately on mount
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchData(0, false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMore = useCallback(() => {
-      if (hasMore && !isLoadingData) {
-          fetchData(currentPage + 1);
+      if (hasMore && !isLoadingMore) {
+          fetchData(currentPage + 1, true); // Pass true to indicate "load more"
       }
-  }, [hasMore, isLoadingData, currentPage, fetchData]);
+  }, [hasMore, isLoadingMore, currentPage, fetchData]);
 
   return {
     allListings,    
     categories,     
-    isLoadingData,  
+    isLoadingData,  // For initial page load skeleton
+    isLoadingMore,  // For load more button loading state
     dataError,     
-    refetchData: () => fetchData(0),
+    refetchData: () => fetchData(0, false),
     loadMore,       
     hasMore      
   };

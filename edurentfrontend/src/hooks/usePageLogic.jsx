@@ -1,6 +1,6 @@
 // This hooks manages page logic for listing modals, including like functionality and pre-fetching context data
-import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useLikes from './useLikes';
 import { getListingById, getUserReviews, getConversationsForUser } from '../services/apiService';
 import ProductDetailModal from '../components/ProductDetailModal';
@@ -8,6 +8,7 @@ import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton
 
 export default function usePageLogic(userData, likeData = null) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // --- State Management ---
   // Stores pre-fetched data about the conversation status (e.g., "Sold to You", "View Chat")
@@ -17,6 +18,7 @@ export default function usePageLogic(userData, likeData = null) {
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [sellerRatingData, setSellerRatingData] = useState(null);
   const [isContextLoading, setIsContextLoading] = useState(false); // New state to track background fetch
+  const [hasHandledReturnNav, setHasHandledReturnNav] = useState(false); // Prevent duplicate handling
 
   // --- 1. Like Logic Initialization ---
   // If the parent component manages likes (e.g., ProfilePage), use that data.
@@ -30,6 +32,30 @@ export default function usePageLogic(userData, likeData = null) {
     handleLikeToggle,
     refetchLikes
   } = likeData || internalLikes;
+
+  // --- 1.5. Handle Return Navigation from EditListingPage ---
+  // When returning from edit, automatically open the modal with the updated listing
+  useEffect(() => {
+    const openListingId = location.state?.openListingId;
+    if (openListingId && !hasHandledReturnNav && !isModalOpen) {
+      setHasHandledReturnNav(true);
+      // Fetch fresh listing data and open modal
+      getListingById(openListingId)
+        .then(response => {
+          if (response.data) {
+            // We'll trigger the modal open through handleOpenListing indirectly
+            // by setting the state directly
+            setSelectedListing(response.data);
+            setIsModalOpen(true);
+            // Clear the navigation state to prevent reopening on refresh
+            window.history.replaceState({}, document.title);
+          }
+        })
+        .catch(err => {
+          console.warn("Could not open listing from return navigation:", err);
+        });
+    }
+  }, [location.state?.openListingId, hasHandledReturnNav, isModalOpen]);
 
   // --- 2. Modal Handlers ---
   // Closes the modal and clears state

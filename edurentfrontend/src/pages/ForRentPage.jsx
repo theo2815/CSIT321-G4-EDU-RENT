@@ -39,6 +39,7 @@ export default function ForRentPage() {
   // Local state for handling paginated data
   const [listings, setListings] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [dataError, setDataError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   
@@ -52,9 +53,13 @@ export default function ForRentPage() {
   const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook); 
 
   // Fetches only "Rent" type listings from the server
-  const fetchData = useCallback(async (page = 0) => {
-      setIsLoadingData(true);
-      if (page === 0) setDataError(null);
+  const fetchData = useCallback(async (page = 0, isLoadMore = false) => {
+      if (isLoadMore) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoadingData(true);
+        setDataError(null);
+      }
 
       try {
           const response = await getListingsByType('rent', page, 8); 
@@ -73,7 +78,11 @@ export default function ForRentPage() {
           console.error("Failed to load rent listings", err);
           setDataError("Could not load rental items. Please try again later.");
       } finally {
-          setIsLoadingData(false);
+          if (isLoadMore) {
+            setIsLoadingMore(false);
+          } else {
+            setIsLoadingData(false);
+          }
       }
   }, []);
 
@@ -126,7 +135,9 @@ export default function ForRentPage() {
 
   // Handler for button
   const handleLoadMore = () => {
-      fetchData(currentPage + 1);
+      if (!isLoadingMore) {
+        fetchData(currentPage + 1, true);
+      }
   };
 
   return (
@@ -178,7 +189,7 @@ export default function ForRentPage() {
                 {/* Pagination Controls */}
                 <LoadMoreButton 
                     onLoadMore={handleLoadMore}
-                    isLoading={isLoadingData}
+                    isLoading={isLoadingMore}
                     hasMore={hasMore}
                 />
             </>

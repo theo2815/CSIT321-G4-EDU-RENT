@@ -1,27 +1,35 @@
 import React from 'react';
+import './LoadMoreButton.css';
 
 export default function LoadMoreButton({ onLoadMore, isLoading, hasMore }) {
   if (!hasMore) return null;
 
   const handleClick = (e) => {
     e.preventDefault();
-    onLoadMore();      
+    if (!isLoading) {
+      onLoadMore();
+    }
   };
 
   return (
-    <div style={{ textAlign: 'center', marginTop: '2rem', marginBottom: '2rem' }}>
+    <div className="load-more-container">
       <button
         type="button"
         onClick={handleClick}
         disabled={isLoading}
-        className="btn btn-outline"
-        style={{
-          padding: '0.75rem 2rem',
-          minWidth: '200px',
-          cursor: isLoading ? 'wait' : 'pointer'
-        }}
+        className={`load-more-btn ${isLoading ? 'loading' : ''}`}
       >
-        {isLoading ? 'Loading...' : 'Load More'}
+        {isLoading ? (
+          <>
+            <span className="load-more-spinner"></span>
+            <span>Loading...</span>
+          </>
+        ) : (
+          <>
+            <span className="load-more-icon">↓</span>
+            <span>Load More</span>
+          </>
+        )}
       </button>
     </div>
   );

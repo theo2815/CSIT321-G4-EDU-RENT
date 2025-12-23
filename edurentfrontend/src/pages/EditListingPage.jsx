@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom'; 
+import { useNavigate, useParams, useLocation } from 'react-router-dom'; 
 import Header from '../components/Header';
+import LoadingOverlay from '../components/LoadingOverlay';
 import ProductDetailModal from '../components/ProductDetailModal'; 
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 
@@ -70,9 +71,15 @@ export default function EditListingPage() {
   const [categories, setCategories] = useState([]);
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true); 
-  const [isSubmitting, setIsSubmitting] = useState(false); 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState(''); // Dynamic status message
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get return navigation state (where to go after save/cancel)
+  const returnTo = location.state?.returnTo || '/manage-listings';
+  const openListingId = location.state?.openListingId;
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -246,7 +253,8 @@ export default function EditListingPage() {
         return;
     }
 
-    setIsSubmitting(true); 
+    setIsSubmitting(true);
+    setLoadingStatus('Preparing your changes...');
     setError(null);
 
     // We use FormData because we are sending mixed data (text + binary files)
@@ -275,13 +283,18 @@ export default function EditListingPage() {
     });
     
     console.log("Updating listing with FormData...");
+    setLoadingStatus('Saving your listing...');
 
     try {
       const response = await updateListing(listingId, listingData);
 
       console.log("Listing updated successfully:", response.data);
       showSuccess("Item updated successfully!");
-      navigate('/manage-listings'); 
+      
+      // Navigate back to previous page with state to reopen modal
+      navigate(returnTo, { 
+        state: { openListingId: openListingId || listingId } 
+      }); 
 
     } catch (err) {
       console.error("Failed to update item:", err);
@@ -289,7 +302,8 @@ export default function EditListingPage() {
       setError(errorMsg);
       showError(`Error: ${errorMsg}`);
     } finally {
-      setIsSubmitting(false); 
+      setIsSubmitting(false);
+      setLoadingStatus('');
     }
   };
 
@@ -474,7 +488,7 @@ export default function EditListingPage() {
             </div>
 
             <div className="action-buttons">
-              <button type="button" className="btn btn-clear" onClick={() => navigate('/manage-listings')} disabled={isSubmitting}>
+              <button type="button" className="btn btn-clear" onClick={() => navigate(returnTo, { state: { openListingId } })} disabled={isSubmitting}>
                 Cancel
               </button>
               <button type="submit" className="btn btn-list" disabled={isSubmitting}>
@@ -515,6 +529,12 @@ export default function EditListingPage() {
        {isNotificationLoading && (
          <ProductDetailModalSkeleton onClose={() => setIsNotificationLoading(false)} />
        )}
+
+       {/* Loading Overlay for form submission */}
+       <LoadingOverlay 
+         isVisible={isSubmitting} 
+         message={loadingStatus || "Saving your listing..."} 
+       />
     </div>
   );
 }

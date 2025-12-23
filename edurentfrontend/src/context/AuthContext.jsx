@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
-  // Loading is true only if we have a token but haven't verified it yet
+  // Loading should be true initially to show skeleton during auth check
   const [isLoadingAuth, setIsLoadingAuth] = useState(!!userData);
   const [authError, setAuthError] = useState(null);
 
@@ -55,9 +55,12 @@ export const AuthProvider = ({ children }) => {
     }
   }, [logout]);
 
-  // Run only once on mount
+  // Run only once on mount, with a tiny delay to allow skeleton to render
   useEffect(() => {
-    fetchUser();
+    const timer = setTimeout(() => {
+      fetchUser();
+    }, 50);
+    return () => clearTimeout(timer);
   }, [fetchUser]);
 
   return (

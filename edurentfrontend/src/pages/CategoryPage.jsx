@@ -64,6 +64,7 @@ export default function CategoryPage() {
   const [categoryInfo, setCategoryInfo] = useState(null);
   const [categoryListings, setCategoryListings] = useState([]); 
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [pageDataError, setPageDataError] = useState(null);
 
   // Enable searching within this specific category list
@@ -76,7 +77,7 @@ export default function CategoryPage() {
   useEffect(() => {
     if (!categoryId) return;
 
-    const fetchData = async (page = 0) => {
+    const fetchInitialData = async () => {
       setIsLoadingPageData(true);
       setPageDataError(null);
       const catIdNumber = parseInt(categoryId, 10);
@@ -90,7 +91,7 @@ export default function CategoryPage() {
       try {
         // Fetch both the full category list (to get the name) and the specific items
         const categoriesPromise = getCategories(); 
-        const listingsPromise = getListingsByCategoryId(catIdNumber, page, 8);
+        const listingsPromise = getListingsByCategoryId(catIdNumber, 0, 8);
 
         const [categoriesResponse, listingsResponse] = await Promise.all([
           categoriesPromise,
@@ -106,13 +107,10 @@ export default function CategoryPage() {
         }
         setCategoryInfo(currentCategory);
 
-        // Save the items found in this category
-        setCategoryListings(listingsResponse.data || []);
-
         // Handle Page response
         const data = listingsResponse.data;
         if (data.content) {
-            setCategoryListings(prev => page === 0 ? data.content : [...prev, ...data.content]);
+            setCategoryListings(data.content);
             setTotalPages(data.totalPages);
             setCurrentPage(data.number);
             setHasMore(data.number < data.totalPages - 1);
@@ -125,7 +123,7 @@ export default function CategoryPage() {
         console.error("Failed to fetch category data:", err);
         let errorMsg = err.message || "Could not load category data. Please try again.";
         if (err.response?.status === 404) {
-          errorMsg = `Category with ID ${catIdNumber} not found.`;
+          errorMsg = `Category with ID ${categoryId} not found.`;
         }
         setPageDataError(errorMsg);
       } finally {
@@ -133,8 +131,31 @@ export default function CategoryPage() {
       }
     };
     
-    if (categoryId) fetchData(0);
+    fetchInitialData();
   }, [categoryId]); 
+
+  // Handle load more separately to avoid full page refresh
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    const catIdNumber = parseInt(categoryId, 10);
+    
+    try {
+      const response = await getListingsByCategoryId(catIdNumber, currentPage + 1, 8);
+      const data = response.data;
+      
+      if (data.content) {
+        setCategoryListings(prev => [...prev, ...data.content]);
+        setCurrentPage(data.number);
+        setHasMore(data.number < data.totalPages - 1);
+      }
+    } catch (err) {
+      console.error("Failed to load more listings:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }; 
 
   // Check if any part of the page is loading or has failed
   const isPageLoading = isLoadingAuth || isLoadingPageData || isLoadingLikes;
@@ -246,8 +267,8 @@ export default function CategoryPage() {
           )}
           {filteredListings.length > 0 && (
               <LoadMoreButton 
-                onLoadMore={() => fetchData(currentPage + 1)}
-                isLoading={isLoadingPageData}
+                onLoadMore={handleLoadMore}
+                isLoading={isLoadingMore}
                 hasMore={hasMore}
               />
           )}

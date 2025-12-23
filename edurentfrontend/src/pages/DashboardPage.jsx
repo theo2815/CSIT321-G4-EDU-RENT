@@ -79,7 +79,8 @@ export default function DashboardPage() {
   const { 
     allListings, 
     categories, 
-    isLoadingData, 
+    isLoadingData,
+    isLoadingMore, 
     dataError, 
     loadMore, 
     hasMore,
@@ -263,7 +264,7 @@ export default function DashboardPage() {
             </div>
             <LoadMoreButton 
                     onLoadMore={loadMore}
-                    isLoading={isLoadingData}
+                    isLoading={isLoadingMore}
                     hasMore={hasMore}
                 />
             </>

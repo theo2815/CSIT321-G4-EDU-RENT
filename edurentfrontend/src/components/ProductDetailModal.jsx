@@ -571,7 +571,15 @@ export default function ProductDetailModal({
                 ) : (
                    // --- Available Controls ---
                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <button className="btn-chat" style={{ backgroundColor: "var(--text-muted)", flex: 1 }} onClick={() => { navigate(`/edit-listing/${listing.listingId}`); onClose(); }}>
+                      <button className="btn-chat" style={{ backgroundColor: "var(--text-muted)", flex: 1 }} onClick={() => { 
+                        navigate(`/edit-listing/${listing.listingId}`, { 
+                          state: { 
+                            returnTo: window.location.pathname, 
+                            openListingId: listing.listingId 
+                          } 
+                        }); 
+                        onClose(); 
+                      }}>
                         Edit
                       </button>
                       <button className="btn-chat" style={{ backgroundColor: "#2ecc71", flex: 1 }} onClick={() => setShowMarkSoldModal(true)}>

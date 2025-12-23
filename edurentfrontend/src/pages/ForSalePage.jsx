@@ -39,6 +39,7 @@ export default function ForSalePage() {
   // Local state for paginated data
   const [listings, setListings] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [dataError, setDataError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   
@@ -52,9 +53,13 @@ export default function ForSalePage() {
   const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook); 
 
   // Fetches "Sale" type listings from the server
-  const fetchData = useCallback(async (page = 0) => {
-      setIsLoadingData(true);
-      if (page === 0) setDataError(null);
+  const fetchData = useCallback(async (page = 0, isLoadMore = false) => {
+      if (isLoadMore) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoadingData(true);
+        setDataError(null);
+      }
       try {
           const response = await getListingsByType('sale', page, 8); 
           const data = response.data;
@@ -72,7 +77,11 @@ export default function ForSalePage() {
           console.error("Failed to load sale listings", err);
           setDataError("Could not load items for sale. Please refresh.");
       } finally {
-          setIsLoadingData(false);
+          if (isLoadMore) {
+            setIsLoadingMore(false);
+          } else {
+            setIsLoadingData(false);
+          }
       }
   }, []);
 
@@ -125,7 +134,9 @@ export default function ForSalePage() {
   }
 
   const handleLoadMore = () => {
-      fetchData(currentPage + 1);
+      if (!isLoadingMore) {
+        fetchData(currentPage + 1, true);
+      }
   };
 
   return (
@@ -177,7 +188,7 @@ export default function ForSalePage() {
                 {/* Pagination Controls */}
                 <LoadMoreButton 
                     onLoadMore={handleLoadMore}
-                    isLoading={isLoadingData}
+                    isLoading={isLoadingMore}
                     hasMore={hasMore}
                 />
             </>

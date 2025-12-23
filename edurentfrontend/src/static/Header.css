@@ -2,25 +2,14 @@
  * ===================================
  * EDU-RENT: REUSABLE HEADER STYLES
  * ===================================
+ * Note: CSS variables are inherited from index.css
  */
-
-/* --- 1. Color Palette (Copied for a self-contained component) --- */
-:root {
-  --primary-color: var(--primary-color);
-  --secondary-color: var(--secondary-color);
-  --accent-color: var(--accent-color);
-  --bg-color: var(--bg-color);
-  --text-color: var(--text-color);
-  --text-muted: var(--text-muted);
-  --bg-light: var(--bg-light);
-  --border-color: var(--border-color);
-}
 
 /* --- 2. Top Header --- */
 .dashboard-header {
   background-color: var(--bg-light); /* White background */
   padding: 0.75rem 2rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
@@ -67,7 +56,8 @@
   gap: 1.25rem; /* Slightly more spacing */
 }
 
-@media (min-width: 768px) { /* Show on medium screens and up */
+@media (min-width: 768px) {
+  /* Show on medium screens and up */
   .header-logo-text {
     display: block;
   }
@@ -111,9 +101,9 @@
 }
 
 .icon-link {
-    text-decoration: none;
-    cursor: pointer;
-    line-height: 0; /* Fixes alignment issues */
+  text-decoration: none;
+  cursor: pointer;
+  line-height: 0; /* Fixes alignment issues */
 }
 
 .header-icon {
@@ -130,7 +120,8 @@
 
 /* Dark mode icon color filter for heart, notification, and messenger icons */
 [data-theme="dark"] .header-icon {
-  filter: brightness(0) saturate(100%) invert(62%) sepia(7%) saturate(579%) hue-rotate(174deg) brightness(89%) contrast(89%);
+  filter: brightness(0) saturate(100%) invert(62%) sepia(7%) saturate(579%)
+    hue-rotate(174deg) brightness(89%) contrast(89%);
 }
 
 /* --- 3. Buttons (Consistent Style) --- */
@@ -177,7 +168,6 @@
   box-shadow: 0 4px 15px rgba(0, 119, 182, 0.2);
 }
 
-
 /* --- 4. User Dropdown --- */
 .user-dropdown {
   position: relative;
@@ -196,7 +186,7 @@
   padding: 0.25rem;
 }
 
-.user-avatar { 
+.user-avatar {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
@@ -265,14 +255,13 @@
   box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
 }
 
-
 .notification-bell {
   position: relative; /* Required to position the badge */
 }
 
 .notification-badge {
   position: absolute;
-  top: -5px;  /* Adjust position as needed */
+  top: -5px; /* Adjust position as needed */
   right: -5px; /* Adjust position as needed */
   background-color: #e53935; /* Red */
   color: white;

@@ -98,6 +98,7 @@ export default function ManageListingsPage() {
 
   // UI & Selection State
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [showBulkBar, setShowBulkBar] = useState(false);
   const [selectedItems, setSelectedItems] = useState(new Set()); 
@@ -122,9 +123,14 @@ export default function ManageListingsPage() {
   const [filterStatus, setFilterStatus] = useState('available');
 
   // Unified data fetching function
-  const fetchData = useCallback(async (page = 0) => {
-    setIsLoading(true);
-    if (page === 0) setError(null);
+  const fetchData = useCallback(async (page = 0, isLoadMore = false) => {
+    // Use different loading states for initial load vs load more
+    if (isLoadMore) {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoading(true);
+      setError(null);
+    }
     
     try {
       const userRes = await getCurrentUser();
@@ -135,7 +141,7 @@ export default function ManageListingsPage() {
       if (!userId) throw new Error("Could not find user ID.");
 
       const listingsPromise = getUserListings(userId, page, 8, true);
-      const categoriesPromise = getCategories();
+      const categoriesPromise = page === 0 ? getCategories() : Promise.resolve({ data: categories });
 
       const [listingsRes, catRes] = await Promise.all([
           listingsPromise,
@@ -156,18 +162,22 @@ export default function ManageListingsPage() {
 
     } catch (err) {
       console.error("Failed to load data:", err);
-      if (page === 0) setError("Could not load listings.");
+      if (!isLoadMore) setError("Could not load listings.");
       else showError("Could not load more items.");
 
       if (err.message === "No authentication token found.") navigate('/login');
     } finally {
-      setIsLoading(false);
+      if (isLoadMore) {
+        setIsLoadingMore(false);
+      } else {
+        setIsLoading(false);
+      }
     }
-  }, [navigate, showError]);
+  }, [navigate, showError, categories]);
 
   useEffect(() => {
-    fetchData(0);
-  }, [fetchData]);
+    fetchData(0, false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply filters
   useEffect(() => {
@@ -255,7 +265,12 @@ export default function ManageListingsPage() {
   // --- Item Actions ---
 
   const handleEdit = (itemId) => {
-    navigate(`/edit-listing/${itemId}`);
+    navigate(`/edit-listing/${itemId}`, {
+      state: {
+        returnTo: '/manage-listings',
+        openListingId: itemId
+      }
+    });
   };
 
   // Open the detailed modal to select a specific buyer
@@ -806,8 +821,8 @@ export default function ManageListingsPage() {
             </div>
 
             <LoadMoreButton 
-                onLoadMore={() => fetchData(currentPage + 1)}
-                isLoading={isLoading}
+                onLoadMore={() => fetchData(currentPage + 1, true)}
+                isLoading={isLoadingMore}
                 hasMore={hasMore}
             />
             </>
