@@ -223,14 +223,29 @@ public class ListingService {
     // Fetches listings for a specific user.
     // If includeInactive is true, returns EVERYTHING (for "Manage Listings").
     // If false, returns only PUBLIC items (for public profile view).
-    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size, boolean includeInactive) {
+    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size, boolean includeInactive,
+            String statusGroup) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         if (includeInactive) {
             return listingRepository.findByUserId(userId, pageable);
         } else {
-            return listingRepository.findByUser_UserIdAndStatusIn(userId, PROFILE_STATUSES, pageable);
+            List<String> statusesToFetch;
+            if ("active".equalsIgnoreCase(statusGroup)) {
+                statusesToFetch = Arrays.asList("Available", "Rented", "AVAILABLE", "RENTED");
+            } else if ("sold".equalsIgnoreCase(statusGroup)) {
+                statusesToFetch = Arrays.asList("Sold", "SOLD");
+            } else {
+                // Default: All public profile statuses (Active + Sold)
+                statusesToFetch = PROFILE_STATUSES;
+            }
+            return listingRepository.findByUser_UserIdAndStatusIn(userId, statusesToFetch, pageable);
         }
+    }
+
+    // Kept for backward compatibility if needed, though controller uses the new one
+    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size, boolean includeInactive) {
+        return getListingsByUserId(userId, page, size, includeInactive, null);
     }
 
     public Page<ListingEntity> getListingsByCategoryId(Long categoryId, int page, int size) {

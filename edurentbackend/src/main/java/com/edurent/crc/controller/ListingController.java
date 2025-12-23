@@ -28,8 +28,7 @@ public class ListingController {
     @GetMapping
     public Page<ListingEntity> getAllListings(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
         return listingService.getAllListings(page, size);
     }
 
@@ -42,25 +41,27 @@ public class ListingController {
     }
 
     // Retrieves listings for a specific user.
-    // 'includeInactive' param allows fetching private/inactive items (e.g., for Manage Listings page)
+    // 'includeInactive' param allows fetching private/inactive items (e.g., for
+    // Manage Listings page)
     @GetMapping("/user/{userId}")
     public ResponseEntity<Page<ListingEntity>> getListingsByUserId(
             @PathVariable Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "false") boolean includeInactive
+            @RequestParam(defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) String statusGroup // "active", "sold", or null (default)
     ) {
-        Page<ListingEntity> listings = listingService.getListingsByUserId(userId, page, size, includeInactive);
+        Page<ListingEntity> listings = listingService.getListingsByUserId(userId, page, size, includeInactive,
+                statusGroup);
         return ResponseEntity.ok(listings);
     }
-    
+
     // Retrieves listings by category
     @GetMapping("/category/{categoryId}")
     public ResponseEntity<Page<ListingEntity>> getListingsByCategoryId(
             @PathVariable Long categoryId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
         Page<ListingEntity> listings = listingService.getListingsByCategoryId(categoryId, page, size);
         if (listings.isEmpty()) {
             return ResponseEntity.noContent().build();
@@ -73,31 +74,29 @@ public class ListingController {
     public ResponseEntity<Page<ListingEntity>> getListingsByType(
             @PathVariable String listingType,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {        
-        String formattedType = listingType.equalsIgnoreCase("rent") ? "For Rent" : 
-                               listingType.equalsIgnoreCase("sale") ? "For Sale" : listingType;
+            @RequestParam(defaultValue = "10") int size) {
+        String formattedType = listingType.equalsIgnoreCase("rent") ? "For Rent"
+                : listingType.equalsIgnoreCase("sale") ? "For Sale" : listingType;
 
         Page<ListingEntity> listings = listingService.getListingsByType(formattedType, page, size);
         return ResponseEntity.ok(listings);
     }
 
     // Creates a new listing with image upload support
-    @PostMapping(consumes = {"multipart/form-data"})
+    @PostMapping(consumes = { "multipart/form-data" })
     public ResponseEntity<ListingEntity> createListing(
             Authentication authentication,
             @RequestParam("categoryId") Long categoryId,
             @RequestParam("title") String title,
             @RequestParam("condition") String condition,
             @RequestParam("description") String description,
-            @RequestParam("listingType") String listingType, 
+            @RequestParam("listingType") String listingType,
             @RequestParam("price") Double price,
             @RequestParam("allowMeetup") Boolean allowMeetup,
             @RequestParam(value = "meetupLocation", required = false) String meetupLocation,
             @RequestParam("allowDelivery") Boolean allowDelivery,
             @RequestParam(value = "deliveryOptions", required = false) String deliveryOptions,
-            @RequestPart(value = "images", required = false) List<MultipartFile> images
-    ) {
+            @RequestPart(value = "images", required = false) List<MultipartFile> images) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         Long userId = currentUser.getUserId();
 
@@ -114,17 +113,17 @@ public class ListingController {
 
         try {
             ListingEntity createdListing = listingService.createListingWithImages(
-                newListing, userId, categoryId, images
-            );
+                    newListing, userId, categoryId, images);
             return new ResponseEntity<>(createdListing, HttpStatus.CREATED);
-        } catch (RuntimeException | IOException e) { 
-            e.printStackTrace(); 
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); 
+        } catch (RuntimeException | IOException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
     }
 
-    // Updates an existing listing (supports text updates, adding new images, and deleting old ones)
-    @PutMapping(value = "/{listingId}", consumes = {"multipart/form-data"})
+    // Updates an existing listing (supports text updates, adding new images, and
+    // deleting old ones)
+    @PutMapping(value = "/{listingId}", consumes = { "multipart/form-data" })
     public ResponseEntity<ListingEntity> updateListing(
             @PathVariable Long listingId,
             Authentication authentication,
@@ -138,9 +137,8 @@ public class ListingController {
             @RequestParam(value = "meetupLocation", required = false) String meetupLocation,
             @RequestParam("allowDelivery") Boolean allowDelivery,
             @RequestParam(value = "deliveryOptions", required = false) String deliveryOptions,
-            @RequestParam(value = "imagesToDelete", required = false) List<Long> imagesToDelete, 
-            @RequestPart(value = "images", required = false) List<MultipartFile> newImages
-    ) {
+            @RequestParam(value = "imagesToDelete", required = false) List<Long> imagesToDelete,
+            @RequestPart(value = "images", required = false) List<MultipartFile> newImages) {
         try {
             UserEntity currentUser = (UserEntity) authentication.getPrincipal();
 
@@ -156,13 +154,12 @@ public class ListingController {
             listingUpdateData.setDeliveryOptions(deliveryOptions);
 
             ListingEntity updatedListing = listingService.updateListing(
-                listingId,
-                currentUser.getUserId(),
-                categoryId,
-                listingUpdateData,
-                imagesToDelete, 
-                newImages       
-            );
+                    listingId,
+                    currentUser.getUserId(),
+                    categoryId,
+                    listingUpdateData,
+                    imagesToDelete,
+                    newImages);
             return ResponseEntity.ok(updatedListing);
 
         } catch (RuntimeException | IOException e) {
@@ -171,13 +168,13 @@ public class ListingController {
         }
     }
 
-    // Updates only the status of a listing (e.g., Active -> Sold, Active -> Inactive)
+    // Updates only the status of a listing (e.g., Active -> Sold, Active ->
+    // Inactive)
     @PutMapping("/{listingId}/status")
     public ResponseEntity<Void> updateListingStatus(
             @PathVariable Long listingId,
             @RequestParam String status,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
             listingService.updateListingStatus(listingId, status, currentUser.getUserId());
@@ -188,19 +185,18 @@ public class ListingController {
             return ResponseEntity.badRequest().build();
         }
     }
-    
+
     // Permanently deletes a listing and its associated images
     @DeleteMapping("/{listingId}")
     public ResponseEntity<Void> deleteListing(
-            @PathVariable Long listingId, 
-            Authentication authentication
-    ) {
+            @PathVariable Long listingId,
+            Authentication authentication) {
         try {
             UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-            listingService.deleteListing(listingId, currentUser.getUserId()); 
+            listingService.deleteListing(listingId, currentUser.getUserId());
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
-             if (e instanceof AccessDeniedException) {
+            if (e instanceof AccessDeniedException) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();

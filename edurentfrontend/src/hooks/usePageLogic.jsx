@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useLikes from './useLikes';
+import { useListingCache } from '../context/ListingCacheContext';
 import { getListingById, getUserReviews, getConversationsForUser } from '../services/apiService';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
@@ -164,6 +165,15 @@ export default function usePageLogic(userData, likeData = null, availableListing
   }, [handleOpenListing]);
 
 // Handles notification clicks by extracting listing ID and opening the modal
+  const { cacheListings, getCachedListing } = useListingCache();
+
+  // Sync available listings to the global cache whenever they change
+  useEffect(() => {
+    if (availableListings && availableListings.length > 0) {
+      cacheListings(availableListings);
+    }
+  }, [availableListings, cacheListings]);
+
   const handleNotificationClick = useCallback(async (notification) => {
     if (!notification.linkUrl) return;
 
@@ -206,13 +216,18 @@ export default function usePageLogic(userData, likeData = null, availableListing
         if (availableListings && availableListings.length > 0) {
             cachedListing = availableListings.find(l => l.listingId === listingId);
         }
+        
+        // If not in local page data, check global cache
+        if (!cachedListing) {
+            cachedListing = getCachedListing(listingId);
+        }
 
         handleOpenListing(listingId, { initialReviewAction: shouldReview }, cachedListing);
     } catch (e) {
         console.error("Error parsing notification URL:", e);
         navigate(notification.linkUrl);
     }
-  }, [handleOpenListing, navigate, availableListings]);
+  }, [handleOpenListing, navigate, availableListings, getCachedListing]);
 
   // --- 3. Render Helper ---
   

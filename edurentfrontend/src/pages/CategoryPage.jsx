@@ -41,6 +41,7 @@ export default function CategoryPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
   
   // Handle the logic for liking items
   const likesHook = useLikes();
@@ -114,9 +115,11 @@ export default function CategoryPage() {
             setTotalPages(data.totalPages);
             setCurrentPage(data.number);
             setHasMore(data.number < data.totalPages - 1);
+            setTotalElements(data.totalElements || 0);
         } else {
             setCategoryListings(data || []);
             setHasMore(false);
+            setTotalElements(0);
         }
 
       } catch (err) {
@@ -265,11 +268,11 @@ export default function CategoryPage() {
                </div>
             </div>
           )}
-          {filteredListings.length > 0 && (
+          {filteredListings.length > 0 && totalElements > 8 && (
               <LoadMoreButton 
                 onLoadMore={handleLoadMore}
                 isLoading={isLoadingMore}
-                hasMore={hasMore}
+                hasMore={hasMore && !searchQuery}
               />
           )}
         </section>

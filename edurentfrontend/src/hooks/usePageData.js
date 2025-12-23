@@ -13,6 +13,8 @@ export default function usePageData() {
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
 
+  const [totalElements, setTotalElements] = useState(0);
+
   const fetchData = useCallback(async (page = 0, isLoadMore = false) => {
     // Use different loading states for initial load vs load more
     if (isLoadMore) {
@@ -38,9 +40,11 @@ export default function usePageData() {
           setAllListings(prev => page === 0 ? data.content : [...prev, ...data.content]);
           setCurrentPage(data.number);
           setHasMore(data.number < data.totalPages - 1);
+          setTotalElements(data.totalElements || 0);
       } else {
           setAllListings(data || []);
           setHasMore(false);
+          setTotalElements(0);
       }
       
       if (page === 0) {
@@ -62,7 +66,7 @@ export default function usePageData() {
     }
   }, [categories]); 
 
- // Fetch data immediately on mount
+  // Fetch data immediately on mount
   useEffect(() => {
     fetchData(0, false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -81,6 +85,7 @@ export default function usePageData() {
     dataError,     
     refetchData: () => fetchData(0, false),
     loadMore,       
-    hasMore      
+    hasMore,
+    totalElements
   };
 }

@@ -46,6 +46,7 @@ export default function ForRentPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   // Likes and Page Logic
   const likesHook = useLikes();
@@ -70,9 +71,11 @@ export default function ForRentPage() {
               setCurrentPage(data.number);
               setTotalPages(data.totalPages);
               setHasMore(data.number < data.totalPages - 1);
+              setTotalElements(data.totalElements || 0);
           } else {
               setListings(data || []);
               setHasMore(false);
+              setTotalElements(0);
           }
       } catch (err) {
           console.error("Failed to load rent listings", err);
@@ -187,11 +190,13 @@ export default function ForRentPage() {
                 </div>
                 
                 {/* Pagination Controls */}
-                <LoadMoreButton 
-                    onLoadMore={handleLoadMore}
-                    isLoading={isLoadingMore}
-                    hasMore={hasMore}
-                />
+                {totalElements > 8 && (
+                    <LoadMoreButton 
+                        onLoadMore={handleLoadMore}
+                        isLoading={isLoadingMore}
+                        hasMore={hasMore && !searchQuery}
+                    />
+                )}
             </>
           ) : (
             <p style={{ color: 'var(--text-muted)' }}>

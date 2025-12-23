@@ -96,6 +96,7 @@ export default function ManageListingsPage() {
   // Pagination State
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [totalListingsCount, setTotalListingsCount] = useState(0);
 
   // UI & Selection State
   const [isLoading, setIsLoading] = useState(true);
@@ -159,6 +160,7 @@ export default function ManageListingsPage() {
       
       setCurrentPage(data.number);
       setHasMore(data.number < data.totalPages - 1);
+      setTotalListingsCount(data.totalElements || 0);
       
       if (page === 0) {
           setCategories([{ categoryId: 'all', name: 'All Categories' }, ...(catRes.data || [])]);
@@ -856,11 +858,13 @@ export default function ManageListingsPage() {
               </table>
             </div>
 
+            {totalListingsCount > 8 && (
             <LoadMoreButton 
                 onLoadMore={() => fetchData(currentPage + 1, true)}
                 isLoading={isLoadingMore}
                 hasMore={hasMore}
             />
+            )}
             </>
           ) : (
              <div className="listings-empty-state">

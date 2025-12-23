@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'; 
+import React from 'react'; 
 import { Link, useNavigate } from 'react-router-dom';
 
 // Import our custom hooks to keep the logic organized
@@ -84,7 +84,8 @@ export default function DashboardPage() {
     dataError, 
     loadMore, 
     hasMore,
-    refetchData
+    refetchData,
+    totalElements
   } = usePageData(!!userData);
 
   const { openLogin } = useAuthModal();
@@ -262,13 +263,14 @@ export default function DashboardPage() {
                 />
               ))}
             </div>
-            <LoadMoreButton 
-                    onLoadMore={loadMore}
-                    isLoading={isLoadingMore}
-                    hasMore={hasMore}
-                />
+            {Number(totalElements) > 8 && (
+                <LoadMoreButton 
+                        onLoadMore={loadMore}
+                        isLoading={isLoadingMore}
+                        hasMore={hasMore}
+                    />
+            )}
             </>
-            
           ) : (
             // Show this if the search returns no results
             <div className="empty-state">

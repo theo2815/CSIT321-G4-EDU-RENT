@@ -111,9 +111,9 @@ export const getCurrentUser = async () => {
 };
 
 // Retrieves all listings created by a specific user
-export const getUserListings = (userId, page = 0, size = 10, includeInactive = false) => {
+export const getUserListings = (userId, page = 0, size = 10, includeInactive = false, statusGroup = null) => {
   return apiClient.get(`/listings/user/${userId}`, {
-    params: { page, size, includeInactive }
+    params: { page, size, includeInactive, statusGroup }
   });
 };
 

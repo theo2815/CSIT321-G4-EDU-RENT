@@ -45,6 +45,7 @@ export default function BrowsePage() {
   const [saleError, setSaleError] = useState(null);
   const [salePage, setSalePage] = useState(0);
   const [hasMoreSale, setHasMoreSale] = useState(false);
+  const [totalSaleElements, setTotalSaleElements] = useState(0);
 
   // --- RENT Section State ---
   const [rentListings, setRentListings] = useState([]);
@@ -53,6 +54,7 @@ export default function BrowsePage() {
   const [rentError, setRentError] = useState(null);
   const [rentPage, setRentPage] = useState(0);
   const [hasMoreRent, setHasMoreRent] = useState(false);
+  const [totalRentElements, setTotalRentElements] = useState(0);
 
   // --- Fetch Sale Listings ---
   const fetchSaleListings = useCallback(async (page = 0, isLoadMore = false) => {
@@ -71,9 +73,11 @@ export default function BrowsePage() {
         setSaleListings(prev => page === 0 ? data.content : [...prev, ...data.content]);
         setSalePage(data.number);
         setHasMoreSale(data.number < data.totalPages - 1);
+        setTotalSaleElements(data.totalElements || 0);
       } else {
         setSaleListings(data || []);
         setHasMoreSale(false);
+        setTotalSaleElements(0);
       }
     } catch (err) {
       console.error("Failed to load sale listings:", err);
@@ -104,9 +108,11 @@ export default function BrowsePage() {
         setRentListings(prev => page === 0 ? data.content : [...prev, ...data.content]);
         setRentPage(data.number);
         setHasMoreRent(data.number < data.totalPages - 1);
+        setTotalRentElements(data.totalElements || 0);
       } else {
         setRentListings(data || []);
         setHasMoreRent(false);
+        setTotalRentElements(0);
       }
     } catch (err) {
       console.error("Failed to load rent listings:", err);
@@ -266,11 +272,13 @@ export default function BrowsePage() {
                   />
                 ))}
               </div>
-              <LoadMoreButton 
-                onLoadMore={handleLoadMoreSale}
-                isLoading={isLoadingMoreSale}
-                hasMore={hasMoreSale && !searchQuery}
-              />
+              {totalSaleElements > 8 && (
+                <LoadMoreButton 
+                  onLoadMore={handleLoadMoreSale}
+                  isLoading={isLoadingMoreSale}
+                  hasMore={hasMoreSale && !searchQuery}
+                />
+              )}
             </>
           ) : (
             <p style={{ color: 'var(--text-muted)' }}>No items found for sale {searchQuery ? 'matching your search' : ''}.</p>
@@ -296,11 +304,13 @@ export default function BrowsePage() {
                   />
                 ))}
               </div>
-              <LoadMoreButton 
-                onLoadMore={handleLoadMoreRent}
-                isLoading={isLoadingMoreRent}
-                hasMore={hasMoreRent && !searchQuery}
-              />
+              {totalRentElements > 8 && (
+                <LoadMoreButton 
+                  onLoadMore={handleLoadMoreRent}
+                  isLoading={isLoadingMoreRent}
+                  hasMore={hasMoreRent && !searchQuery}
+                />
+              )}
             </>
           ) : (
             <p style={{ color: 'var(--text-muted)' }}>No items found for rent {searchQuery ? 'matching your search' : ''}.</p>

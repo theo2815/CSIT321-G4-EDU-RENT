@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmationProvider } from './context/ConfirmationContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ListingCacheProvider } from './context/ListingCacheContext';
 
 // Lazy-loaded Pages (Code-splitting for faster navigation)
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage.jsx'));
@@ -37,6 +38,7 @@ function App() {
     <ThemeProvider>
     <ToastProvider>
       <ConfirmationProvider>
+      <ListingCacheProvider>
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* --- Public Auth Pages  --- */}
@@ -79,6 +81,7 @@ function App() {
           <Route path="/" element={<RootRoute />} />
         </Routes>
       </Suspense>
+      </ListingCacheProvider>
   </ConfirmationProvider>
     </ToastProvider>
     </ThemeProvider>
