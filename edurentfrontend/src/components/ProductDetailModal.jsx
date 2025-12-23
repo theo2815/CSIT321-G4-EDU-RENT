@@ -134,7 +134,8 @@ export default function ProductDetailModal({
   isLiking, 
   sellerRatingInitialData,
   initialContext,
-  initialAction
+  initialAction,
+  isLoadingContext
 }) {
   const navigate = useNavigate();
   const { openLogin } = useAuthModal(); 
@@ -151,8 +152,6 @@ export default function ProductDetailModal({
   // New state for managing active rental transactions
   const [showEditDatesModal, setShowEditDatesModal] = useState(false);
   const [activeTransaction, setActiveTransaction] = useState(null);
-
-  if (!listing) return null;
 
   // Status checks
   const isSold = listing.status === 'Sold';
@@ -433,6 +432,7 @@ export default function ProductDetailModal({
           <div className="seller-info-section">
             
             {/* VIEW 1: OWNER */}
+            {/* VIEW 1: OWNER */}
             {isOwner ? (
               <>
                 <div className="seller-info-header">
@@ -444,11 +444,16 @@ export default function ProductDetailModal({
                   </div>
                 </div>
 
-                {chatCount > 0 && (
+                {/* Show loading state for chat count or button to prevent jump */}
+                {isLoadingContext ? (
+                    <button className="btn-chat" disabled style={{ backgroundColor: "#e9ecef", color: "#6c757d", marginBottom: '0.5rem', cursor: 'wait' }}>
+                        Loading...
+                    </button>
+                ) : chatCount > 0 ? (
                     <button className="btn-chat" style={{ backgroundColor: "#0077B6", marginBottom: '0.5rem' }} onClick={handleViewChats}>
                         View {chatCount} Chat{chatCount !== 1 ? 's' : ''}
                     </button>
-                )}
+                ) : null}
 
                 {/* Owner Status Actions */}
                 {isSold ? (
@@ -456,8 +461,10 @@ export default function ProductDetailModal({
                       <div className="action-note" style={{ color: '#e53935', fontWeight: 'bold' }}>
                         Item marked as Sold
                       </div>
-                      {/* Allow Seller to Review Buyer */}
-                      {activeTransaction && (() => {
+                      
+                      {isLoadingContext ? (
+                          <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#888' }}>Checking reviews...</div>
+                      ) : activeTransaction ? (() => {
                           const userHasReviewed = activeTransaction.reviews?.some(
                               r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
                           );
@@ -493,7 +500,7 @@ export default function ProductDetailModal({
                                   ⭐ Review Buyer
                               </button>
                           );
-                      })()}
+                      })() : null}
                   </div>
                 ) : isRented ? (
                    // --- Rented Controls: Edit Dates or Return ---
@@ -524,7 +531,9 @@ export default function ProductDetailModal({
                        </div>
 
                        {/* Review Renter Logic */}
-                       {activeTransaction && (() => {
+                       {isLoadingContext ? (
+                           <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#888', textAlign: 'center' }}>Updating...</div>
+                       ) : activeTransaction ? (() => {
                           const userHasReviewed = activeTransaction.reviews?.some(
                               r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
                           );
@@ -557,7 +566,7 @@ export default function ProductDetailModal({
                                   ⭐ Review Renter
                               </button>
                           );
-                      })()}
+                      })() : null}
                    </div>
                 ) : (
                    // --- Available Controls ---
@@ -590,13 +599,17 @@ export default function ProductDetailModal({
                     isBuyerOfSoldItem ? (
                         <>
                             <div className="action-note" style={{ color: '#2ecc71', fontWeight: 'bold' }}>SOLD TO YOU</div>
-                            <button 
-                                className="btn-chat" 
-                                style={{ backgroundColor: hasAlreadyReviewed ? "#2ecc71" : "#f1c40f", color: hasAlreadyReviewed ? "white" : "#333" }} 
-                                onClick={handleReviewClick}
-                            >
-                                {hasAlreadyReviewed ? "✓ SOLD TO YOU – You already reviewed this" : "⭐ Leave a Review"}
-                            </button>
+                            {isLoadingContext ? (
+                                <button className="btn-chat" disabled style={{ backgroundColor: "#e9ecef", color: "#888" }}>Loading status...</button>
+                            ) : (
+                                <button 
+                                    className="btn-chat" 
+                                    style={{ backgroundColor: hasAlreadyReviewed ? "#2ecc71" : "#f1c40f", color: hasAlreadyReviewed ? "white" : "#333" }} 
+                                    onClick={handleReviewClick}
+                                >
+                                    {hasAlreadyReviewed ? "✓ SOLD TO YOU – You already reviewed this" : "⭐ Leave a Review"}
+                                </button>
+                            )}
                         </>
                     ) : (
                         <button className="btn-chat" disabled style={{ backgroundColor: "#e0e0e0", color: "#888", cursor: "not-allowed" }}>
@@ -609,13 +622,17 @@ export default function ProductDetailModal({
                     isRenter ? (
                         <>
                             <div className="action-note" style={{ color: '#2ecc71', fontWeight: 'bold' }}>RENTED TO YOU</div>
-                            <button 
-                                className="btn-chat" 
-                                style={{ backgroundColor: hasAlreadyReviewed ? "#2ecc71" : "#f1c40f", color: hasAlreadyReviewed ? "white" : "#333" }} 
-                                onClick={handleReviewClick}
-                            >
-                                {hasAlreadyReviewed ? "✓ RENTED TO YOU – You already reviewed this" : "⭐ Leave a Review"}
-                            </button>
+                            {isLoadingContext ? (
+                                <button className="btn-chat" disabled style={{ backgroundColor: "#e9ecef", color: "#888" }}>Loading status...</button>
+                            ) : (
+                                <button 
+                                    className="btn-chat" 
+                                    style={{ backgroundColor: hasAlreadyReviewed ? "#2ecc71" : "#f1c40f", color: hasAlreadyReviewed ? "white" : "#333" }} 
+                                    onClick={handleReviewClick}
+                                >
+                                    {hasAlreadyReviewed ? "✓ RENTED TO YOU – You already reviewed this" : "⭐ Leave a Review"}
+                                </button>
+                            )}
                         </>
                     ) : (
                         <>
@@ -626,8 +643,8 @@ export default function ProductDetailModal({
                 )}
 
                 {!isSold && !isRented && (
-                    <button className="btn-chat" onClick={handleChatClick} disabled={isStartingChat}>
-                      {existingChat ? 'View Existing Chat' : 'Chat with the Seller'}
+                    <button className="btn-chat" onClick={handleChatClick} disabled={isStartingChat || isLoadingContext}>
+                      {isLoadingContext ? 'Loading...' : (existingChat ? 'View Existing Chat' : 'Chat with the Seller')}
                     </button>
                 )}
               </>

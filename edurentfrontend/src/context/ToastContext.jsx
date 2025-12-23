@@ -8,7 +8,14 @@ export const ToastProvider = ({ children }) => {
 
   const addToast = useCallback((message, type = 'info') => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
+    
+    setToasts(prev => {
+      // Prevent duplicate toasts: if exact same message & type exists, don't add
+      if (prev.some(t => t.message === message && t.type === type)) {
+        return prev;
+      }
+      return [...prev, { id, message, type }];
+    });
     
     // Auto-remove after 3 seconds
     setTimeout(() => {

@@ -16,6 +16,7 @@ export default function usePageLogic(userData, likeData = null) {
   const [selectedListing, setSelectedListing] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [sellerRatingData, setSellerRatingData] = useState(null);
+  const [isContextLoading, setIsContextLoading] = useState(false); // New state to track background fetch
 
   // --- 1. Like Logic Initialization ---
   // If the parent component manages likes (e.g., ProfilePage), use that data.
@@ -37,14 +38,24 @@ export default function usePageLogic(userData, likeData = null) {
     setSelectedListing(null);
     setSellerRatingData(null);
     setModalContext(null);
+    setIsContextLoading(false);
   }, []);
 
   // Fetches listing details and pre-calculates context before opening the modal
-  const handleOpenListing = useCallback(async (listingId, options = {}) => {
+  const handleOpenListing = useCallback(async (listingId, options = {}, partialListing = null) => {
     if (!listingId) return;
 
     closeModal();
-    setIsModalLoading(true);
+    setIsContextLoading(true); // Start background loading
+
+    // Optimistic Open: If we have partial data (from the card), show it immediately
+    if (partialListing) {
+        setSelectedListing(partialListing);
+        setIsModalOpen(true);
+    } else {
+        // Only show loading spinner if we have NO data to show yet
+        setIsModalLoading(true);
+    }
 
     try {
       // Prepare parallel requests for efficiency
@@ -58,7 +69,7 @@ export default function usePageLogic(userData, likeData = null) {
 
       if (listingRes.data) {
         const listing = listingRes.data;
-        setSelectedListing(listing);
+        setSelectedListing(listing); // Update with full details (fresh data)
 
         // --- Calculate Conversation Context ---
         let context = {
@@ -101,22 +112,26 @@ export default function usePageLogic(userData, likeData = null) {
             }
         }
 
-        setIsModalOpen(true);
+        if (!partialListing) setIsModalOpen(true);
       } else {
         throw new Error(`Listing ${listingId} not found.`);
       }
     } catch (err) {
       console.error("Failed to fetch listing data:", err);
-      alert(`Could not load item: ${err.message || 'Unknown error'}`);
+      // If we opened optimistically but failed to fetch, we might want to alert or close
+      // For now, simple alert or keep the stale data visible if it was partial
+      if (!partialListing) alert(`Could not load item: ${err.message || 'Unknown error'}`);
     } finally {
       setIsModalLoading(false); 
+      setIsContextLoading(false); // End background loading
     }
   }, [closeModal, userData]);
 
   // Opens the modal for a given listing object
   const openModal = useCallback((listing) => {
     if (listing && listing.listingId) {
-        handleOpenListing(listing.listingId);
+        // Pass the listing as partial data for optimistic loading
+        handleOpenListing(listing.listingId, {}, listing);
     } else {
         console.error("Attempted to open listing without an ID:", listing);
     }
@@ -182,6 +197,7 @@ export default function usePageLogic(userData, likeData = null) {
            sellerRatingInitialData={sellerRatingData}
            initialContext={modalContext} // Pass the pre-calculated context
            initialAction={modalContext?.initialAction} // Pass intent
+           isLoadingContext={isContextLoading} // Pass loading state
          />
       )}
       {isModalLoading && (

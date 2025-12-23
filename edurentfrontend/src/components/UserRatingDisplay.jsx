@@ -11,7 +11,20 @@ export default function UserRatingDisplay({ userId, align = 'left', initialData 
   });
 
   useEffect(() => {
-    if (!userId || initialData) return;
+    // If we receive new initialData (e.g. from a background fetch completing),
+    // we should update our local state to reflect it.
+    if (initialData) {
+        setStats({ 
+            avg: initialData.avg, 
+            count: initialData.count, 
+            loading: false 
+        });
+    }
+  }, [initialData]);
+
+  useEffect(() => {
+    // Only fetch if we have NO data (userId is required, but initialData takes precedence)
+    if (!userId || initialData || (stats.count > 0 && !stats.loading)) return;
 
     let isMounted = true;
     const fetchStats = async () => {
