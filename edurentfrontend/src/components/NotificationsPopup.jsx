@@ -58,6 +58,8 @@ export default function NotificationsPopup({
 }) {
   // State for pagination
   const [visibleCount, setVisibleCount] = useState(NOTIFICATIONS_PER_PAGE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // New Loading State
+  
   // State to track which 3-dot menu is open (by notificationId)
   const [activeDropdown, setActiveDropdown] = useState(null);
   // State for the new 3-dot menu in the header
@@ -66,7 +68,12 @@ export default function NotificationsPopup({
 
   // Shows more notifications from the list
   const handleLoadMore = () => {
-    setVisibleCount(prevCount => prevCount + NOTIFICATIONS_PER_PAGE);
+    setIsLoadingMore(true);
+    // Simulate a short network delay for better UX
+    setTimeout(() => {
+      setVisibleCount(prevCount => prevCount + NOTIFICATIONS_PER_PAGE);
+      setIsLoadingMore(false);
+    }, 600);
   };
 
   // Called when clicking 'All' or 'Unread'
@@ -281,8 +288,12 @@ export default function NotificationsPopup({
         {/* Footer: "Load more" button */}
         {hasMore && (
           <div className="popup-footer">
-            <button onClick={handleLoadMore} className="load-more-btn">
-              Load more
+            <button 
+              onClick={handleLoadMore} 
+              className="popup-load-more-btn"
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? 'Loading...' : 'Load more'}
             </button>
           </div>
         )}

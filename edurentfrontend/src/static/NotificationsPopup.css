@@ -126,7 +126,7 @@
   flex-shrink: 0;
 }
 
-.load-more-btn {
+.popup-load-more-btn {
   background: none;
   border: none;
   color: var(--primary-color);
@@ -134,10 +134,12 @@
   font-weight: 500;
   cursor: pointer;
   padding: 0.5rem;
+  width: 100%; /* Ensures a good hit area */
 }
 
-.load-more-btn:hover {
+.popup-load-more-btn:hover {
   text-decoration: underline;
+  background-color: rgba(0,0,0,0.02); /* Subtle hover effect */
 }
 
 /* --- Filter Bar --- */

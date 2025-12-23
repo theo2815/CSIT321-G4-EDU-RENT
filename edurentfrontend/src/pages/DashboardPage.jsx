@@ -263,7 +263,7 @@ export default function DashboardPage() {
                 />
               ))}
             </div>
-            {Number(totalElements) > 8 && (
+            {Number(totalElements) > 8 && allListings.length < totalElements && (
                 <LoadMoreButton 
                         onLoadMore={loadMore}
                         isLoading={isLoadingMore}
