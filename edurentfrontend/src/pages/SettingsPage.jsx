@@ -19,6 +19,7 @@ import {
   updateUserProfile,
   changePassword,
   upsertNotificationPreferences,
+  getNotificationPreferences,
   uploadProfilePicture // NEW
 } from '../services/apiService';
 
@@ -148,21 +149,21 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
           <div className="form-grid">
             <div>
               <label htmlFor="fullName" className="form-label">Full Name</label>
-              <input type="text" id="fullName" name="fullName" value={profileData.fullName} onChange={onChange} className={`form-input${!editMode ? ' readonly' : ''}`} readOnly={!editMode} />
+              <input type="text" id="fullName" name="fullName" value={profileData.fullName || ''} onChange={onChange} className={`form-input${!editMode ? ' readonly' : ''}`} readOnly={!editMode} />
               {errors.fullName && <div className="form-error error-red">{errors.fullName}</div>}
             </div>
             <div>
               <label htmlFor="address" className="form-label">Address</label>
-              <input type="text" id="address" name="address" value={profileData.address} onChange={onChange} className={`form-input${!editMode ? ' readonly' : ''}`} readOnly={!editMode} />
+              <input type="text" id="address" name="address" value={profileData.address || ''} onChange={onChange} className={`form-input${!editMode ? ' readonly' : ''}`} readOnly={!editMode} />
               {errors.address && <div className="form-error error-red">{errors.address}</div>}
             </div>
             <div>
               <label htmlFor="schoolName" className="form-label">School</label>
-              <input type="text" id="schoolName" name="schoolName" value={profileData.schoolName} readOnly className="form-input readonly" />
+              <input type="text" id="schoolName" name="schoolName" value={profileData.schoolName || ''} readOnly className="form-input readonly" />
             </div>
             <div style={{ gridColumn: 'span 1 / span 2' }}>
               <label htmlFor="bio" className="form-label">Bio</label>
-              <textarea id="bio" name="bio" value={profileData.bio} onChange={onChange} className={`form-input form-textarea${!editMode ? ' readonly' : ''}`} placeholder="Tell us a little about yourself..." readOnly={!editMode} />
+              <textarea id="bio" name="bio" value={profileData.bio || ''} onChange={onChange} className={`form-input form-textarea${!editMode ? ' readonly' : ''}`} placeholder="Tell us a little about yourself..." readOnly={!editMode} />
             </div>
           </div>
         </div>
@@ -172,7 +173,7 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
           <div className="form-grid form-grid-cols-2">
             <div>
               <label htmlFor="email" className="form-label">Email</label>
-              <input type="email" id="email" name="email" value={profileData.email} readOnly className="form-input readonly" />
+              <input type="email" id="email" name="email" value={profileData.email || ''} readOnly className="form-input readonly" />
               {errors.email && <div className="form-error error-red">{errors.email}</div>}
             </div>
             <div>
@@ -181,7 +182,7 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
                 type="tel"
                 id="phoneNumber"
                 name="phoneNumber"
-                value={profileData.phoneNumber}
+                value={profileData.phoneNumber || ''}
                 maxLength={11}
                 onChange={e => {
                   // Only allow digits and up to 11 characters

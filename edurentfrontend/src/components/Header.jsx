@@ -32,8 +32,8 @@ import defaultAvatar from '../assets/default-avatar.png';
 export default function Header({ 
   userName, 
   profilePictureUrl, 
-  searchQuery, 
-  onSearchChange, 
+  searchQuery = '', 
+  onSearchChange = () => {}, 
   onLogout, 
   onNotificationClick 
 }) {

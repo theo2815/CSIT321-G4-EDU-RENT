@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useLikes from './useLikes';
 import { useListingCache } from '../context/ListingCacheContext';
-import { getListingById, getUserReviews, getConversationsForUser } from '../services/apiService';
+import { getListingById, getUserReviews, getConversationsForUser, getTransactionByListing } from '../services/apiService';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 
@@ -68,6 +68,9 @@ export default function usePageLogic(userData, likeData = null, availableListing
     setIsContextLoading(false);
   }, []);
 
+  // Get cache functions early so they can be used in handleOpenListing
+  const { cacheListings, getCachedListing, cacheSellerRating, getCachedRating } = useListingCache();
+
   // Fetches listing details and pre-calculates context before opening the modal
   const handleOpenListing = useCallback(async (listingId, options = {}, partialListing = null) => {
     if (!listingId) return;
@@ -85,12 +88,12 @@ export default function usePageLogic(userData, likeData = null, availableListing
     }
 
     try {
-      // Prepare parallel requests for efficiency
-      const promises = [getListingById(listingId)];
-
-      if (userData?.userId) {
-        promises.push(getConversationsForUser(userData.userId));
-      }
+      // Parallel fetch of listing + conversations
+      // Transaction is fetched AFTER we know listing status to avoid 404s for Available items
+      const promises = [
+        getListingById(listingId),
+        userData?.userId ? getConversationsForUser(userData.userId) : Promise.resolve(null)
+      ];
 
       const [listingRes, conversationsRes] = await Promise.all(promises);
 
@@ -102,8 +105,21 @@ export default function usePageLogic(userData, likeData = null, availableListing
         let context = {
           relatedConversations: [],
           existingChat: null,
-          chatCount: 0
+          chatCount: 0,
+          transaction: null
         };
+
+        // Only fetch transaction for Sold/Rented listings to avoid 404 errors
+        const needsTransaction = listing.status === 'Sold' || listing.status === 'Rented';
+        if (needsTransaction) {
+          try {
+            const transactionRes = await getTransactionByListing(listingId);
+            context.transaction = transactionRes?.data || null;
+          } catch {
+            // Silently handle - transaction might not exist
+            console.warn("Transaction not found for listing:", listingId);
+          }
+        }
 
         if (conversationsRes?.data) {
           const related = conversationsRes.data.filter(c => 
@@ -122,21 +138,31 @@ export default function usePageLogic(userData, likeData = null, availableListing
 
         setModalContext(context);
 
-       // Fetch seller rating data for display in the modal 
+        // OPTIMIZATION: Check cache first, then fetch if not cached
         const sellerId = listing.user?.userId;
         if (sellerId) {
-            try {
-                const reviewRes = await getUserReviews(sellerId);
+          const cachedRating = getCachedRating(sellerId);
+          if (cachedRating) {
+            // Use cached rating immediately
+            setSellerRatingData(cachedRating);
+          } else {
+            // Fire off the request but don't await it - let modal open faster
+            getUserReviews(sellerId)
+              .then(reviewRes => {
                 const reviews = reviewRes.data || [];
                 const count = reviews.length;
                 const avg = count > 0 
                   ? (reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / count).toFixed(1)
                   : 0;
-                setSellerRatingData({ avg, count });
-            } catch (e) {
+                const ratingData = { avg, count };
+                setSellerRatingData(ratingData);
+                cacheSellerRating(sellerId, ratingData); // Cache for future use
+              })
+              .catch(e => {
                 console.warn("Could not fetch seller reviews:", e);
                 setSellerRatingData(null);
-            }
+              });
+          }
         }
 
         if (!partialListing) setIsModalOpen(true);
@@ -152,7 +178,7 @@ export default function usePageLogic(userData, likeData = null, availableListing
       setIsModalLoading(false); 
       setIsContextLoading(false); // End background loading
     }
-  }, [closeModal, userData]);
+  }, [closeModal, userData, getCachedRating, cacheSellerRating]);
 
   // Opens the modal for a given listing object
   const openModal = useCallback((listing) => {
@@ -165,7 +191,6 @@ export default function usePageLogic(userData, likeData = null, availableListing
   }, [handleOpenListing]);
 
 // Handles notification clicks by extracting listing ID and opening the modal
-  const { cacheListings, getCachedListing } = useListingCache();
 
   // Sync available listings to the global cache whenever they change
   useEffect(() => {
@@ -231,7 +256,8 @@ export default function usePageLogic(userData, likeData = null, availableListing
 
   // --- 3. Render Helper ---
   
-  // Memoized modal component to avoid unnecessary re-renders
+  // Returns a function component that renders the modal
+  // Using useCallback to memoize the render function
   const ModalComponent = useCallback(() => (
     <>
       {isModalOpen && selectedListing && (

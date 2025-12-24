@@ -145,8 +145,7 @@ export default function ProductDetailModal({
   const { showSuccess, showError } = useToast();
   const confirm = useConfirm();
 
-  // Local state for modals and chat
-  const [isStartingChat, setIsStartingChat] = useState(false);
+  // Local state for modals
   const [showMarkSoldModal, setShowMarkSoldModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false); 
   
@@ -160,49 +159,49 @@ export default function ProductDetailModal({
   
   // New state for managing active rental transactions
   const [showEditDatesModal, setShowEditDatesModal] = useState(false);
-  const [activeTransaction, setActiveTransaction] = useState(null);
+  // OPTIMIZATION: Initialize from pre-fetched transaction data instead of separate fetch
+  const [activeTransaction, setActiveTransaction] = useState(initialContext?.transaction || null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Status checks using local state
   const isSold = currentListing.status === 'Sold';
   const isRented = currentListing.status === 'Rented';
   const isOwner = currentUserId && currentUserId === currentListing?.user?.userId;
-  const seller = getSellerInfo(currentListing.user);
+  // Memoized seller info to avoid recalculating on every render
+  const seller = useMemo(() => getSellerInfo(currentListing.user), [currentListing.user]);
 
   const isRentType = currentListing.listingType?.toUpperCase().includes('RENT');
   const priceDisplay = `₱${(currentListing.price || 0).toFixed(2)}`;
 
-  // Helper to fetch transaction data
+  // Helper to fetch transaction data (used for MANUAL refresh after user actions)
   const fetchActiveTransaction = () => {
-      // Fetch transaction if Rented OR if Owner needs to see Sold info (for reviews)
-      // We check the LOCAL state status here
+      // Only fetch transaction for Rented items or Sold items (for owner reviews)
       const shouldFetch = currentListing.status === 'Rented' || (currentListing.status === 'Sold' && isOwner);
 
       if (shouldFetch) {
         getTransactionByListing(currentListing.listingId)
             .then(res => {
-                const transaction = res.data;
-                setActiveTransaction(transaction);
-                
-                // Check if current user has already reviewed
-                const userHasReviewed = res.data.reviews?.some(
-                    r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
-                );
-
-                // Auto-open review modal ONLY if NOT reviewed yet (and explicit initial action)
-                if (initialAction === 'review' && isOwner && !userHasReviewed) {
-                    setShowReviewModal(true);
-                }
+                setActiveTransaction(res.data);
             })
             .catch(err => console.error("Could not load transaction info:", err));
-    }
+      }
   };
 
-  // Initial Fetch Logic
+  // OPTIMIZATION: Only sync transaction from initialContext on mount or context change
+  // This replaces the expensive useEffect that had many dependencies
   useEffect(() => {
-    fetchActiveTransaction();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentListing.status, isOwner, currentListing.listingId, initialAction, currentUserId]);
+    if (initialContext?.transaction) {
+      setActiveTransaction(initialContext.transaction);
+      
+      // Check if we should auto-open review modal
+      const userHasReviewed = initialContext.transaction.reviews?.some(
+        r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
+      );
+      if (initialAction === 'review' && isOwner && !userHasReviewed) {
+        setShowReviewModal(true);
+      }
+    }
+  }, [initialContext?.transaction, initialAction, isOwner, currentUserId]);
 
   // Helper to format dates using local time to avoid shifts
   const formatRentalDate = (dateString) => {
@@ -679,7 +678,7 @@ export default function ProductDetailModal({
                 )}
 
                 {!isSold && !isRented && (
-                    <button className="btn-chat" onClick={handleChatClick} disabled={isStartingChat || isLoadingContext}>
+                    <button className="btn-chat" onClick={handleChatClick} disabled={isLoadingContext}>
                       {isLoadingContext ? 'Loading...' : (existingChat ? 'View Existing Chat' : 'Chat with the Seller')}
                     </button>
                 )}
