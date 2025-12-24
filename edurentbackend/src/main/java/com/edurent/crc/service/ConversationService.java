@@ -97,17 +97,29 @@ public class ConversationService {
             // "Selling": User is the owner of the listing
             boolean isSeller = conv.getListing().getUser().getUserId().equals(userId);
 
+            // Check if listing is sold (status = "Sold" or "Rented")
+            String listingStatus = conv.getListing().getStatus();
+            boolean isSold = "Sold".equalsIgnoreCase(listingStatus) || "Rented".equalsIgnoreCase(listingStatus);
+
             switch (filter) {
                 case "Selling":
-                    if (isSeller && !conv.getIsArchivedForCurrentUser())
+                    // Active selling conversations (not sold, not archived)
+                    if (isSeller && !isSold && !conv.getIsArchivedForCurrentUser())
                         match = true;
                     break;
                 case "Buying":
-                    if (!isSeller && !conv.getIsArchivedForCurrentUser())
+                    // Active buying conversations (not sold, not archived)
+                    if (!isSeller && !isSold && !conv.getIsArchivedForCurrentUser())
                         match = true;
                     break;
                 case "Unread":
+                    // Unread conversations (not archived, any sold status)
                     if (conv.getIsUnread() && !conv.getIsArchivedForCurrentUser())
+                        match = true;
+                    break;
+                case "Sold":
+                    // Conversations for sold/rented items (not archived)
+                    if (isSold && !conv.getIsArchivedForCurrentUser())
                         match = true;
                     break;
                 case "Archived":
@@ -116,7 +128,8 @@ public class ConversationService {
                     break;
                 case "All Messages":
                 default:
-                    if (!conv.getIsArchivedForCurrentUser())
+                    // All active conversations (not sold, not archived)
+                    if (!isSold && !conv.getIsArchivedForCurrentUser())
                         match = true;
                     break;
             }

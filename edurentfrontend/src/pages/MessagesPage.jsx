@@ -162,6 +162,7 @@ export default function MessagesPage() {
       'Selling': { data: [], page: 0, hasMore: true, initialized: false },
       'Buying': { data: [], page: 0, hasMore: true, initialized: false },
       'Unread': { data: [], page: 0, hasMore: true, initialized: false },
+      'Sold': { data: [], page: 0, hasMore: true, initialized: false },
       'Archived': { data: [], page: 0, hasMore: true, initialized: false }
   });
   
@@ -1137,7 +1138,7 @@ export default function MessagesPage() {
       );
   }
 
-  const filterOptions = ['All Messages', 'Selling', 'Buying', 'Unread', 'Archived'];
+  const filterOptions = ['All Messages', 'Selling', 'Buying', 'Unread', 'Sold', 'Archived'];
 
   return (
     <div className="profile-page">
