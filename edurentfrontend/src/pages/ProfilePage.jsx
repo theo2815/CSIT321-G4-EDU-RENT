@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios'; 
 
@@ -301,9 +301,20 @@ export default function ProfilePage() {
 
   // Local Data State
   const [profileUser, setProfileUser] = useState(null); 
-  const [originalListings, setOriginalListings] = useState([]); 
+  
+  // Controls
+  const [activeTab, setActiveTab] = useState('listings');
+  const [listingFilter, setListingFilter] = useState('all'); 
+  
+  // independent tab state
+  const [tabData, setTabData] = useState({
+      all: { listings: [], page: 0, hasMore: true, initialized: false, totalElements: 0 },
+      rent: { listings: [], page: 0, hasMore: true, initialized: false, totalElements: 0 },
+      sale: { listings: [], page: 0, hasMore: true, initialized: false, totalElements: 0 },
+      sold: { listings: [], page: 0, hasMore: true, initialized: false, totalElements: 0 }
+  }); 
 
-  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(loggedInUser, likesHook, originalListings); 
+  const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(loggedInUser, likesHook, tabData[listingFilter]?.listings || []); 
   
   // Split Review State: Separates reviews received as Seller from reviews received as Buyer
   const [buyerReviews, setBuyerReviews] = useState([]); // Reviews from Buyers (User is Seller)
@@ -316,9 +327,7 @@ export default function ProfilePage() {
   // Review Filter State
   const [reviewFilter, setReviewFilter] = useState('all'); 
 
-  // Listing Pagination
-  const [currentPage, setCurrentPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  // Listing Pagination - REMOVED (Moved to tabData)
 
   // Review Pagination States
   const [buyerPage, setBuyerPage] = useState(0);
@@ -328,10 +337,6 @@ export default function ProfilePage() {
   const [sellerPage, setSellerPage] = useState(0);
   const [hasMoreSellerReviews, setHasMoreSellerReviews] = useState(false);
   const [isLoadingSellerReviews, setIsLoadingSellerReviews] = useState(false);
-  
-  // Controls
-  const [activeTab, setActiveTab] = useState('listings');
-  const [listingFilter, setListingFilter] = useState('all'); 
   
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   const [isLoadingMoreListings, setIsLoadingMoreListings] = useState(false);
@@ -383,92 +388,114 @@ export default function ProfilePage() {
       }
   }, []);
   
-  // Fetches main profile data; triggers separate review fetches on initial load
-  const fetchProfileData = useCallback(async (targetId, page = 0, isLoadMore = false) => {
-    // Use different loading states for initial load vs load more
+  // Fetches main profile data (Listings)
+  const fetchTabData = useCallback(async (targetId, tabKey = 'all', page = 0, isLoadMore = false) => {
+    // Determine loading state
     if (isLoadMore) {
       setIsLoadingMoreListings(true);
     } else {
-      setIsLoadingPageData(true);
+      // If we are initializing a tab (page 0) and it's the first load of the page or tab switch
+      if (page === 0) {
+          setIsLoadingPageData(true);
+      }
       setPageDataError(null);
     }
     
     try {
-      // 1. Fetch User Data (Only needed on first load)
-      if (page === 0) {
-        let userPromise;
-        if (profileId) {
-            userPromise = fetchUserById(profileId); 
-        } else {
-            userPromise = getCurrentUser();
-        }
-        const userResponse = await userPromise;
-        setProfileUser(userResponse.data);
+      // Fetch Listings for the requested tab/page
+      let statusGroup = 'active';
+      let listingType = null;
 
-        // Initiate the review fetches for the first page
-        fetchBuyerReviews(targetId, 0);
-        fetchSellerReviews(targetId, 0);
+      if (tabKey === 'sold') {
+          statusGroup = 'sold';
+      } else if (tabKey === 'rent') {
+          listingType = 'rent';
+      } else if (tabKey === 'sale') {
+          listingType = 'sale';
       }
 
-      // 2. Fetch Listings for the requested page
-      const listingsPromise = getUserListings(targetId, page, 8); // Fetch 8 items at a time
+      const listingsPromise = getUserListings(targetId, page, 8, false, statusGroup, listingType);
       const listingsResponse = await listingsPromise;
       
       const listingsData = listingsResponse.data;
       const newContent = listingsData.content || [];
 
-      // Handle listing pagination state
-      setOriginalListings(prev => {
-          const combined = page === 0 ? newContent : [...prev, ...newContent];
+      // Update tabData
+      setTabData(prev => {
+          const currentTab = prev[tabKey];
+          const combinedListings = page === 0 ? newContent : [...currentTab.listings, ...newContent];
           
-          // Sort: Sold items last, then Newest first
-          return combined.sort((a, b) => {
-            const isSoldA = a.status?.toLowerCase() === 'sold';
-            const isSoldB = b.status?.toLowerCase() === 'sold';
-
-            if (isSoldA && !isSoldB) return 1; 
-            if (!isSoldA && isSoldB) return -1; 
-            
-            return new Date(b.createdAt) - new Date(a.createdAt);
-          });
+          return {
+              ...prev,
+              [tabKey]: {
+                  listings: combinedListings,
+                  page: listingsData.number,
+                  hasMore: listingsData.number < listingsData.totalPages - 1,
+                  initialized: true,
+                  totalElements: listingsData.totalElements
+              }
+          };
       });
 
-      setCurrentPage(listingsData.number);
-      setHasMore(listingsData.number < listingsData.totalPages - 1);
-
-      // Only refetch likes on initial load, not on load more
-      if (!isLoadMore) {
+      // Only refetch likes on initial load of 'all' tab
+      if (!isLoadMore && tabKey === 'all' && page === 0) {
         refetchLikes();
       }
 
     } catch (err) {
       console.error("Failed to fetch profile data:", err);
-      if (!isLoadMore) {
-        setPageDataError(err.message || "Could not load profile data.");
-      }
+      setPageDataError(err.message || "Could not load profile data.");
     } finally {
-      if (isLoadMore) {
-        setIsLoadingMoreListings(false);
-      } else {
-        setIsLoadingPageData(false);
-      }
+      setIsLoadingMoreListings(false);
+      setIsLoadingPageData(false);
     }
-  }, [profileId, refetchLikes, fetchBuyerReviews, fetchSellerReviews]); 
+  }, [refetchLikes]); 
 
-  // Resets all data to page 0
+  // Fetch User Data Separate Effect
+  useEffect(() => {
+      const idToFetch = profileId || loggedInUser?.userId;
+      if (idToFetch && !profileUser) {
+          const fetchUser = async () => {
+             try {
+                let userPromise;
+                if (profileId) {
+                    userPromise = fetchUserById(profileId); 
+                } else {
+                    userPromise = getCurrentUser();
+                }
+                const userResponse = await userPromise;
+                setProfileUser(userResponse.data);
+                
+                // Initiate the review fetches only after user is loaded
+                fetchBuyerReviews(idToFetch, 0);
+                fetchSellerReviews(idToFetch, 0);
+             } catch (err) {
+                 console.error("Failed to fetch user:", err);
+                 setPageDataError("Failed to load user profile.");
+             }
+          };
+          fetchUser();
+      }
+  }, [profileId, loggedInUser, profileUser, fetchBuyerReviews, fetchSellerReviews]); 
+
+  // Resets current tab data
   const refreshData = useCallback(() => {
     const idToFetch = profileId || loggedInUser?.userId;
     if (idToFetch) {
-        fetchProfileData(idToFetch, 0);
+        fetchTabData(idToFetch, listingFilter, 0);
     }
-  }, [profileId, loggedInUser, fetchProfileData]);
+  }, [profileId, loggedInUser, fetchTabData, listingFilter]);
 
+  // Handler for Load More Listings
   // Handler for Load More Listings
   const handleLoadMoreListings = () => {
     if (isLoadingMoreListings) return;
     const idToFetch = profileId || loggedInUser?.userId;
-    if (idToFetch) {
-        fetchProfileData(idToFetch, currentPage + 1, true); // Pass true for isLoadMore
+    
+    const currentTabData = tabData[listingFilter];
+    
+    if (idToFetch && currentTabData.hasMore) {
+        fetchTabData(idToFetch, listingFilter, currentTabData.page + 1, true); 
     }
   };
 
@@ -482,24 +509,12 @@ export default function ProfilePage() {
 
   // --- Filtering Logic ---
 
-  // Sub-tabs filtering (Rent, Sale, Sold)
-  const typeFilteredListings = useMemo(() => {
-    return originalListings.filter(item => {
-      const status = item.status?.toLowerCase() || 'available';
-      const type = item.listingType?.toLowerCase() || '';
-
-      switch (listingFilter) {
-        case 'sold': return status === 'sold';
-        case 'rent': return status !== 'sold' && type.includes('rent');
-        case 'sale': return status !== 'sold' && type.includes('sale');
-        case 'all': default: return status !== 'sold';
-      }
-    });
-  }, [originalListings, listingFilter]);
-
-  // Search logic applied to filtered results
+  // --- Data for Current View ---
+  const currentTabListings = tabData[listingFilter]?.listings || [];
+  
+  // Search logic applied to current results
   const { searchQuery, handleSearch, filteredListings: displayedListings } = useSearch(
-    typeFilteredListings,
+    currentTabListings,
     ['title', 'description']
   );
 
@@ -543,14 +558,17 @@ export default function ProfilePage() {
       handleRefreshReviews();
   };
 
-  // Initial Data Load
+  // Initial Data Load & Tab Switching
+  // Initial Data Load & Tab Switching
   useEffect(() => {
-    if (profileId) {
-        fetchProfileData(profileId, 0);
-    } else if (loggedInUser) {
-        fetchProfileData(loggedInUser.userId, 0);
+    const idToFetch = profileId || loggedInUser?.userId;
+    if (idToFetch) {
+        // If current tab is not initialized, fetch it
+        if (!tabData[listingFilter].initialized) {
+            fetchTabData(idToFetch, listingFilter, 0);
+        }
     }
-  }, [profileId, loggedInUser?.userId, fetchProfileData]);
+  }, [profileId, loggedInUser?.userId, fetchTabData, listingFilter, tabData]);
 
   // Handle Tab Navigation via URL (e.g., from Notifications)
   useEffect(() => {
@@ -603,7 +621,7 @@ export default function ProfilePage() {
   const allLoadedReviews = [...buyerReviews, ...sellerReviews]; // For average calculation based on what we see
   const overallRating = calculateAverageRating(allLoadedReviews);
 
-  const isPageLoading = isLoadingAuth || (isLoadingPageData && currentPage === 0) || isLoadingLikes;
+  const isPageLoading = isLoadingAuth || (isLoadingPageData && tabData.all.page === 0 && !tabData.all.initialized) || isLoadingLikes;
   const pageError = authError || pageDataError || likeError;
   
   // --- Render Helpers ---
@@ -763,7 +781,7 @@ export default function ProfilePage() {
         <section className="content-card">
           <div className="profile-tabs">
             <button className={`tab-button ${activeTab === 'listings' ? 'active' : ''}`} onClick={() => setActiveTab('listings')}>
-              Listings ({displayedListings.length})
+              Listings ({tabData[listingFilter]?.totalElements || 0})
             </button>
             <button className={`tab-button ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>
               Reviews
@@ -821,7 +839,14 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 
-                {displayedListings.length > 0 ? (
+                {/* Show Skeleton if tab is not initialized yet */}
+                {!tabData[listingFilter].initialized ? (
+                    <div className="listing-grid">
+                      {[1, 2, 3, 4].map((n) => (
+                        <div key={n} className="listing-card skeleton" style={{ height: '300px' }}></div>
+                      ))}
+                    </div>
+                ) : displayedListings.length > 0 ? (
                   <>
                     <div className="listing-grid">
                       {displayedListings.map((listing) => (
@@ -836,7 +861,7 @@ export default function ProfilePage() {
                         />
                       ))}
                     </div>
-                    <LoadMoreButton onLoadMore={handleLoadMoreListings} isLoading={isLoadingMoreListings} hasMore={hasMore} />
+                    <LoadMoreButton onLoadMore={handleLoadMoreListings} isLoading={isLoadingMoreListings} hasMore={tabData[listingFilter]?.hasMore} />
                   </>
                 ) : (
                   <div className="empty-state">
@@ -921,7 +946,7 @@ export default function ProfilePage() {
       <ConversationStarterModal 
         isOpen={isStarterModalOpen}
         onClose={() => setIsStarterModalOpen(false)}
-        listings={originalListings.filter(l => l.status !== 'Sold' && l.status !== 'Inactive')} 
+        listings={(tabData.all.listings || []).filter(l => l.status !== 'Sold' && l.status !== 'Inactive')} 
         onListingSelect={handleStarterListingSelect}
         currentUserId={loggedInUser?.userId}
         likedListingIds={likedListingIds}

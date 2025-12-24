@@ -49,10 +49,11 @@ public class ListingController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "false") boolean includeInactive,
-            @RequestParam(required = false) String statusGroup // "active", "sold", or null (default)
+            @RequestParam(required = false) String statusGroup, // "active", "sold", or null (default)
+            @RequestParam(required = false) String listingType // "rent", "sale" or null
     ) {
         Page<ListingEntity> listings = listingService.getListingsByUserId(userId, page, size, includeInactive,
-                statusGroup);
+                statusGroup, listingType);
         return ResponseEntity.ok(listings);
     }
 
