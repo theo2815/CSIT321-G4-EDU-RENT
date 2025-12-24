@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 // Import the centralized authentication styles
 import '../static/Auth.css'; 
+import GenericDropdown from '../components/GenericDropdown'; 
 
 import eduRentLogo from '../assets/edurentAllBlackTest.png'; 
 
@@ -151,22 +152,13 @@ export default function RegisterPage() {
               <label htmlFor="school" className="auth-label">
                 School Institution
               </label>
-              <select
-                id="school"
-                name="school"
-                required
-                value={selectedSchoolId}
-                onChange={(e) => setSelectedSchoolId(e.target.value)}
-                className="auth-input" 
-                disabled={loading}
-              >
-                <option value="" disabled>Select your school</option>
-                {schools.map((school) => (
-                  <option key={school.schoolId} value={school.schoolId}>
-                    {school.name}
-                  </option>
-                ))}
-              </select>
+              <GenericDropdown
+                options={schools.map(s => ({ value: s.schoolId, label: s.name }))}
+                selectedOption={selectedSchoolId}
+                onSelect={(val) => setSelectedSchoolId(val)}
+                placeholder="Select your school"
+                width="100%"
+              />
             </div>
 
             {/* Student ID */}

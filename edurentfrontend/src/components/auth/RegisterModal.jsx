@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getSchools, registerUser } from '../../services/apiService';
 import useAuth from '../../hooks/useAuth';
+import GenericDropdown from '../GenericDropdown';
 import '../../static/Auth.css';
 import '../../static/ProductDetailModal.css';
 
@@ -103,10 +104,14 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin }) {
                 </div>
                 <div>
                     <label className="auth-label">School</label>
-                    <select value={selectedSchoolId} onChange={(e) => setSelectedSchoolId(e.target.value)} className="auth-input" required>
-                        <option value="" disabled>Select School</option>
-                        {schools.map(s => <option key={s.schoolId} value={s.schoolId}>{s.name}</option>)}
-                    </select>
+                    <GenericDropdown
+                        options={schools.map(s => ({ value: s.schoolId, label: s.name }))}
+                        selectedOption={selectedSchoolId}
+                        onSelect={(val) => setSelectedSchoolId(val)}
+                        placeholder="Select School"
+                        width="100%"
+                        disabled={loading} // GenericDropdown doesn't usually have disabled style, but good to pass if needed later
+                    />
                 </div>
                 <div>
                     <label className="auth-label">Student ID</label>

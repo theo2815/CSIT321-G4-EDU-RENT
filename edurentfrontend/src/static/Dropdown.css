@@ -6,25 +6,33 @@
   cursor: pointer;
   position: relative;
   transition: 300ms;
+  text-align: left; /* Ensure default is left */
   color: var(--text-color);
   user-select: none; /* Prevent text selection */
+  box-sizing: border-box; /* Ensure padding doesn't affect width */
+}
+
+.select-container * {
+    box-sizing: border-box;
 }
 
 /* The selected item (the button/header of the dropdown) */
 .selected-header {
   background-color: var(--bg-card); /* Adapted for Light/Dark */
-  padding: 8px 12px;
+  padding: 0.875rem 1rem; /* Matched to .auth-input padding */
   border-radius: 8px; /* Consistent with other buttons */
   position: relative;
   z-index: 100; /* High enough but standard */
   font-size: 0.9rem;
   display: flex;
+  flex-direction: row; /* Explicitly set row to prevent inheritance overrides */
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   border: 1px solid var(--border-color);
   transition: all 0.2s;
   min-width: 180px; /* Ensure it has some width */
+  width: 100%; /* Fill the container */
 }
 
 /* Borderless Variant */
@@ -141,4 +149,5 @@
     overflow: hidden;
     text-overflow: ellipsis;
     font-weight: 500;
+    text-align: left; /* Ensure text is left aligned */
 }

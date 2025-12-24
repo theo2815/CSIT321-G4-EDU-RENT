@@ -157,7 +157,7 @@ body {
   gap: 1.5rem; /* Consistent spacing */
 }
 
-.auth-form div {
+.auth-form > div {
   /* This helps group labels and inputs */
   display: flex;
   flex-direction: column;

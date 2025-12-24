@@ -7,14 +7,34 @@ export default function GenericDropdown({
     onSelect, 
     selectedOption, /* Currently selected value to highlight */
     variant = 'default', /* 'default' or 'borderless' */
-    width = 'fit-content'
+    width = 'fit-content',
+    placeholder = 'Select an option'
 }) {
 
+  // Helper to determine display label
+  const getLabel = (opt) => (typeof opt === 'object' ? opt.label : opt);
+  const getValue = (opt) => (typeof opt === 'object' ? opt.value : opt);
+
+  // Determine what to display in the header
+  const displayLabel = selectedOption 
+    ? (typeof options[0] === 'object' 
+        ? options.find(o => o.value === selectedOption)?.label || selectedOption 
+        : selectedOption)
+    : placeholder;
+  
+  // If SelectedOption is passed but no label found (maybe pre-loading?), fallback to placeholder or raw value?
+  // Logic: "label" prop overrides everything if passed as a fixed string (like in MessagesPage),
+  // but for forms we usually pass "selectedOption" and want to derive the label.
+  // In MessagesPage, we passed `label={activeFilter}` which was the string itself.
+  // Let's support both: if `label` prop is explicit, use it. If not, derive from selectedOption.
+  
+  const finalDisplayLabel = label !== undefined ? label : displayLabel;
+
   return (
-    <div className={`select-container ${variant === 'borderless' ? 'borderless' : ''}`} style={{ width }}>
+    <div className={`select-container ${variant === 'borderless' ? 'borderless' : ''}`} style={{ width: width }}>
       <div className="selected-header">
         <span className="user-name-span">
-            {label}
+            {finalDisplayLabel}
         </span>
         
         <svg
@@ -30,19 +50,24 @@ export default function GenericDropdown({
       </div>
       
       <div className="options-list">
-        {options.map((option, index) => (
-            <button 
-                key={index} 
-                className={`option-item ${selectedOption === option ? 'active' : ''}`}
-                onClick={(e) => {
-                    e.stopPropagation(); // Prevent closing if we want to keep it open, but usually we want to close.
-                    // Actually CSS hover handles open/close, so clicking is fine.
-                    onSelect(option);
-                }}
-            >
-                {option}
-            </button>
-        ))}
+        {options.map((option, index) => {
+            const optValue = getValue(option);
+            const optLabel = getLabel(option);
+            const isSelected = selectedOption === optValue;
+
+            return (
+                <button 
+                    key={index} 
+                    className={`option-item ${isSelected ? 'active' : ''}`}
+                    onClick={(e) => {
+                        e.stopPropagation(); 
+                        onSelect(optValue);
+                    }}
+                >
+                    {optLabel}
+                </button>
+            );
+        })}
       </div>
     </div>
   );
