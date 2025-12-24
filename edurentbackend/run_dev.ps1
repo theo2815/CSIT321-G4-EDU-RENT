@@ -9,6 +9,17 @@ if (-not (Test-Path $EnvFile)) {
     exit 1
 }
 
+# Force Java 21 if available
+$Java21Path = "C:\Program Files\Eclipse Adoptium\jdk-21.0.9.10-hotspot"
+if (Test-Path $Java21Path) {
+    $env:JAVA_HOME = $Java21Path
+    $env:Path = "$Java21Path\bin;$env:Path"
+    Write-Host "☕ Using explicit Java 21: $Java21Path" -ForegroundColor Cyan
+}
+else {
+    Write-Host "⚠️ Java 21 not found at $Java21Path. Using system default." -ForegroundColor Yellow
+}
+
 Write-Host "🌱 Loading environment variables from $EnvFile..." -ForegroundColor Cyan
 
 $LoadedKeys = @()
