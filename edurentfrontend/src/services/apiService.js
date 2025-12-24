@@ -452,9 +452,11 @@ export const startConversation = async (listingId, starterId, receiverId) => {
   }
 };
 
-export const getConversationsForUser = async (userId) => {
+export const getConversationsForUser = async (userId, page = 0, size = 5, filter = 'All Messages') => {
   try {
-    const response = await apiClient.get(`/conversations/user/${userId}`);
+    const response = await apiClient.get(`/conversations/user/${userId}`, {
+        params: { page, size, filter }
+    });
     return response;
   } catch (error) {
     console.error(`Error during getConversationsForUser(${userId}) API call:`, error.response || error.message);

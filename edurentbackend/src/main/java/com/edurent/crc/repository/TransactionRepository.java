@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query; 
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -28,10 +28,10 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
 
     // New method to find expired rentals
     @Query("SELECT t FROM TransactionEntity t " +
-           "JOIN t.listing l " +
-           "WHERE t.transactionType = 'Rent' " +
-           "AND l.status = 'Rented' " +
-           "AND t.endDate < CURRENT_TIMESTAMP")
+            "JOIN t.listing l " +
+            "WHERE t.transactionType = 'Rent' " +
+            "AND l.status = 'Rented' " +
+            "AND t.endDate < CURRENT_TIMESTAMP")
     List<TransactionEntity> findExpiredRentals();
 
     @Query("SELECT t FROM TransactionEntity t WHERE t.transactionType = 'Rent' AND t.status = 'Active' AND t.endDate < :now")
@@ -40,4 +40,17 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     // Find rentals ending within a specific range (e.g., today)
     @Query("SELECT t FROM TransactionEntity t WHERE t.transactionType = 'Rent' AND t.status = 'Active' AND t.endDate >= :start AND t.endDate < :end")
     List<TransactionEntity> findRentalsEndingBetween(@Param("start") Date start, @Param("end") Date end);
+
+    // Batch fetch latest transactions for multiple listings (optimization -
+    // eliminates N+1)
+    @Query(value = """
+            SELECT t.* FROM transactions t
+            INNER JOIN (
+                SELECT listing_id, MAX(transaction_id) as max_id
+                FROM transactions
+                WHERE listing_id IN :listingIds
+                GROUP BY listing_id
+            ) latest ON t.transaction_id = latest.max_id
+            """, nativeQuery = true)
+    List<TransactionEntity> findLatestByListingIds(@Param("listingIds") List<Long> listingIds);
 }

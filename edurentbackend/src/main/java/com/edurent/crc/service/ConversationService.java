@@ -26,36 +26,55 @@ public class ConversationService {
 
     @Autowired
     private ConversationRepository conversationRepository;
-    
+
     @Autowired
     private ConversationParticipantRepository participantRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
-    
+
     @Autowired
     private ListingRepository listingRepository;
 
     @Autowired
     private MessageRepository messageRepository;
 
-    // 1. Get Conversations for User
-    public List<ConversationEntity> getConversationsForUser(Long userId) {
-        List<ConversationParticipantEntity> participants = participantRepository.findById_UserIdAndIsDeletedFalse(userId);
+    // 1. Get Conversations for User (Optimized with batch queries)
+    public List<ConversationEntity> getConversationsForUser(Long userId, int page, int size, String filter) {
+        List<ConversationParticipantEntity> participants = participantRepository
+                .findById_UserIdAndIsDeletedFalse(userId);
+
+        if (participants.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // Collect all conversation IDs for batch processing
+        List<Long> conversationIds = participants.stream()
+                .map(p -> p.getConversation().getConversationId())
+                .toList();
+
+        // Batch fetch all last messages at once (replaces N queries with 1)
+        List<MessageEntity> lastMessages = messageRepository.findLastMessagesForConversations(conversationIds);
+        java.util.Map<Long, MessageEntity> lastMessageMap = lastMessages.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        msg -> msg.getConversation().getConversationId(),
+                        msg -> msg,
+                        (a, b) -> a.getSentAt().isAfter(b.getSentAt()) ? a : b));
+
         List<ConversationEntity> conversations = new ArrayList<>();
 
         for (ConversationParticipantEntity p : participants) {
             ConversationEntity conv = p.getConversation();
 
-            // A. Populate Last Message Details
-            MessageEntity lastMsg = messageRepository.findFirstByConversation_ConversationIdOrderBySentAtDesc(conv.getConversationId());
+            // A. Use batch-fetched last message instead of individual query
+            MessageEntity lastMsg = lastMessageMap.get(conv.getConversationId());
             if (lastMsg != null) {
                 if (p.getLastDeletedAt() == null || lastMsg.getSentAt().isAfter(p.getLastDeletedAt())) {
                     conv.setLastMessageContent(lastMsg.getContent());
                     conv.setLastMessageTimestamp(lastMsg.getSentAt());
-                    
-                    boolean isUnread = !Boolean.TRUE.equals(lastMsg.getRead()) 
-                                       && !lastMsg.getSender().getUserId().equals(userId);
+
+                    boolean isUnread = !Boolean.TRUE.equals(lastMsg.getRead())
+                            && !lastMsg.getSender().getUserId().equals(userId);
                     conv.setIsUnread(isUnread);
                 } else {
                     // Chat exists but history is cleared and no new messages
@@ -63,43 +82,95 @@ public class ConversationService {
                     conv.setLastMessageTimestamp(p.getLastDeletedAt());
                     conv.setIsUnread(false);
                 }
+            } else {
+                // Should not usually happen if chat exists, but handle it
+                conv.setLastMessageTimestamp(conv.getListing().getCreatedAt()); // Fallback
             }
 
-            // B. Populate Archived Status (For the frontend filter)
+            // B. Populate Archived Status (For the frontend filter - backend filtering
+            // happens next)
             conv.setIsArchivedForCurrentUser(p.getIsArchived());
 
-            conversations.add(conv);
+            // --- FILTERING LOGIC ---
+            boolean match = false;
+
+            // "Selling": User is the owner of the listing
+            boolean isSeller = conv.getListing().getUser().getUserId().equals(userId);
+
+            switch (filter) {
+                case "Selling":
+                    if (isSeller && !conv.getIsArchivedForCurrentUser())
+                        match = true;
+                    break;
+                case "Buying":
+                    if (!isSeller && !conv.getIsArchivedForCurrentUser())
+                        match = true;
+                    break;
+                case "Unread":
+                    if (conv.getIsUnread() && !conv.getIsArchivedForCurrentUser())
+                        match = true;
+                    break;
+                case "Archived":
+                    if (conv.getIsArchivedForCurrentUser())
+                        match = true;
+                    break;
+                case "All Messages":
+                default:
+                    if (!conv.getIsArchivedForCurrentUser())
+                        match = true;
+                    break;
+            }
+
+            if (match) {
+                conversations.add(conv);
+            }
         }
 
-        return conversations;
+        // C. Sort by Last Message Timestamp (Descending)
+        conversations.sort((a, b) -> {
+            LocalDateTime dateA = a.getLastMessageTimestamp() != null ? a.getLastMessageTimestamp() : LocalDateTime.MIN;
+            LocalDateTime dateB = b.getLastMessageTimestamp() != null ? b.getLastMessageTimestamp() : LocalDateTime.MIN;
+            return dateB.compareTo(dateA);
+        });
+
+        // D. Manual Pagination (Slice the list)
+        int start = Math.min(page * size, conversations.size());
+        int end = Math.min(start + size, conversations.size());
+
+        if (start >= conversations.size()) {
+            return new ArrayList<>();
+        }
+
+        return conversations.subList(start, end);
     }
-    
 
     // 2. Start Conversation
     @Transactional
     public ConversationEntity startConversation(Long listingId, Long starterId, Long receiverId) {
         // 1. Check if conversation already exists
-        Optional<ConversationEntity> existing = conversationRepository.findExistingConversation(listingId, starterId, receiverId);
-        
+        Optional<ConversationEntity> existing = conversationRepository.findExistingConversation(listingId, starterId,
+                receiverId);
+
         if (existing.isPresent()) {
             ConversationEntity conv = existing.get();
-            ConversationParticipantIdEntity partId = new ConversationParticipantIdEntity(conv.getConversationId(), starterId);
+            ConversationParticipantIdEntity partId = new ConversationParticipantIdEntity(conv.getConversationId(),
+                    starterId);
             participantRepository.findById(partId).ifPresent(p -> {
                 if (p.getIsDeleted()) {
                     p.setIsDeleted(false);
                     participantRepository.save(p);
                 }
             });
-            return conv; 
+            return conv;
         }
 
         // 2. If not, create new one
         ListingEntity listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
-        
+
         UserEntity starter = userRepository.findById(starterId)
                 .orElseThrow(() -> new RuntimeException("Starter user not found: " + starterId));
-        
+
         UserEntity receiver = userRepository.findById(receiverId)
                 .orElseThrow(() -> new RuntimeException("Receiver user not found: " + receiverId));
 
@@ -108,12 +179,16 @@ public class ConversationService {
         ConversationEntity savedConversation = conversationRepository.save(conversation);
 
         // 3. Add Participants
-        ConversationParticipantIdEntity starterIdObj = new ConversationParticipantIdEntity(savedConversation.getConversationId(), starter.getUserId());
-        ConversationParticipantEntity starterParticipant = new ConversationParticipantEntity(starterIdObj, savedConversation, starter);
+        ConversationParticipantIdEntity starterIdObj = new ConversationParticipantIdEntity(
+                savedConversation.getConversationId(), starter.getUserId());
+        ConversationParticipantEntity starterParticipant = new ConversationParticipantEntity(starterIdObj,
+                savedConversation, starter);
         participantRepository.save(starterParticipant);
 
-        ConversationParticipantIdEntity receiverIdObj = new ConversationParticipantIdEntity(savedConversation.getConversationId(), receiver.getUserId());
-        ConversationParticipantEntity receiverParticipant = new ConversationParticipantEntity(receiverIdObj, savedConversation, receiver);
+        ConversationParticipantIdEntity receiverIdObj = new ConversationParticipantIdEntity(
+                savedConversation.getConversationId(), receiver.getUserId());
+        ConversationParticipantEntity receiverParticipant = new ConversationParticipantEntity(receiverIdObj,
+                savedConversation, receiver);
         participantRepository.save(receiverParticipant);
 
         return conversationRepository.findById(savedConversation.getConversationId())
@@ -126,7 +201,7 @@ public class ConversationService {
         ConversationParticipantIdEntity id = new ConversationParticipantIdEntity(conversationId, userId);
         ConversationParticipantEntity participant = participantRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Participant record not found"));
-        
+
         // 1. Soft delete for this user
         participant.setIsDeleted(true);
         participant.setLastDeletedAt(LocalDateTime.now()); // Mark the timeline
@@ -135,11 +210,12 @@ public class ConversationService {
         // 2. Check if ALL participants have deleted the chat
         ConversationEntity conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new RuntimeException("Conversation not found"));
-        
+
         boolean allParticipantsDeleted = true;
         for (ConversationParticipantEntity p : conversation.getParticipants()) {
-            if (p.getId().equals(id)) continue;
-            
+            if (p.getId().equals(id))
+                continue;
+
             if (!p.getIsDeleted()) {
                 allParticipantsDeleted = false;
                 break;
@@ -153,16 +229,14 @@ public class ConversationService {
         }
     }
 
-
     // 4. Toggle Archive Conversation for User
     @Transactional
     public void toggleArchiveConversationForUser(Long conversationId, Long userId) {
         ConversationParticipantIdEntity id = new ConversationParticipantIdEntity(conversationId, userId);
         ConversationParticipantEntity participant = participantRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Participant record not found"));
-        
+
         participant.setIsArchived(!participant.getIsArchived());
         participantRepository.save(participant);
     }
 }
-

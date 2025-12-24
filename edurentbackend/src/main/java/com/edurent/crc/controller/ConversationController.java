@@ -3,7 +3,6 @@ package com.edurent.crc.controller;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -55,10 +54,42 @@ public class ConversationController {
     @Autowired
     private ReviewRepository reviewRepository;
 
-    // --- 1. Get User's Conversations (DTO) ---
+    // --- 1. Get User's Conversations (DTO) - Optimized with batch queries ---
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<ConversationDTO>> getConversationsForUser(@PathVariable Long userId) {
-        List<ConversationEntity> entities = conversationService.getConversationsForUser(userId);
+    public ResponseEntity<List<ConversationDTO>> getConversationsForUser(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(defaultValue = "All") String filter) {
+        List<ConversationEntity> entities = conversationService.getConversationsForUser(userId, page, size, filter);
+
+        if (entities.isEmpty()) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
+        // Batch collect all listing IDs for transaction lookup
+        List<Long> listingIds = entities.stream()
+                .filter(e -> e.getListing() != null)
+                .map(e -> e.getListing().getListingId())
+                .distinct()
+                .toList();
+
+        // Batch fetch all transactions at once (replaces N queries with 1)
+        Map<Long, TransactionEntity> txMap = listingIds.isEmpty() ? Collections.emptyMap()
+                : transactionRepository.findLatestByListingIds(listingIds).stream()
+                        .collect(Collectors.toMap(
+                                t -> t.getListing().getListingId(),
+                                t -> t,
+                                (a, b) -> a.getTransactionId() > b.getTransactionId() ? a : b));
+
+        // Collect all transaction IDs for review batch lookup
+        List<Long> transactionIds = txMap.values().stream()
+                .map(TransactionEntity::getTransactionId)
+                .toList();
+
+        // Batch fetch reviewed transaction IDs (replaces N queries with 1)
+        Set<Long> reviewedTxIds = transactionIds.isEmpty() ? Collections.emptySet()
+                : new java.util.HashSet<>(reviewRepository.findReviewedTransactionIds(userId, transactionIds));
 
         List<ConversationDTO> dtos = entities.stream().map(entity -> {
             ConversationDTO dto = new ConversationDTO();
@@ -86,24 +117,20 @@ public class ConversationController {
                 }
                 dto.setListing(listingDto);
 
-                Optional<TransactionEntity> transaction = transactionRepository
-                        .findLatestByListingId(entity.getListing().getListingId());
-
-                if (transaction.isPresent()) {
-                    TransactionEntity t = transaction.get();
-
+                // Use batch-fetched transaction instead of individual query
+                TransactionEntity transaction = txMap.get(entity.getListing().getListingId());
+                if (transaction != null) {
                     Set<Long> chatParticipantIds = entity.getParticipants().stream()
                             .map(p -> p.getUser().getUserId())
                             .collect(Collectors.toSet());
 
-                    boolean isCorrectChat = chatParticipantIds.contains(t.getBuyer().getUserId())
-                            && chatParticipantIds.contains(t.getSeller().getUserId());
+                    boolean isCorrectChat = chatParticipantIds.contains(transaction.getBuyer().getUserId())
+                            && chatParticipantIds.contains(transaction.getSeller().getUserId());
 
                     if (isCorrectChat) {
-                        dto.setTransactionId(t.getTransactionId());
-                        boolean hasReviewed = reviewRepository
-                                .existsByTransaction_TransactionIdAndReviewer_UserId(t.getTransactionId(), userId);
-                        dto.setHasReviewed(hasReviewed);
+                        dto.setTransactionId(transaction.getTransactionId());
+                        // Use batch-fetched review status instead of individual query
+                        dto.setHasReviewed(reviewedTxIds.contains(transaction.getTransactionId()));
                     }
                 }
             }

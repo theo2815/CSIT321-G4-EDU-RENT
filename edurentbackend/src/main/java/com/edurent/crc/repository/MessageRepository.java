@@ -21,7 +21,8 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
     Page<MessageEntity> findByConversationId(@Param("conversationId") Long conversationId, Pageable pageable);
 
     @Query("SELECT m FROM MessageEntity m WHERE m.conversation.conversationId = :conversationId AND m.sentAt > :after")
-    Page<MessageEntity> findByConversationIdAndSentAtAfter(@Param("conversationId") Long conversationId, @Param("after") LocalDateTime after, Pageable pageable);
+    Page<MessageEntity> findByConversationIdAndSentAtAfter(@Param("conversationId") Long conversationId,
+            @Param("after") LocalDateTime after, Pageable pageable);
 
     // Method to find messages by sender ID
     @Query("SELECT m FROM MessageEntity m WHERE m.sender.userId = :senderId")
@@ -42,5 +43,15 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
 
     // Count unread messages from a specific sender in a conversation
     long countByConversation_ConversationIdAndSender_UserIdAndIsReadFalse(Long conversationId, Long senderId);
-}
 
+    // Batch fetch last message for each conversation (optimization - eliminates
+    // N+1)
+    @Query("""
+            SELECT m FROM MessageEntity m
+            WHERE m.sentAt = (
+                SELECT MAX(m2.sentAt) FROM MessageEntity m2
+                WHERE m2.conversation.conversationId = m.conversation.conversationId
+            ) AND m.conversation.conversationId IN :conversationIds
+            """)
+    List<MessageEntity> findLastMessagesForConversations(@Param("conversationIds") List<Long> conversationIds);
+}

@@ -41,6 +41,7 @@ import {
 
 // Styles
 import '../static/MessagesPage.css';
+import '../components/LoadMoreButton.css'; // Ensure Load More button styles are available
 import defaultAvatar from '../assets/default-avatar.png';
 
 // --- Icons Component ---
@@ -154,7 +155,15 @@ export default function MessagesPage() {
   // Store user details and the list of active conversations
   const [userData, setUserData] = useState(null);
   const [userName, setUserName] = useState('');
-  const [conversations, setConversations] = useState([]);
+  
+  // Independent Tab State: { [filterName]: { data: [], page: 0, hasMore: true, initialized: false } }
+  const [conversationsMap, setConversationsMap] = useState({
+      'All Messages': { data: [], page: 0, hasMore: true, initialized: false },
+      'Selling': { data: [], page: 0, hasMore: true, initialized: false },
+      'Buying': { data: [], page: 0, hasMore: true, initialized: false },
+      'Unread': { data: [], page: 0, hasMore: true, initialized: false },
+      'Archived': { data: [], page: 0, hasMore: true, initialized: false }
+  });
   
   // Track the currently open chat and its messages
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -162,6 +171,7 @@ export default function MessagesPage() {
   
   // UI controls for filtering and searching
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Messages');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
@@ -169,7 +179,7 @@ export default function MessagesPage() {
   
   const location = useLocation(); 
   const navigate = useNavigate();
-  const { retryAuth, logout } = useAuth();
+  const { logout } = useAuth();
 
   // Visibility toggles for mobile views and menus
   const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
@@ -189,8 +199,24 @@ export default function MessagesPage() {
   const stompClientRef = useRef(null);
   const conversationSubscriptionRef = useRef(null);
   const selectedConversationRef = useRef(null);
+  
+  // Refs for State Access in WebSocket Callbacks
+  const activeFilterRef = useRef(activeFilter);
+  const conversationsMapRef = useRef(conversationsMap);
 
-  // Pagination state
+  useEffect(() => { activeFilterRef.current = activeFilter; }, [activeFilter]);
+  useEffect(() => { conversationsMapRef.current = conversationsMap; }, [conversationsMap]);
+
+  // Derived state for the active tab
+  const activeTabState = conversationsMap[activeFilter] || { data: [], page: 0, hasMore: false };
+  const conversations = activeTabState.data;
+  const hasMoreConversations = activeTabState.hasMore;
+  
+  // Loading state for sidebar
+  const [isFetchingConversations, setIsFetchingConversations] = useState(false);
+  const isFetchingMoreConversations = isFetchingConversations; // Alias for now if needed, or just use isFetchingConversations
+
+  // Pagination state (Messages inside chat)
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
@@ -288,35 +314,35 @@ export default function MessagesPage() {
       navigate(location.pathname, { replace: true, state: {} });
   };
 
+  // Debounce search query to reduce re-renders
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const filteredConversations = useMemo(() => {
     if (!userData) return [];
     let result = conversations;
 
+    // Filter by Listing (if coming from a listing page)
     if (listingFilterId) {
         result = result.filter(c => c.product && c.product.id === listingFilterId);
-    } else {
-        if (activeFilter === 'Selling') {
-            result = result.filter(c => c.product && c.product.ownerId === userData.userId);
-        } else if (activeFilter === 'Buying') {
-            result = result.filter(c => c.product && c.product.ownerId !== userData.userId);
-        } else if (activeFilter === 'Unread') {
-            result = result.filter(c => c.isUnread);
-        } else if (activeFilter === 'Archived') {
-            result = result.filter(c => c.isArchived);
-        } else {
-            result = result.filter(c => !c.isArchived); 
-        }
-    }
+    } 
+    
+    // REDUNDANT FILTERING REMOVED: 
+    // The 'conversations' array is already fetched specifically for the 'activeFilter' from the backend.
+    // We do NOT need to re-filter it here. 
+    // (e.g. if activeFilter is 'Selling', the backend only returned selling items).
 
-    if (searchQuery.trim() !== '') {
-        const query = searchQuery.toLowerCase();
+    if (debouncedSearchQuery.trim() !== '') {
+        const query = debouncedSearchQuery.toLowerCase();
         result = result.filter(conv =>
           conv.otherUser.name.toLowerCase().includes(query) ||
           (conv.product && conv.product.title.toLowerCase().includes(query))
         );
     }
     return result;
-  }, [activeFilter, searchQuery, conversations, userData, listingFilterId]);
+  }, [debouncedSearchQuery, conversations, userData, listingFilterId]);
 
   // Handle file selection - preview instead of sending immediately
   const handleFileSelect = (e) => {
@@ -365,44 +391,7 @@ export default function MessagesPage() {
     setImageFile(null);
   };
 
-  // Send message with or without image
-  const sendMessageWithAttachment = async () => {
-    if (!selectedConversation) return;
-    
-    const messageText = newMessage.trim();
-    let imageUrl = null;
-    
-    try {
-      // Upload image if present
-      if (imageFile) {
-        const response = await uploadMessageImage(selectedConversation.id, imageFile);
-        imageUrl = response.data.url;
-      }
-      
-      // Send message (with or without image)
-      if (messageText || imageUrl) {
-        const tempTimestamp = new Date();
-        const optimisticMsg = {
-            id: Date.now(),
-            senderId: userData.userId,
-            text: messageText,
-            attachmentUrl: imageUrl,
-            timestamp: formatChatTimestamp(tempTimestamp),
-            rawDate: tempTimestamp.toISOString()
-        };
-        setMessages(prev => [...prev, optimisticMsg]);
-        
-        await sendMessage(messageText, selectedConversation.id, userData.userId, imageUrl);
-        
-        // Clear inputs
-        setNewMessage('');
-        removeImagePreview();
-      }
-    } catch (error) {
-      console.error("Failed to send message", error);
-      toast.showError("Failed to send message. Please try again.");
-    }
-  };
+
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -417,108 +406,92 @@ export default function MessagesPage() {
       setUserName(currentUser.fullName.split(' ')[0]);
       const userId = currentUser.userId;
 
-      // 2. Fetch User Conversations
-      const convResponse = await getConversationsForUser(userId);
+      // 2. Fetch User Conversations based on CURRENT Active Filter
+      // We only fetch for the active tab initially. Others load when clicked.
+      const currentTabState = conversationsMap[activeFilter];
+      
+      // If we already have data for this tab, maybe we don't need to fetch? 
+      // But typically on full page reload/init, we should fetch page 0.
+      
+      const convResponse = await getConversationsForUser(userId, 0, 5, activeFilter); 
       const convs = convResponse.data || [];
+      
+      const hasMoreForTab = convs.length >= 5;
 
       // Process conversation data
-      const processedConvs = convs.map(conv => {
-          if (!conv.participants) return null;
-          const otherParticipant = conv.participants.find(p => {
-              const pUserId = p.userId || p.user?.userId || p.user?.id; 
-              return pUserId !== userId;
-          });
-          const otherUserObj = otherParticipant || otherParticipant?.user || {};
-          const otherUser = { 
-              userId: otherUserObj.userId || otherUserObj.id || 0, 
-              fullName: otherUserObj.fullName || otherUserObj.name || 'Unknown User', 
-              profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null,
-              school: otherUserObj.schoolName || 'N/A'
-          };
-          
-          let productImageUrl = null;
-          if (conv.listing) {
-               productImageUrl = conv.listing.imageUrl 
-                    || (conv.listing.listingImages && conv.listing.listingImages.length > 0 ? conv.listing.listingImages[0].imageUrl : null)
-                    || (conv.listing.images && conv.listing.images.length > 0 ? conv.listing.images[0].imageUrl : null);
+      const processedConvs = processConversationData(convs, userId);
+
+      setConversationsMap(prev => ({
+          ...prev,
+          [activeFilter]: {
+              data: processedConvs,
+              page: 0,
+              hasMore: hasMoreForTab
           }
-
-          return {
-              id: conv.conversationId,
-              otherUser: {
-                  id: otherUser.userId,
-                  name: otherUser.fullName,
-                  avatar: otherUser.profilePictureUrl,
-                  school: otherUser.school
-              },
-              product: conv.listing ? {
-                  ...conv.listing, 
-                  id: conv.listing.listingId,
-                  title: conv.listing.title,
-                  price: conv.listing.price,
-                  ownerId: conv.listing.owner?.userId || conv.listing.user?.userId, 
-                  image: productImageUrl, 
-                  iconUrl: productImageUrl 
-              } : null,
-              lastMessagePreview: conv.lastMessageContent || 'Start a conversation', 
-              lastMessageDate: conv.lastMessageTimestamp || conv.listing?.createdAt,
-              isUnread: conv.isUnread || false,
-              isArchived: conv.isArchivedForCurrentUser || false,
-              transactionId: conv.transactionId || null,
-              hasReviewed: conv.hasReviewed || false 
-          };
-      }).filter(Boolean);
-
-      processedConvs.sort((a, b) => {
-          const dateA = new Date(a.lastMessageDate || 0);
-          const dateB = new Date(b.lastMessageDate || 0);
-          return dateB - dateA;
-      });
-
-      setConversations(processedConvs);
+      }));
       
-      // 3. Handle External Navigation
+      // 3. Handle External Navigation (e.g. clicking "Chat" on a listing)
       const passedConv = location.state?.openConversation;
       const passedConvId = location.state?.openConversationId;
       const initiateChat = location.state?.initiateChat;
 
       if (passedConvId) {
-          let targetConv = processedConvs.find(c => c.id === passedConvId);
-          if (!targetConv && passedConv) {
-              // Create temporary conv object
-              const participants = passedConv.participants || [];
-              const otherParticipantObj = participants.find(p => {
-                  const pId = p.user?.userId || p.userId; 
-                  return pId !== userId;
-              })?.user || {};
+           // Check if it exists in the fetched list (or maybe we need to check All Messages if we are on a filtered tab?)
+           // Ideally we search in 'All Messages' or the current loaded list.
+           // Since we just loaded 'activeFilter', let's check there.
+           let targetConv = processedConvs.find(c => c.id === passedConvId);
+           
+           if (!targetConv) {
+               // Try to find in 'All Messages' if we are not there?
+               // Or construct it temporarily if we have passedConv object
+               if (passedConv) {
+                   const participants = passedConv.participants || [];
+                   const otherParticipant = participants.find(p => {
+                        const pId = p.user?.userId || p.userId; 
+                        return pId !== userId;
+                   });
+                   const otherUserObj = otherParticipant?.user || {};
+ 
+                   targetConv = {
+                      id: passedConv.conversationId,
+                      otherUser: {
+                          id: otherUserObj.userId,
+                          name: otherUserObj.fullName || 'User',
+                          avatar: otherUserObj.profilePictureUrl
+                      },
+                      product: passedConv.listing ? {
+                          id: passedConv.listing.listingId,
+                          title: passedConv.listing.title,
+                          price: passedConv.listing.price,
+                          ownerId: passedConv.listing.user?.userId,
+                          image: passedConv.listing.images?.[0]?.imageUrl,
+                          iconUrl: passedConv.listing.images?.[0]?.imageUrl
+                      } : null,
+                      lastMessagePreview: 'Start a conversation',
+                      lastMessageDate: new Date().toISOString(),
+                      isUnread: false
+                  };
+                  
+                  // Add to current map view temporarily
+                  setConversationsMap(prev => ({
+                      ...prev,
+                      [activeFilter]: {
+                          ...prev[activeFilter],
+                          data: [targetConv, ...prev[activeFilter].data]
+                      }
+                  }));
+               }
+           }
+           
+           if (targetConv) {
+               handleSelectConversation(targetConv);
+               setIsChatVisible(true);
+               // Clean up state
+               window.history.replaceState({}, document.title);
+           }
 
-              targetConv = {
-                  id: passedConv.conversationId,
-                  otherUser: {
-                      id: otherParticipantObj.userId,
-                      name: otherParticipantObj.fullName || 'User',
-                      avatar: otherParticipantObj.profilePictureUrl
-                  },
-                  product: passedConv.listing ? {
-                      id: passedConv.listing.listingId,
-                      title: passedConv.listing.title,
-                      price: passedConv.listing.price,
-                      ownerId: passedConv.listing.user?.userId,
-                      image: passedConv.listing.images?.[0]?.imageUrl,
-                      iconUrl: passedConv.listing.images?.[0]?.imageUrl
-                  } : null,
-                  lastMessagePreview: 'Start a conversation',
-                  lastMessageDate: new Date().toISOString(),
-                  isUnread: false
-              };
-              setConversations(prev => [targetConv, ...prev]);
-          }
-          if (targetConv) {
-              handleSelectConversation(targetConv);
-              setIsChatVisible(true);
-              window.history.replaceState({}, document.title);
-          }
       } else if (initiateChat && currentUser) {
+          // Check if conversation already exists in our processed list
           let targetConv = processedConvs.find(c => 
               c.product?.id === initiateChat.listingId && 
               c.otherUser?.id === initiateChat.sellerId
@@ -558,7 +531,15 @@ export default function MessagesPage() {
                       isUnread: false
                   };
 
-                  setConversations(prev => [newUiConv, ...prev]);
+                  // Add to map
+                  setConversationsMap(prev => ({
+                      ...prev,
+                      [activeFilter]: {
+                          ...prev[activeFilter],
+                          data: [newUiConv, ...prev[activeFilter].data]
+                      }
+                  }));
+                  
                   handleSelectConversation(newUiConv);
                   setIsChatVisible(true);
               } catch (err) {
@@ -574,17 +555,104 @@ export default function MessagesPage() {
       const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
       setLikedListingIds(likedIds);
 
-    } catch (err) {
-      console.error("Failed to fetch messages data:", err);
-      // Don't toast here if we are showing the full page error, or do both.
+    } catch {
       setError("Could not load messages.");
-      if (err.message === "No authentication token found." || err.response?.status === 401) {
-          navigate('/login');
-      }
+      // Redirect or handle silent failure
     } finally {
       setIsLoading(false);
     }
-  }, [navigate, location.state]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate, location.state]); // Removed activeFilter to prevent full reload on tab switch
+
+  // Helper to process raw conversation data
+  const processConversationData = (convs, userId) => {
+      return convs.map(conv => {
+            if (!conv.participants) return null;
+            const otherParticipant = conv.participants.find(p => {
+                const pUserId = p.userId || p.user?.userId || p.user?.id; 
+                return pUserId !== userId;
+            });
+            const otherUserObj = otherParticipant || otherParticipant?.user || {};
+            const otherUser = { 
+                userId: otherUserObj.userId || otherUserObj.id || 0, 
+                fullName: otherUserObj.fullName || otherUserObj.name || 'Unknown User', 
+                profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null,
+                school: otherUserObj.schoolName || 'N/A'
+            };
+            
+            let productImageUrl = null;
+            if (conv.listing) {
+                 productImageUrl = conv.listing.imageUrl 
+                      || (conv.listing.listingImages && conv.listing.listingImages.length > 0 ? conv.listing.listingImages[0].imageUrl : null)
+                      || (conv.listing.images && conv.listing.images.length > 0 ? conv.listing.images[0].imageUrl : null);
+            }
+  
+            return {
+                id: conv.conversationId,
+                otherUser: {
+                    id: otherUser.userId,
+                    name: otherUser.fullName,
+                    avatar: otherUser.profilePictureUrl,
+                    school: otherUser.school
+                },
+                product: conv.listing ? {
+                    ...conv.listing, 
+                    id: conv.listing.listingId,
+                    title: conv.listing.title,
+                    price: conv.listing.price,
+                    ownerId: conv.listing.owner?.userId || conv.listing.user?.userId, 
+                    image: productImageUrl, 
+                    iconUrl: productImageUrl 
+                } : null,
+                lastMessagePreview: conv.lastMessageContent || 'Start a conversation', 
+                lastMessageDate: conv.lastMessageTimestamp || conv.listing?.createdAt,
+                isUnread: conv.isUnread || false,
+                isArchived: conv.isArchivedForCurrentUser || false,
+                transactionId: conv.transactionId || null,
+                hasReviewed: conv.hasReviewed || false 
+            };
+        }).filter(Boolean);
+  };
+
+  // Note: fetchData is called via the effect at line ~657, not here (removed duplicate) 
+  
+  // Define loadTab BEFORE the useEffect that uses it (fixes hoisting issue)
+  const loadTab = useCallback(async (filterKey, pageNum) => {
+      if (!userData) return;
+      setIsFetchingConversations(true);
+      try {
+          const response = await getConversationsForUser(userData.userId, pageNum, 5, filterKey);
+          const rawConvs = response.data || [];
+          const processed = processConversationData(rawConvs, userData.userId);
+          
+          setConversationsMap(prev => {
+              const prevData = pageNum === 0 ? [] : (prev[filterKey]?.data || []);
+              return {
+                  ...prev,
+                  [filterKey]: {
+                      data: [...prevData, ...processed],
+                      page: pageNum,
+                      hasMore: rawConvs.length >= 5,
+                      initialized: true
+                  }
+              };
+          });
+      } catch (err) {
+          console.error(`Failed to load tab ${filterKey}`, err);
+          toast.showError("Failed to load conversations.");
+      } finally {
+          setIsFetchingConversations(false);
+      }
+  }, [userData, toast]);
+
+  // When activeFilter changes, only load if tab not already initialized (caching)
+  useEffect(() => {
+      if (!userData) return;
+      // Only fetch if this tab has never been loaded
+      if (!conversationsMap[activeFilter]?.initialized) {
+          loadTab(activeFilter, 0);
+      }
+  }, [activeFilter, userData, conversationsMap, loadTab]);
 
   // Initial Fetch
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -604,29 +672,55 @@ export default function MessagesPage() {
         stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
           const payload = JSON.parse(message.body);
 
-          if (!payload.conversationId) {
-            return;
-          }
+          if (!payload.conversationId) return;
 
-          setConversations(prevConvs => {
-            const convIndex = prevConvs.findIndex(c => c.id === payload.conversationId);
-            if (convIndex > -1) {
-              const updatedConvs = [...prevConvs];
-              const conv = updatedConvs[convIndex];
-              updatedConvs.splice(convIndex, 1);
-              updatedConvs.unshift({
-                ...conv,
-                lastMessagePreview: payload.text,
-                lastMessageDate: payload.timestamp,
-                // Only mark as unread if we aren't currently looking at this chat
-                isUnread: selectedConversation?.id === payload.conversationId ? false : true 
-              });
-              return updatedConvs;
-            } else {
-              fetchData(); 
-              return prevConvs;
-            }
+          // Check if we already have this conversation loaded in any view
+          const currentMap = conversationsMapRef.current;
+          let existsLocally = false;
+          
+          Object.values(currentMap).forEach(tab => {
+              if (tab.data.some(c => c.id === payload.conversationId)) {
+                  existsLocally = true;
+              }
           });
+
+          if (!existsLocally) {
+               // New Conversation! Refresh the current active tab to show it (if applicable)
+               // We assume the user wants to see it. Reloading page 0 pulls it to the top.
+               console.log("New conversation detected, refreshing tab...");
+               loadTab(activeFilterRef.current, 0);
+          } else {
+               // Update existing in place
+               setConversationsMap(prevMap => {
+                  const newMap = { ...prevMap };
+                  
+                  Object.keys(newMap).forEach(key => {
+                      const tabData = newMap[key];
+                      const convIndex = tabData.data.findIndex(c => c.id === payload.conversationId);
+                      
+                      if (convIndex > -1) {
+                          // Update existing
+                          const updatedConv = {
+                              ...tabData.data[convIndex],
+                              lastMessagePreview: payload.text || '📷 Image',
+                              lastMessageDate: payload.timestamp || payload.sentAt,
+                              isUnread: payload.senderId !== userData.userId
+                          };
+                          
+                          // Move to top
+                          const newDataList = [...tabData.data];
+                          newDataList.splice(convIndex, 1);
+                          newDataList.unshift(updatedConv);
+                          
+                          newMap[key] = { ...tabData, data: newDataList };
+                      }
+                  });
+                  return newMap;
+              });
+          }
+      
+          // If it matches the open conversation, we might want to trigger read status or other updates?
+          // (Handled by active chat subscription usually)
         });
       }, (err) => {
         console.error("Socket connection error:", err);
@@ -638,7 +732,7 @@ export default function MessagesPage() {
         setIsConnected(false);
       };
     }
-  }, [userData]); // Dependencies removed to keep connection stable
+  }, [userData, loadTab]); // Added loadTab dependency (stable via useCallback)
 
   // --- WEBSOCKET SUBSCRIPTION (Active Chat) ---
   // This effect handles subscribing/unsubscribing to the specific conversation topic
@@ -697,9 +791,8 @@ export default function MessagesPage() {
     setChatUserRating(null);
 
     // Mark locally as read
-    setConversations(prev => prev.map(c => 
-      c.id === conversation.id ? { ...c, isUnread: false } : c
-    ));
+    // Mark locally as read (update map)
+    updateConversationInMap(conversation.id, c => ({ ...c, isUnread: false }));
 
     // Note: The WebSocket subscription is now handled by the separate useEffect above,
     // so we don't need to manually subscribe here anymore.
@@ -738,18 +831,88 @@ export default function MessagesPage() {
 
   const handleSearchChange = (e) => setSearchQuery(e.target.value);
 
+  const handleLoadMoreConversations = () => {
+    if (isFetchingConversations || !conversationsMap[activeFilter]?.hasMore || !userData) return;
+    const nextPage = conversationsMap[activeFilter]?.page + 1;
+    loadTab(activeFilter, nextPage);
+  };
+
   // --- Sidebar Actions (Delete, Archive, Mark Read) ---
+  // Helper to update a conversation in ALL tabs where it exists
+  const updateConversationInMap = (convId, updateFn) => {
+      setConversationsMap(prevMap => {
+          const newMap = { ...prevMap };
+          Object.keys(newMap).forEach(key => {
+              const tabData = newMap[key];
+              const index = tabData.data.findIndex(c => c.id === convId);
+              if (index > -1) {
+                  const updatedConv = updateFn(tabData.data[index]);
+                  // If updateFn returns null/undefined, it means remove it? 
+                  // Let's assume updateFn returns the updated object.
+                  // Special case: if we are filtering, some updates might remove it from the list (e.g. archiving in "All")
+                  // But for now let's just update properties.
+                  
+                  const newDataList = [...tabData.data];
+                  newDataList[index] = updatedConv;
+                   newMap[key] = { ...tabData, data: newDataList };
+              }
+          });
+          return newMap;
+      });
+  };
+
+  // Helper to remove conversation from map
+  const removeConversationFromMap = (convId) => {
+      setConversationsMap(prevMap => {
+          const newMap = { ...prevMap };
+          Object.keys(newMap).forEach(key => {
+              const tabData = newMap[key];
+              const newDataList = tabData.data.filter(c => c.id !== convId);
+              if (newDataList.length !== tabData.data.length) {
+                   newMap[key] = { ...tabData, data: newDataList };
+              }
+          });
+          return newMap;
+      });
+  };
+
   const handleListMenuToggle = (e, convId) => { e.stopPropagation(); setActiveListMenuId(prev => prev === convId ? null : convId); };
   
   const handleArchiveListAction = async (e, conv) => {
     e.stopPropagation(); setActiveListMenuId(null);
-    setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, isArchived: !c.isArchived } : c));
+    
+    // Optimistic update
+    updateConversationInMap(conv.id, c => ({ ...c, isArchived: !c.isArchived }));
+
     try { 
         await archiveConversation(conv.id); 
         toast.showSuccess(conv.isArchived ? "Conversation unarchived" : "Conversation archived");
+        // Re-fetch to ensure consistency? Or trust optimistic.
+        // If we really want to remove it from the list immediately if we are in a text-specific filter context:
+        // E.g. if we are in "Archived" tab and we Unarchive, it should disappear.
+        // The optimistic update above just toggles the flag.
+        
+        // Let's refine the map update to respect the filter immediately?
+        // Actually simplest is to just re-fetch the current tab logic or filter locally.
+        setConversationsMap(prevMap => {
+             const newMap = { ...prevMap };
+             // If active filter is "Archived" and we unarchived, remove it from this tab
+             if (activeFilter === 'Archived' && conv.isArchived) { // was archived, now unarchived
+                  newMap['Archived'].data = newMap['Archived'].data.filter(c => c.id !== conv.id);
+             }
+             // If active filter is "All" and we archive, it usually stays visible but marked archived? 
+             // Logic in backend: "All" excludes archived usually.
+             // If "All" excludes archived, then archiving should remove it from "All".
+             if (activeFilter === 'All Messages' && !conv.isArchived) { // was not archived, now is
+                  newMap['All Messages'].data = newMap['All Messages'].data.filter(c => c.id !== conv.id);
+             }
+             return newMap;
+        });
+
     } catch (err) { 
         console.error("Archive failed", err); 
-        fetchData(); // Revert on failure
+        // Revert is hard without previous state history, so just refetch active tab
+        loadTab(activeFilter, conversationsMap[activeFilter]?.page || 0);
         toast.showError("Action failed. Reloading...");
     }
   };
@@ -757,7 +920,6 @@ export default function MessagesPage() {
   const handleDeleteListAction = async (e, convId) => {
     e.stopPropagation(); setActiveListMenuId(null);
     
-    // We use the new Confirm Provider here
     const isConfirmed = await confirm({
         title: "Delete Conversation?",
         message: "This cannot be undone. The chat history will be removed for you.",
@@ -767,14 +929,15 @@ export default function MessagesPage() {
 
     if (!isConfirmed) return;
 
-    setConversations(prev => prev.filter(c => c.id !== convId));
+    removeConversationFromMap(convId);
+    
     if (selectedConversation?.id === convId) { setSelectedConversation(null); setIsChatVisible(false); }
     try { 
         await deleteConversation(convId); 
         toast.showSuccess("Conversation deleted");
     } catch (err) { 
         console.error("Delete failed", err); 
-        fetchData(); 
+        loadTab(activeFilter, 0); // Reload on error
         toast.showError("Failed to delete conversation");
     }
   };
@@ -782,13 +945,15 @@ export default function MessagesPage() {
   const handleReadUnreadAction = async (e, conv) => {
     e.stopPropagation(); setActiveListMenuId(null);
     const newStatus = !conv.isUnread; 
-    setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, isUnread: newStatus } : c));
+    
+    updateConversationInMap(conv.id, c => ({ ...c, isUnread: newStatus }));
+
     try { 
         if (newStatus) await markConversationAsUnread(conv.id); 
         else await markConversationAsRead(conv.id); 
     } catch (err) { 
         console.error("Toggle failed", err); 
-        fetchData(); 
+        // loadTab(activeFilter, conversationsPage);
     }
   };
 
@@ -832,15 +997,20 @@ export default function MessagesPage() {
           };
           setMessages(prev => [...prev, optimisticMsg]);
           
-          setConversations(prevConvs => {
-              const updatedConvs = [...prevConvs];
-              const index = updatedConvs.findIndex(c => c.id === selectedConversation.id);
-              if (index > -1) {
-                  const conv = updatedConvs[index];
-                  updatedConvs.splice(index, 1); 
-                  updatedConvs.unshift({ ...conv, lastMessagePreview: textToSend || '📷 Image', lastMessageDate: tempTimestamp.toISOString(), isUnread: false });
-              }
-              return updatedConvs;
+          setConversationsMap(prevMap => {
+              const newMap = { ...prevMap };
+              Object.keys(newMap).forEach(key => {
+                  const tabData = newMap[key];
+                  const index = tabData.data.findIndex(c => c.id === selectedConversation.id);
+                  if (index > -1) {
+                       const newDataList = [...tabData.data];
+                       const conv = newDataList[index];
+                       newDataList.splice(index, 1);
+                       newDataList.unshift({ ...conv, lastMessagePreview: textToSend || '📷 Image', lastMessageDate: tempTimestamp.toISOString(), isUnread: false });
+                       newMap[key] = { ...tabData, data: newDataList };
+                  }
+              });
+              return newMap;
           });
 
           await sendMessage(textToSend, selectedConversation.id, userData.userId, imageUrl); 
@@ -878,14 +1048,37 @@ export default function MessagesPage() {
       const convId = selectedConversation.id;
       const willArchive = !selectedConversation.isArchived;
 
-      setConversations(prev => prev.map(c => c.id === convId ? { ...c, isArchived: willArchive } : c));
-      setSelectedConversation(null); setIsChatMenuOpen(false); setIsChatVisible(false); 
+      // Optimistic updat in map
+      updateConversationInMap(convId, c => ({ ...c, isArchived: willArchive }));
+      
+      // Update selected conversation state too
+      setSelectedConversation(prev => ({ ...prev, isArchived: willArchive }));
+      
+      setIsChatMenuOpen(false); 
+      // If we are archiving, do we close the chat? Maybe not, just mark it?
+      // Existing logic closed it: setIsChatVisible(false);
+      // Let's keep it open but update status, unless it disappears from list and user confusion?
+      // Original logic:
+      // setSelectedConversation(null); setIsChatMenuOpen(false); setIsChatVisible(false);
+      
+      // Reverting to original behavior of closing chat if desired, or maybe keeping it open is better UX?
+      // Let's stick to original behavior of finding it in list.
+      // If I archive it, it might disappear from "All Messages".
+      if (willArchive && activeFilter !== 'Archived') {
+          setSelectedConversation(null);
+          setIsChatVisible(false);
+      }
       
       try { 
           await archiveConversation(convId); 
           toast.showSuccess(willArchive ? "Conversation archived" : "Conversation unarchived");
+          
+          // Re-evaluate list presence
+          loadTab(activeFilter, 0); // Reload current tab to correctly filter it out/in
+          
       } catch (err) { 
-          fetchData(); 
+          console.error("Archive failed", err);
+          loadTab(activeFilter, 0);
           toast.showError("Failed to update archive status");
       }
   };
@@ -904,22 +1097,23 @@ export default function MessagesPage() {
       if (!isConfirmed) return;
 
       const convId = selectedConversation.id;
-      setConversations(prev => prev.filter(c => c.id !== convId));
+      removeConversationFromMap(convId);
+      
       setSelectedConversation(null); setIsChatMenuOpen(false); setIsChatVisible(false);
       
       try { 
           await deleteConversation(convId); 
           toast.showSuccess("Conversation deleted");
       } catch (err) { 
-          fetchData(); 
+          console.error("Delete failed", err); 
+          loadTab(activeFilter, 0); // Reload
           toast.showError("Failed to delete");
       }
   };
 
   const handleReviewSuccess = () => {
-      setConversations(prev => prev.map(c => 
-          c.id === selectedConversation.id ? { ...c, hasReviewed: true } : c
-      ));
+      updateConversationInMap(selectedConversation.id, c => ({ ...c, hasReviewed: true }));
+
       if (selectedConversation) {
           setSelectedConversation(prev => ({ ...prev, hasReviewed: true }));
       }
@@ -1074,7 +1268,8 @@ export default function MessagesPage() {
               </div>
             </li>
           ))}
-            {filteredConversations.length === 0 && (
+            {/* Empty State */}
+            {filteredConversations.length === 0 && !isFetchingConversations && activeTabState.initialized && (
                 <li style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                     {listingFilterId 
                         ? 'No conversation history found for this item.' 
@@ -1082,8 +1277,39 @@ export default function MessagesPage() {
                     }
                 </li>
             )}
+
+            {/* Initial Loading Skeleton for Tab (Prevents Flicker) */}
+            {(!activeTabState.initialized || (isFetchingConversations && conversations.length === 0)) && (
+                 <div style={{ padding: '1rem' }}>
+                    <div className="skeleton-line" style={{ height: '60px', marginBottom: '10px' }}></div>
+                    <div className="skeleton-line" style={{ height: '60px', marginBottom: '10px' }}></div>
+                    <div className="skeleton-line" style={{ height: '60px' }}></div>
+                 </div>
+            )}
           </ul>
-        </aside>
+            {/* Load More Button moved to sidebar bottom */}
+            {hasMoreConversations && !isLoading && (
+                <div className="load-more-container">
+                    <button 
+                        className={`load-more-btn ${isFetchingMoreConversations ? 'loading' : ''}`}
+                        onClick={handleLoadMoreConversations}
+                        disabled={isFetchingMoreConversations}
+                    >
+                        {isFetchingMoreConversations ? (
+                            <>
+                                <span className="load-more-spinner"></span>
+                                Loading...
+                            </>
+                        ) : (
+                            <>
+                                Load More
+                                <span className="load-more-icon">▼</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+            )}
+          </aside>
 
         {/* --- Right Chat Area --- */}
         <main className={`chat-area ${!selectedConversation ? 'no-chat-selected' : ''} ${isChatVisible ? 'mobile-visible' : ''}`}>

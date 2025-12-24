@@ -66,4 +66,9 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
                      "ORDER BY r.createdAt DESC", countQuery = "SELECT COUNT(r) FROM ReviewEntity r JOIN r.transaction t WHERE r.reviewedUser.userId = :userId AND r.reviewer.userId = t.seller.userId")
        Page<ReviewEntity> findReviewsFromSellers(@Param("userId") Long userId, Pageable pageable);
 
+       // [NEW] Batch check if user reviewed multiple transactions (optimization -
+       // eliminates N+1)
+       @Query("SELECT r.transaction.transactionId FROM ReviewEntity r WHERE r.reviewer.userId = :userId AND r.transaction.transactionId IN :transactionIds")
+       List<Long> findReviewedTransactionIds(@Param("userId") Long userId,
+                     @Param("transactionIds") List<Long> transactionIds);
 }
