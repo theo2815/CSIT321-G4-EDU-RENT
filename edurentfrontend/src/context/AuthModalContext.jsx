@@ -14,7 +14,9 @@ export const AuthModalProvider = ({ children }) => {
   const [pendingRedirect, setPendingRedirect] = useState(null);
 
   const openLogin = useCallback((redirectPath = null) => {
-    if (redirectPath) setPendingRedirect(redirectPath);
+    if (typeof redirectPath === 'string') {
+      setPendingRedirect(redirectPath);
+    }
     setView('LOGIN');
   }, []);
 
