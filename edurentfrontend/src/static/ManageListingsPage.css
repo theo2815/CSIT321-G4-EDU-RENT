@@ -258,27 +258,46 @@
 .empty-state-illustration {
   margin-bottom: 0.5rem;
 }
-/* Bulk Actions Bar */
+/* Bulk Actions Bar Overlay */
 .bulk-actions-bar {
-  position: sticky;
-  top: 64px; /* Adjust if header height changes */
-  z-index: 10;
-  background: var(--bg-light);
-  border-bottom: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  
+  /* Glassmorphism / Floating Design */
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0,0,0,0.05);
+  border-radius: 100px; /* Pill shape */
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset;
+  
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  justify-content: space-between;
+  gap: 2rem;
   padding: 0.75rem 2rem;
-  font-size: 1rem;
-  font-weight: 500;
+  
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--text-color);
-  animation: fadeIn 0.3s;
+  
+  animation: slideUpFade 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  min-width: 400px;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translate(-50%, 100%); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+[data-theme="dark"] .bulk-actions-bar {
+  background: rgba(30, 30, 30, 0.95);
+  border-color: rgba(255,255,255,0.1);
+  color: #fff;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
 /* Snackbar/Toast */

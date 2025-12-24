@@ -8,6 +8,8 @@ import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton
 import MarkAsSoldModal from '../components/MarkAsSoldModal';
 import LoadMoreButton from '../components/LoadMoreButton';
 import LoadingOverlay from '../components/LoadingOverlay';
+import GenericDropdown from '../components/GenericDropdown';
+import AnimatedCheckbox from '../components/AnimatedCheckbox';
 
 import useAuth from '../hooks/useAuth';
 
@@ -665,24 +667,37 @@ export default function ManageListingsPage() {
           <div className="filters-container">
             <div className="filter-group">
               <label htmlFor="category-filter" className="filter-label">Category</label>
-              <select id="category-filter" className="filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                {categories.map(cat => <option key={cat.categoryId || 'all'} value={cat.name}>{cat.name}</option>)}
-              </select>
+              <GenericDropdown
+                  options={categories.map(cat => ({ value: cat.name, label: cat.name }))}
+                  selectedOption={filterCategory}
+                  onSelect={setFilterCategory}
+                  width="100%"
+              />
             </div>
              <div className="filter-group">
               <label htmlFor="sort-filter" className="filter-label">Sort By</label>
-              <select id="sort-filter" className="filter-select" value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
-                <option value="recent">Most Recent</option>
-                <option value="oldest">Oldest</option>
-              </select>
+              <GenericDropdown
+                  options={[
+                      { value: "recent", label: "Most Recent" },
+                      { value: "oldest", label: "Oldest" }
+                  ]}
+                  selectedOption={sortOrder}
+                  onSelect={setSortOrder}
+                  width="100%"
+              />
             </div>
              <div className="filter-group">
                <label htmlFor="date-filter" className="filter-label">Date Created</label>
-               <select id="date-filter" className="filter-select" value={filterDate} onChange={e => setFilterDate(e.target.value)}>
-                 <option value="all">All Time</option>
-                 <option value="last7">Last 7 Days</option>
-                 <option value="last30">Last 30 Days</option>
-               </select>
+               <GenericDropdown
+                   options={[
+                       { value: "all", label: "All Time" },
+                       { value: "last7", label: "Last 7 Days" },
+                       { value: "last30", label: "Last 30 Days" }
+                   ]}
+                   selectedOption={filterDate}
+                   onSelect={setFilterDate}
+                   width="100%"
+               />
              </div>
             <div className="filter-group" style={{flexGrow: 1}}>
               <label htmlFor="search-filter" className="filter-label">Search</label>
@@ -701,14 +716,13 @@ export default function ManageListingsPage() {
         <div className="listings-card-container">
           <div className="listings-card-header">
             <div className="select-all-container">
-              <input
-                type="checkbox"
+              <AnimatedCheckbox
                 id="select-all"
                 checked={isAllSelected}
                 onChange={handleSelectAll}
                 aria-label="Select all listings"
               />
-              <label htmlFor="select-all" style={{fontWeight: 500}}>Select All</label>
+              <label htmlFor="select-all" style={{fontWeight: 500, cursor: 'pointer'}}>Select All</label>
             </div>
             
             <div className="listing-counts">
@@ -772,8 +786,7 @@ export default function ManageListingsPage() {
                     return (
                       <tr key={item.listingId} onClick={() => openModal(item)} style={{ cursor: 'pointer' }}>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
+                          <AnimatedCheckbox
                             checked={selectedItems.has(item.listingId)}
                             onChange={e => handleSelectItem(item.listingId, e.target.checked)}
                           />

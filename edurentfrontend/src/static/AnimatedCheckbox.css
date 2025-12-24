@@ -1,0 +1,71 @@
+/* Custom Animated Checkbox Styles */
+.animated-checkbox-container {
+  cursor: pointer;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.animated-checkbox-container input {
+  display: none;
+}
+
+.animated-checkbox-container svg {
+  overflow: visible;
+}
+
+.animated-checkbox-path {
+  fill: none;
+  stroke: white; /* Default stroke color, might need adjustment based on background or make configurable */
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke-dasharray 0.5s ease, stroke-dashoffset 0.5s ease;
+  stroke-dasharray: 241 9999999;
+  stroke-dashoffset: 0;
+}
+
+.animated-checkbox-container input:checked ~ svg .animated-checkbox-path {
+  stroke-dasharray: 70.5096664428711 9999999;
+  stroke-dashoffset: -262.2723388671875;
+}
+
+/* 
+   Since the original SVG path stroke is white and the filling seems to be transparent/white based on the shared snippet,
+   we might need to ensure it's visible against the page background.
+   The original CSS says `stroke: white`.
+   If the user's background is white, this won't be visible.
+   However, looking at the provided HTML, there is no specific background color set on the container.
+   The SVG acts as the box.
+   Wait, the path "M 0 16 V 56 ... " draws the box AND the checkmark?
+   Let's assume the stroke needs to be a visible color if the background is light.
+   The `ManageListingsPage.jsx` background is `bg-light` (likely white or off-white).
+   So `stroke: white` might be invisible.
+   I will change the default stroke to a dark color or usage of a variable, 
+   but adhering to the "wow" factor, maybe the primary accent color.
+   
+   However, typically these "Uiverse" checkboxes are self-contained. 
+   Let's check the path data visualization mentally:
+   It draws a box (0 16 ... to 64 ...) and then seemingly the checkmark.
+   
+   If I look at the CSS:
+   .path { stroke: white; ... }
+   
+   If this is placed on a white background, it will be invisible.
+   I will change it to `var(--text-color)` or `#333` or `black` for safety, 
+   or maybe allow it to be passed in. 
+   
+   Actually, looking at the design usually implies a filled box or outlined box.
+   The path seems to trace the OUTLINE of the box and then transforms/animates.
+   
+   Let's try checking `ManageListingsPage.css` again for background.
+   It has `--bg-light` and `--bg-color`.
+   
+   I will use `black` or a standard color variable for now, 
+   or `currentColor` if I want to control it from parents.
+   Let's use `black` (or a dark grey) as a safe default for visibility on light mode, 
+   and maybe invert for dark mode if needed.
+   Better yet, use `var(--text-color, #000)`.
+*/
+.animated-checkbox-path {
+    stroke: var(--text-color, #000);
+}
