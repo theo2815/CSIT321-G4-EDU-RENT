@@ -13,6 +13,7 @@ import imageCompression from 'browser-image-compression';
 // Components
 import Header from '../components/Header';
 import LoadingOverlay from '../components/LoadingOverlay';
+import ToggleSwitch from '../components/ToggleSwitch';
 
 // API services
 import { 
@@ -491,10 +492,7 @@ export default function ListItemPage() {
               {/* Meet-up Toggle */}
               <div className="deal-method-toggle">
                 <span className="notification-label">Meet-up</span>
-                <label className="toggle-switch">
-                  <input type="checkbox" checked={allowMeetup} onChange={(e) => setAllowMeetup(e.target.checked)} />
-                  <span className="toggle-slider"></span>
-                </label>
+                <ToggleSwitch checked={allowMeetup} onChange={(e) => setAllowMeetup(e.target.checked)} />
               </div>
               {allowMeetup && (
                 <div className="deal-method-input">
@@ -509,10 +507,7 @@ export default function ListItemPage() {
               {/* Delivery Toggle */}
               <div className="deal-method-toggle" style={{marginTop: '1rem'}}>
                  <span className="notification-label">Delivery</span>
-                 <label className="toggle-switch">
-                   <input type="checkbox" checked={allowDelivery} onChange={(e) => setAllowDelivery(e.target.checked)} />
-                   <span className="toggle-slider"></span>
-                 </label>
+                   <ToggleSwitch checked={allowDelivery} onChange={(e) => setAllowDelivery(e.target.checked)} />
               </div>
               {allowDelivery && (
                  <div className="deal-method-input">

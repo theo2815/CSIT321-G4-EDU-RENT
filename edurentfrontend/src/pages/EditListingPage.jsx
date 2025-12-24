@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import LoadingOverlay from '../components/LoadingOverlay';
 import ProductDetailModal from '../components/ProductDetailModal'; 
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
+import ToggleSwitch from '../components/ToggleSwitch';
 
 import { 
   getCurrentUser, 
@@ -473,14 +474,14 @@ export default function EditListingPage() {
               <label className="form-label">Deal Method</label>
               <div className="deal-method-toggle">
                 <span className="notification-label">Meet-up</span>
-                <label className="toggle-switch"><input type="checkbox" checked={allowMeetup} onChange={(e) => setAllowMeetup(e.target.checked)} /><span className="toggle-slider"></span></label>
+                <ToggleSwitch checked={allowMeetup} onChange={(e) => setAllowMeetup(e.target.checked)} />
               </div>
               {allowMeetup && (
                 <div className="deal-method-input"><input type="text" name="meetupPlace" value={meetupPlace} onChange={(e) => setMeetupPlace(e.target.value)} className="form-input" placeholder="Enter meet-up place" required/></div>
               )}
               <div className="deal-method-toggle" style={{marginTop: '1.5rem'}}> 
                     <span className="notification-label">Delivery</span>
-                    <label className="toggle-switch"><input type="checkbox" checked={allowDelivery} onChange={(e) => setAllowDelivery(e.target.checked)} /><span className="toggle-slider"></span></label>
+                    <ToggleSwitch checked={allowDelivery} onChange={(e) => setAllowDelivery(e.target.checked)} />
               </div>
               {allowDelivery && (
                     <div className="deal-method-input"><input type="text" name="deliveryOption" value={deliveryOption} onChange={(e) => setDeliveryOption(e.target.value)} className="form-input" placeholder="Add delivery option (e.g. Maxim or Lalamove)" required/></div>

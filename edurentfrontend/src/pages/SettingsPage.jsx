@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import ToggleSwitch from '../components/ToggleSwitch';
 
 // Custom hooks for managing auth state, likes, and global UI logic
 import useAuth from '../hooks/useAuth';
@@ -367,31 +368,19 @@ function NotificationSettingsForm({ userId }) {
       <div className="notification-settings-list">
         <div className="notification-item">
           <span className="notification-label">All notification</span>
-          <label className="toggle-switch">
-            <input type="checkbox" checked={notifications.all} onChange={() => handleToggle('all')} disabled={!loaded || saving} />
-            <span className="toggle-slider"></span>
-          </label>
+          <ToggleSwitch checked={notifications.all} onChange={() => handleToggle('all')} disabled={!loaded || saving} />
         </div>
         <div className="notification-item">
           <span className="notification-label">Like of my listing</span>
-          <label className="toggle-switch">
-            <input type="checkbox" checked={notifications.likes} onChange={() => handleToggle('likes')} disabled={notifications.all || !loaded || saving} />
-            <span className="toggle-slider"></span>
-          </label>
+          <ToggleSwitch checked={notifications.likes} onChange={() => handleToggle('likes')} disabled={notifications.all || !loaded || saving} />
         </div>
         <div className="notification-item">
           <span className="notification-label">Message</span>
-          <label className="toggle-switch">
-            <input type="checkbox" checked={notifications.messages} onChange={() => handleToggle('messages')} disabled={notifications.all || !loaded || saving} />
-            <span className="toggle-slider"></span>
-          </label>
+          <ToggleSwitch checked={notifications.messages} onChange={() => handleToggle('messages')} disabled={notifications.all || !loaded || saving} />
         </div>
         <div className="notification-item">
           <span className="notification-label">Email</span>
-          <label className="toggle-switch">
-            <input type="checkbox" checked={notifications.email} onChange={() => handleToggle('email')} disabled={notifications.all || !loaded || saving} />
-            <span className="toggle-slider"></span>
-          </label>
+          <ToggleSwitch checked={notifications.email} onChange={() => handleToggle('email')} disabled={notifications.all || !loaded || saving} />
         </div>
         {!loaded && (
           <div className="form-hint" style={{ marginTop: '0.5rem' }}>Loading preferences…</div>
