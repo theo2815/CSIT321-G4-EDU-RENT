@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import CategoriesSidebar from './CategoriesSidebar';
 import NotificationsPopup from './NotificationsPopup';
+import UserDropdown from './UserDropdown';
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 
@@ -27,7 +28,7 @@ import eduRentLogo from '../assets/edurentAllBlackTest.png';
 import heartIcon from '../assets/heart.png';
 import notificationIcon from '../assets/notification.png';
 import messengerIcon from '../assets/messenger.png';
-import defaultAvatar from '../assets/default-avatar.png'; 
+// import defaultAvatar from '../assets/default-avatar.png'; // Removed, used in UserDropdown now 
 
 export default function Header({ 
   userName, 
@@ -42,7 +43,7 @@ export default function Header({
   const { openLogin } = useAuthModal();
 
   // UI State management
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  // const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Removed as UserDropdown handles this via CSS
   const [isCategoriesSidebarVisible, setIsCategoriesSidebarVisible] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   
@@ -355,12 +356,12 @@ export default function Header({
 
   // --- UI Handlers ---
 
-  const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
+  // const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen); // Removed
   
-  const handleLogoutClick = () => { 
-    setIsDropdownOpen(false); 
-    onLogout(); 
-  };
+  // const handleLogoutClick = () => { 
+  //   setIsDropdownOpen(false); 
+  //   onLogout(); 
+  // }; // Removed, passing onLogout directly
 
   const openCategoriesSidebar = () => setIsCategoriesSidebarVisible(true);
   const closeCategoriesSidebar = () => setIsCategoriesSidebarVisible(false);
@@ -377,7 +378,7 @@ export default function Header({
       setIsNotificationsOpen(aboutToOpen);
       
       // Clean up other open menus so the screen isn't cluttered
-      setIsDropdownOpen(false);
+      // setIsDropdownOpen(false); // Removed
       setIsCategoriesSidebarVisible(false);
 
       // If we are opening the panel, reset filters and grab fresh data
@@ -469,45 +470,11 @@ export default function Header({
               </div>
 
               {/* Profile Dropdown */}
-              <div className="user-dropdown">
-                 <button className="user-button" onClick={toggleDropdown} aria-label="User menu">
-                    <img
-                      src={
-                        profilePictureUrl 
-                          ? (profilePictureUrl.startsWith('http') ? profilePictureUrl : `http://localhost:8080${profilePictureUrl}`)
-                          : defaultAvatar
-                      }
-                      alt="Profile"
-                      className="user-avatar"
-                      style={{ objectFit: 'cover' }} 
-                      onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}
-                    />
-                   {userName && `Hello, ${userName}`} ▼ 
-                 </button>
-
-                 {isDropdownOpen && ( 
-                   <div className="dropdown-menu"> 
-                     <Link to="/profile" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>My Profile</Link> 
-                     <Link to="/settings" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>Settings</Link> 
-                     <button 
-                       onClick={handleLogoutClick} 
-                       className="dropdown-item" 
-                       style={{ 
-                         width: '100%', 
-                         textAlign: 'left', 
-                         background: 'none', 
-                         border: 'none', 
-                         cursor: 'pointer', 
-                         padding: '0.75rem 1.25rem', 
-                         fontSize: '0.9rem' 
-                       }} 
-                       aria-label="Logout" 
-                     >
-                       Logout
-                     </button> 
-                   </div> 
-                 )}
-              </div>
+              <UserDropdown 
+                  userName={userName} 
+                  profilePictureUrl={profilePictureUrl} 
+                  onLogout={onLogout} 
+              />
             </>
           ) : (
             /* SCENARIO 2: User is NOT Logged In (Show Login/Register) */

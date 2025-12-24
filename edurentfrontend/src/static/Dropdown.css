@@ -1,0 +1,144 @@
+/* Dropdown.css */
+
+/* Container for the select component */
+.select-container {
+  width: fit-content;
+  cursor: pointer;
+  position: relative;
+  transition: 300ms;
+  color: var(--text-color);
+  user-select: none; /* Prevent text selection */
+}
+
+/* The selected item (the button/header of the dropdown) */
+.selected-header {
+  background-color: var(--bg-card); /* Adapted for Light/Dark */
+  padding: 8px 12px;
+  border-radius: 8px; /* Consistent with other buttons */
+  position: relative;
+  z-index: 100; /* High enough but standard */
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s;
+  min-width: 180px; /* Ensure it has some width */
+}
+
+/* Borderless Variant */
+.select-container.borderless .selected-header {
+    background-color: transparent;
+    border-color: transparent;
+    padding: 8px 4px; /* Less padding since no border */
+    min-width: auto; /* Let it shrink if needed */
+}
+
+/* Hover effects */
+.select-container:hover .selected-header {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(0, 180, 216, 0.1);
+}
+
+.select-container.borderless:hover .selected-header {
+    /* For borderless, maybe just a subtle background or text color change? */
+    /* The user requested "do not add any border", so we avoid the border-color change */
+    border-color: transparent;
+    box-shadow: none;
+    background-color: transparent; /* Keep transparent */
+    color: var(--primary-color); /* Highlight text instead */
+}
+
+/* The arrow icon */
+.arrow-icon {
+  position: relative;
+  height: 12px;
+  width: 12px;
+  transform: rotate(-90deg);
+  fill: currentColor; /* Use current text color */
+  z-index: 100;
+  transition: 300ms;
+}
+
+/* The options container */
+.options-list {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  padding: 5px;
+  background-color: var(--bg-card);
+  position: absolute;
+  top: 80%; /* Start slightly higher for the slide down effect */
+  left: 0;
+  min-width: 100%; /* Match width of header at least */
+  opacity: 0;
+  visibility: hidden; /* Hide it completely so it doesn't block clicks */
+  transition: 300ms;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-color);
+  margin-top: 5px;
+  z-index: 1000; /* Higher z-index to fly over other content */
+  white-space: nowrap; /* Prevent wrapping in options */
+}
+
+/* Ensure borderless options align well (maybe left aligned?) */
+.select-container.borderless .options-list {
+    min-width: 150px; /* Give it a default min width since header might be small */
+}
+
+/* Hover state to show options */
+.select-container:hover > .options-list {
+  opacity: 1;
+  visibility: visible;
+  top: 100%; /* Slide down to correct position */
+}
+
+/* Rotate arrow on hover */
+.select-container:hover > .selected-header .arrow-icon {
+  transform: rotate(0deg);
+}
+
+/* Individual Option Item */
+.option-item {
+  border-radius: 5px;
+  padding: 8px 12px;
+  transition: 300ms;
+  background-color: transparent; 
+  width: 100%;
+  font-size: 0.9rem;
+  color: var(--text-color);
+  text-decoration: none; /* For Links */
+  display: block; /* Make links behave like blocks */
+  cursor: pointer;
+  border: none;
+  text-align: left;
+}
+
+.option-item:hover {
+  background-color: var(--bg-color); /* Light gray hover */
+  color: var(--primary-color);
+}
+
+.option-item.active {
+    font-weight: 600;
+    color: var(--primary-color);
+    background-color: var(--bg-color); /* Highlight selected filter */
+}
+
+/* Specific styles for the user avatar in the selected header */
+.selected-header .user-avatar-small {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+}
+
+.user-name-span {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}

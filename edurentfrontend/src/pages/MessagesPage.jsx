@@ -20,6 +20,7 @@ import ListingCard from '../components/ListingCard';
 import ReviewModal from '../components/ReviewModal'; 
 import UserRatingDisplay from '../components/UserRatingDisplay';
 import AlertBanner from '../components/AlertBanner'; 
+import GenericDropdown from '../components/GenericDropdown'; 
 
 // API functions
 import { 
@@ -175,7 +176,7 @@ export default function MessagesPage() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Messages');
-  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+  // const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false); // Replaced by GenericDropdown CSS hover
   const [listingFilterId, setListingFilterId] = useState(null); 
   
   const location = useLocation(); 
@@ -1162,25 +1163,13 @@ export default function MessagesPage() {
                 </div>
             ) : (
                 <div className="message-filter-container">
-                    <button 
-                        className="message-filter-btn" 
-                        onClick={(e) => { e.stopPropagation(); setIsFilterDropdownOpen(!isFilterDropdownOpen); }}
-                    >
-                        {activeFilter} <Icons.ChevronDown />
-                    </button>
-                    {isFilterDropdownOpen && (
-                        <div className="filter-dropdown-menu">
-                            {filterOptions.map(option => (
-                                <button 
-                                    key={option} 
-                                    className={`filter-option ${activeFilter === option ? 'active' : ''}`}
-                                    onClick={() => { setActiveFilter(option); setIsFilterDropdownOpen(false); }}
-                                >
-                                    {option}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <GenericDropdown 
+                        label={activeFilter}
+                        options={filterOptions}
+                        onSelect={setActiveFilter}
+                        selectedOption={activeFilter}
+                        variant="borderless"
+                    />
                 </div>
             )}
 
