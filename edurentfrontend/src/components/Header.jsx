@@ -106,6 +106,20 @@ export default function Header({
       fetchUnreadMessagesCount();
   }, [userData]);
 
+  // Listen for notification preference changes from SettingsPage
+  useEffect(() => {
+    const handlePreferenceChange = (event) => {
+      // Update notifPrefs state with new values for real-time effect
+      setNotifPrefs(event.detail);
+    };
+
+    window.addEventListener('notification-preferences-changed', handlePreferenceChange);
+    
+    return () => {
+      window.removeEventListener('notification-preferences-changed', handlePreferenceChange);
+    };
+  }, []);
+
   // --- Notification Logic ---
 
   // Real-time WebSocket connection for notifications
@@ -144,7 +158,11 @@ export default function Header({
                  return [payload, ...prev];
              }
           });
-          showInfo("New notification received");
+          
+          // Only show toast if likes are enabled in preferences
+          if (notifPrefs.likes) {
+            showInfo("New notification received");
+          }
         } 
         else if (payload.type === 'NEW_MESSAGE') {
           // Extract conversation ID from linkUrl (e.g. "/messages/15")
@@ -163,10 +181,12 @@ export default function Header({
           // Increment message badge if not viewing the chat
           setUnreadMsgCount(prev => prev + 1);
 
-          // 1. Show Toast
-          // Strip HTML tags for clean toast text
-          const plainText = payload.notificationContent.replace(/<[^>]*>?/gm, '');
-          showInfo(plainText);
+          // 1. Show Toast (only if messages are enabled in preferences)
+          if (notifPrefs.messages) {
+            // Strip HTML tags for clean toast text
+            const plainText = payload.notificationContent.replace(/<[^>]*>?/gm, '');
+            showInfo(plainText);
+          }
 
           // 2. Add or Update Notification in Dropdown List
           const newNotification = {
@@ -264,15 +284,17 @@ export default function Header({
     };
   }, [userData, showInfo]);
 
-  // Let's fetch the notifications from the server, sort them by newest first, 
-  // and figure out how many unread badges to show.
+  // Fetch notifications from the server, sort them by newest first, 
+  // and calculate unread badge count.
+  // NOTE: User preferences control whether NEW notifications are created (enforced by backend),
+  // NOT whether existing notifications are visible. All existing notifications are always returned.
   const fetchNotifications = useCallback(async () => {
     // If there's no user, there's no point fetching
     if (!userData) return;
 
     setIsLoadingNotifications(true);
     try {
-      // Load preferences first
+      // Load preferences (for reference/debugging only - backend does not use these to filter)
       const prefs = await getNotificationPreferences(userData.userId);
       setNotifPrefs(prefs);
 
@@ -283,29 +305,19 @@ export default function Header({
       const sortedNotifs = notifs.sort((a, b) => {
         return new Date(b.createdAt) - new Date(a.createdAt);
       });
-      // Filter by preferences
-      const allowAll = !!prefs.all_notifications;
-      const allowLikes = !!prefs.likes;
-      const allowMessages = !!prefs.messages;
-      const filtered = allowAll
-        ? sortedNotifs
-        : sortedNotifs.filter(n => {
-            if (n.type === 'NEW_LIKE') return allowLikes;
-            if (n.type === 'NEW_MESSAGE') return allowMessages;
-            // default notifications respect all_notifications only
-            return allowAll;
-          });
-      setNotifications(filtered);
+      
+      // Display ALL notifications returned by backend
+      setNotifications(sortedNotifs);
 
       // specific logic for the red badge count
       if (notificationFilter === 'all') {
-        setUnreadCount(filtered.filter(n => !n.isRead).length);
+        setUnreadCount(sortedNotifs.filter(n => !n.isRead).length);
       } else {
-        setUnreadCount(filtered.length);
+        setUnreadCount(sortedNotifs.length);
       }
     } catch (error) {
       console.error("Oops, failed to fetch notifications:", error);
-    } finally   {
+    } finally  {
       setIsLoadingNotifications(false);
     }
   }, [notificationFilter, setNotifPrefs, userData]); 

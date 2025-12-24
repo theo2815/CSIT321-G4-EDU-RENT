@@ -335,6 +335,16 @@ function NotificationSettingsForm({ userId }) {
         messages: state.messages,
         email: state.email,
       });
+      
+      // Dispatch event to notify other components (e.g., Header) about preference changes
+      window.dispatchEvent(new CustomEvent('notification-preferences-changed', {
+        detail: {
+          all_notifications: state.all,
+          likes: state.likes,
+          messages: state.messages,
+          email: state.email
+        }
+      }));
     } catch (e) {
       console.error('Failed to save notification preferences:', e);
       showError('Failed to save settings. Please check your connection.');
@@ -347,15 +357,21 @@ function NotificationSettingsForm({ userId }) {
     setNotifications(prev => {
       const newState = { ...prev, [key]: !prev[key] };
 
-      // Logic to sync "All notifications" switch with sub-switches
+      // "All notifications" controls likes and messages together (email is a separate delivery channel)
       if (key === 'all') {
         const allValue = newState.all;
-        const next = { all: allValue, likes: allValue, messages: allValue, email: allValue };
+        // When toggling "All", sync likes and messages but leave email independent
+        const next = { ...newState, all: allValue, likes: allValue, messages: allValue };
         persist(next);
         return next;
+      } else if (key === 'email') {
+        // Email is independent - just persist without affecting "all"
+        persist(newState);
+        return newState;
       } else {
-        const othersOn = newState.likes && newState.messages && newState.email;
-        const next = { ...newState, all: othersOn };
+        // For likes or messages: update "all" to reflect if both are enabled
+        const allShouldBeOn = newState.likes && newState.messages;
+        const next = { ...newState, all: allShouldBeOn };
         persist(next);
         return next;
       }
@@ -372,15 +388,15 @@ function NotificationSettingsForm({ userId }) {
         </div>
         <div className="notification-item">
           <span className="notification-label">Like of my listing</span>
-          <ToggleSwitch checked={notifications.likes} onChange={() => handleToggle('likes')} disabled={notifications.all || !loaded || saving} />
+          <ToggleSwitch checked={notifications.likes} onChange={() => handleToggle('likes')} disabled={!loaded || saving} />
         </div>
         <div className="notification-item">
           <span className="notification-label">Message</span>
-          <ToggleSwitch checked={notifications.messages} onChange={() => handleToggle('messages')} disabled={notifications.all || !loaded || saving} />
+          <ToggleSwitch checked={notifications.messages} onChange={() => handleToggle('messages')} disabled={!loaded || saving} />
         </div>
         <div className="notification-item">
           <span className="notification-label">Email</span>
-          <ToggleSwitch checked={notifications.email} onChange={() => handleToggle('email')} disabled={notifications.all || !loaded || saving} />
+          <ToggleSwitch checked={notifications.email} onChange={() => handleToggle('email')} disabled={!loaded || saving} />
         </div>
         {!loaded && (
           <div className="form-hint" style={{ marginTop: '0.5rem' }}>Loading preferences…</div>
