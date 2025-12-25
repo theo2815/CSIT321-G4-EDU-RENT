@@ -1,16 +1,23 @@
-
-.list-item-page-container {
-  padding: 1.5rem 2rem; /* Padding below header */
-  max-width: 1100px; /* Wider container for two columns */
-  margin: 2rem auto; /* Add top margin, center */
+.page-layout-wrapper {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
   width: 100%;
   box-sizing: border-box;
-  background-color: var(--bg-light); /* White background for the main card */
+}
+
+.list-item-page-container {
+  padding: 1.5rem 2rem; /* Padding internal to card */
+  /* max-width removed, handled by wrapper */
+  /* margin removed, handled by wrapper padding */
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--bg-light); 
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border: 1px solid var(--border-color);
   display: flex;
-  gap: 2rem; /* Space between columns */
+  gap: 2rem; 
 }
 
 /* --- Left Column (Photos) --- */

@@ -8,16 +8,24 @@
 /* --- 2. Top Header --- */
 .dashboard-header {
   background-color: var(--bg-light); /* White background */
-  padding: 0.75rem 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 20;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border-bottom: 1px solid var(--border-color);
+  width: 100%;
+}
+
+.header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  position: sticky;
-  top: 0;
-  z-index: 20;
+  padding: 0.75rem 2rem;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .header-left {
@@ -223,37 +231,7 @@
   color: var(--primary-color);
 }
 
-/* --- 5. Header Search Bar --- */
-.header-search {
-  display: none; /* Hidden by default */
-  flex: 1 1 0; /* Allow shrinking and growing */
-  min-width: 150px; /* Minimum width before it gets too small */
-  max-width: 400px;
-  margin: 0 1rem;
-}
 
-@media (min-width: 1024px) {
-  .header-search {
-    display: flex; /* Show on large screens */
-  }
-}
-
-.search-input {
-  width: 100%;
-  padding: 0.6rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  transition: all 0.2s;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
-}
 
 .notification-bell {
   position: relative; /* Required to position the badge */

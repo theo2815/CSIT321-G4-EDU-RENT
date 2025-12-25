@@ -164,16 +164,9 @@ public class UserService {
     private CloudinaryService cloudinaryService;
 
     public String uploadProfilePicture(UserEntity user, MultipartFile file) throws IOException {
-        String publicUrl = cloudinaryService.uploadImage(file, "profiles");
-
-        // Delete old image if exists
-        String oldUrl = user.getProfilePictureUrl();
-        if (oldUrl != null && !oldUrl.isEmpty()) {
-            cloudinaryService.deleteImage(oldUrl);
-        }
-
-        user.setProfilePictureUrl(publicUrl);
-        userRepository.save(user);
-        return publicUrl;
+        // Only upload the image and return the URL.
+        // Do NOT save the user or delete the old image yet. This allows "Cancel" on
+        // frontend.
+        return cloudinaryService.uploadImage(file, "profiles");
     }
 }

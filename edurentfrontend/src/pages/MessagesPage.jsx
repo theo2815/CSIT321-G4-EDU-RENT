@@ -96,23 +96,25 @@ function ChatWindowSkeleton() {
 
 function MessagesSkeleton() {
   return (
-    <div className="messages-skeleton-container">
-       <aside className="skeleton-conversations-sidebar">
-        <div className="skeleton skeleton-conversation-header"></div>
-        <div className="skeleton skeleton-conversation-search"></div>
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="skeleton-conversation-item">
-            <div className="skeleton skeleton-conversation-avatar"></div>
-            <div className="skeleton-conversation-details">
-              <div className="skeleton skeleton-conversation-line" style={{ width: '60%' }}></div>
-              <div className="skeleton skeleton-conversation-line" style={{ width: '80%' }}></div>
-            </div>
-          </div>
-        ))}
-       </aside>
-       <main className="skeleton-chat-area">
-         <p>Loading Conversations...</p>
-       </main>
+    <div className="messages-page-container">
+      <div className="messages-layout-wrapper">
+        <aside className="skeleton-conversations-sidebar">
+         <div className="skeleton skeleton-conversation-header"></div>
+         <div className="skeleton skeleton-conversation-search"></div>
+         {Array.from({ length: 5 }).map((_, index) => (
+           <div key={index} className="skeleton-conversation-item">
+             <div className="skeleton skeleton-conversation-avatar"></div>
+             <div className="skeleton-conversation-details">
+               <div className="skeleton skeleton-conversation-line" style={{ width: '60%' }}></div>
+               <div className="skeleton skeleton-conversation-line" style={{ width: '80%' }}></div>
+             </div>
+           </div>
+         ))}
+        </aside>
+        <main className="skeleton-chat-area">
+          <p>Loading Conversations...</p>
+        </main>
+      </div>
     </div>
   );
 }
@@ -176,7 +178,6 @@ export default function MessagesPage() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Messages');
-  // const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false); // Replaced by GenericDropdown CSS hover
   const [listingFilterId, setListingFilterId] = useState(null); 
   
   const location = useLocation(); 
@@ -1151,17 +1152,14 @@ export default function MessagesPage() {
         />
 
       <div className="messages-page-container">
+      <div className="messages-layout-wrapper">
+      
+      {/* --- Sidebar (Conversation List) --- */}
+      <aside className={`conversations-sidebar ${isChatVisible || isChatMenuOpen ? 'mobile-hidden' : ''}`}>
         
-        {/* Sidebar: Conversation List */}
-        <aside className={`conversations-sidebar ${isChatVisible ? 'mobile-hidden' : ''}`}>
-          <div className="conversations-header">
-            
-            {listingFilterId ? (
-                <div className="active-filter-banner">
-                    <span>Filtering by Item</span>
-                    <button onClick={clearListingFilter} className="clear-filter-btn">✕ Clear</button>
-                </div>
-            ) : (
+        <div className="conversations-header">
+           {/* Header Area: Filters & Search */}
+           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="message-filter-container">
                     <GenericDropdown 
                         label={activeFilter}
@@ -1171,314 +1169,312 @@ export default function MessagesPage() {
                         variant="borderless"
                     />
                 </div>
-            )}
+           </div>
 
-            <div className="conversation-search-bar">
+           {/* Listing Filter Banner (if active) */}
+           {listingFilterId && (
+              <div className="active-filter-banner">
+                  <span>Filtering by item</span>
+                  <button className="clear-filter-btn" onClick={clearListingFilter}>Clear</button>
+              </div>
+           )}
+
+           {/* Search Bar */}
+           <div className="conversation-search-bar">
               <span className="conversation-search-icon"><Icons.Search /></span>
-              <input
-                type="text"
-                className="conversation-search-input"
-                placeholder="Search conversations..."
-                value={searchQuery}
-                onChange={handleSearchChange}
+              <input 
+                 type="text" 
+                 className="conversation-search-input"
+                 placeholder="Search conversations..."
+                 value={searchQuery}
+                 onChange={handleSearchChange}
+              />
+           </div>
+        </div>
+
+        {/* Conversation List */}
+        <ul className="conversations-list">
+           {filteredConversations.map(conv => (
+              <li 
+                key={conv.id} 
+                className={`conversation-list-item 
+                   ${selectedConversation?.id === conv.id ? 'active' : ''} 
+                   ${conv.isUnread ? 'unread' : ''}
+                   ${activeListMenuId === conv.id ? 'menu-active' : ''}
+                `}
+                onClick={() => handleSelectConversation(conv)}
+              >
+                  <div className="conversation-avatar">
+                      {conv.otherUser.avatar ? (
+                        <img src={conv.otherUser.avatar} alt="Avatar" style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover'}} />
+                      ) : (
+                        <img src={defaultAvatar} alt="Default" style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover', opacity:0.6 }} />
+                      )}
+                  </div>
+
+                  <div className="conversation-details">
+                      <div className="conversation-user-name">
+                         {conv.otherUser.name}
+                      </div> 
+                      {/* Product Name Context */}
+                      {conv.product && (
+                        <div style={{ fontSize:'0.75rem', color:'var(--primary-color)', fontWeight:'600', marginBottom:'2px' }}>
+                           {conv.product.title.length > 25 ? conv.product.title.substring(0,25)+'...' : conv.product.title}
+                        </div>
+                      )}
+                      
+                      <div className="conversation-preview">
+                         <span style={{ fontWeight: conv.isUnread ? '700' : '400' }}>
+                            {conv.lastMessagePreview.length > 30 ? conv.lastMessagePreview.substring(0,30)+'...' : conv.lastMessagePreview}
+                         </span>
+                      </div>
+                  </div>
+
+                  <div className="conversation-meta-wrapper">
+                      <span style={{ fontSize:'0.75rem', color:'var(--text-muted)', whiteSpace:'nowrap' }}>
+                         {formatRelativeTime(conv.lastMessageDate).replace(' ago','')}
+                      </span>
+                      {conv.isUnread && <span className="unread-dot"></span>}
+                      
+                      {/* Context Menu Trigger */}
+                      <button 
+                         className="icon-button" 
+                         style={{ fontSize: '1rem', padding: '4px' }}
+                         onClick={(e) => handleListMenuToggle(e, conv.id)}
+                      >
+                         <Icons.MenuDots />
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {activeListMenuId === conv.id && (
+                        <div className="filter-dropdown-menu">
+                           <button className="filter-option" onClick={(e) => handleReadUnreadAction(e, conv)}>
+                              {conv.isUnread ? 'Mark as Read' : 'Mark as Unread'}
+                           </button>
+                           <button className="filter-option" onClick={(e) => handleArchiveListAction(e, conv)}>
+                              {conv.isArchived ? 'Unarchive' : 'Archive'}
+                           </button>
+                           <button className="filter-option" onClick={(e) => handleDeleteListAction(e, conv.id)} style={{ color: 'red' }}>
+                              Delete
+                           </button>
+                        </div>
+                      )}
+                  </div>
+              </li>
+           ))}
+           
+           {isFetchingConversations && (
+              <li style={{ padding:'1rem', textAlign:'center', color:'var(--text-muted)' }}>Loading...</li>
+           )}
+           
+           {!isFetchingConversations && filteredConversations.length === 0 && (
+              <li style={{ padding:'2rem', textAlign:'center', color:'var(--text-muted)' }}>
+                 No conversations found.
+              </li>
+           )}
+        </ul>
+
+        {hasMoreConversations && !isLoading && (
+            <div className="load-more-container">
+                <button 
+                    className={`load-more-btn ${isFetchingMoreConversations ? 'loading' : ''}`}
+                    onClick={handleLoadMoreConversations}
+                    disabled={isFetchingMoreConversations}
+                >
+                    {isFetchingMoreConversations ? (
+                        <>
+                            <span className="load-more-spinner"></span>
+                            Loading...
+                        </>
+                    ) : (
+                        <>
+                            Load More
+                            <span className="load-more-icon">▼</span>
+                        </>
+                    )}
+                </button>
+            </div>
+        )}
+      </aside>
+
+      {/* --- Right Chat Area --- */}
+      <main className={`chat-area ${!selectedConversation ? 'no-chat-selected' : ''} ${isChatVisible ? 'mobile-visible' : ''}`}>
+        
+        {isMessagesLoading ? (
+           <ChatWindowSkeleton />
+        ) : selectedConversation ? (
+          <>
+            {/* Chat Header */}
+            <div className="chat-header">
+              <button className="chat-back-button" onClick={handleBackToList}>
+                <Icons.BackArrow />
+              </button>
+              <div className="chat-user-info" style={{ flexDirection: 'column', justifyContent: 'center' }}>
+              <Link 
+                to={`/profile/${selectedConversation.otherUser.id}`} 
+                className="user-name" 
+                style={{ textDecoration: 'none', color: 'var(--primary-color)', cursor: 'pointer', lineHeight: '1.2' }}
+              >
+                {selectedConversation.otherUser.name}
+              </Link>
+
+              <span style={{ fontSize: '0.8rem', color: '#6c757d' }}>
+                {selectedConversation.otherUser.school}
+              </span>
+
+              <UserRatingDisplay 
+                  userId={selectedConversation.otherUser.id} 
+                  initialData={chatUserRating}
               />
             </div>
-          </div>
-
-          <ul className="conversations-list">
-          {filteredConversations.map((conv) => (
-          <li
-            key={conv.id}
-            className={`conversation-list-item ${selectedConversation?.id === conv.id ? 'active' : ''} ${conv.isUnread ? 'unread' : ''} ${activeListMenuId === conv.id ? 'menu-active' : ''}`}
-            onClick={() => handleSelectConversation(conv)}
-            style={{ zIndex: activeListMenuId === conv.id ? 1000 : 1, position: 'relative' }}
-          >
-              <div className="conversation-avatar">
-                  <img 
-                    src={
-                      conv.otherUser.avatar 
-                        ? (conv.otherUser.avatar.startsWith('http') ? conv.otherUser.avatar : `http://localhost:8080${conv.otherUser.avatar}`)
-                        : defaultAvatar
-                    }
-                    alt={conv.otherUser.name}
-                    className="user-avatar"
-                    style={{width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover'}}
-                    onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}
-                  />
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0, marginRight: '0.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <div className="conversation-user-name" style={{ marginBottom: '0.25rem' }}>
-                    {conv.otherUser.name}
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', fontSize: '0.8rem' }}>
-                      {conv.product && (
-                          <span style={{ color: 'var(--primary-color)', fontWeight: 500, marginRight: '0.5rem', whiteSpace: 'nowrap' }}>
-                              {conv.product.title}:
-                          </span>
-                      )}
-                      <span className="conversation-preview" style={{ color: conv.isUnread ? 'var(--text-color)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {conv.lastMessagePreview}
-                      </span>
-                  </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {formatRelativeTime(conv.lastMessageDate)}
-                      </span>
-                      
-                      <div style={{ position: 'relative' }}>
-                          <button 
-                            className="icon-button" 
-                            onClick={(e) => handleListMenuToggle(e, conv.id)}
-                            style={{ padding: '2px', fontSize: '1rem', height: '24px', width: '24px' }}
-                          >
-                            <Icons.MenuDots />
-                          </button>
-
-                          {activeListMenuId === conv.id && (
-                            <div className="filter-dropdown-menu" style={{ right: '0', left: 'auto', top: '100%', width: '150px', zIndex: 50 }}>
-                                <button className="filter-option" onClick={(e) => handleReadUnreadAction(e, conv)}>
-                                  {conv.isUnread ? 'Mark as Read' : 'Mark as Unread'}
-                                </button>
-                                <button className="filter-option" onClick={(e) => handleArchiveListAction(e, conv)}>
-                                  {conv.isArchived ? 'Unarchive' : 'Archive'}
-                                </button>
-                                <button className="filter-option" onClick={(e) => handleDeleteListAction(e, conv.id)} style={{ color: 'red' }}>
-                                  Delete
-                                </button>
-                            </div>
-                          )}
-                      </div>
-                  </div>
-                  {conv.isUnread && <span className="unread-dot"></span>}
-              </div>
-            </li>
-          ))}
-            {/* Empty State */}
-            {filteredConversations.length === 0 && !isFetchingConversations && activeTabState.initialized && (
-                <li style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    {listingFilterId 
-                        ? 'No conversation history found for this item.' 
-                        : (activeFilter === 'All Messages' ? 'No conversations found.' : `No '${activeFilter}' conversations found.`)
-                    }
-                </li>
-            )}
-
-            {/* Initial Loading Skeleton for Tab (Prevents Flicker) */}
-            {(!activeTabState.initialized || (isFetchingConversations && conversations.length === 0)) && (
-                 <div style={{ padding: '1rem' }}>
-                    <div className="skeleton-line" style={{ height: '60px', marginBottom: '10px' }}></div>
-                    <div className="skeleton-line" style={{ height: '60px', marginBottom: '10px' }}></div>
-                    <div className="skeleton-line" style={{ height: '60px' }}></div>
-                 </div>
-            )}
-          </ul>
-            {/* Load More Button moved to sidebar bottom */}
-            {hasMoreConversations && !isLoading && (
-                <div className="load-more-container">
-                    <button 
-                        className={`load-more-btn ${isFetchingMoreConversations ? 'loading' : ''}`}
-                        onClick={handleLoadMoreConversations}
-                        disabled={isFetchingMoreConversations}
-                    >
-                        {isFetchingMoreConversations ? (
-                            <>
-                                <span className="load-more-spinner"></span>
-                                Loading...
-                            </>
-                        ) : (
-                            <>
-                                Load More
-                                <span className="load-more-icon">▼</span>
-                            </>
-                        )}
-                    </button>
+              
+              {/* Embedded Product Card */}
+              {selectedConversation.product && (
+                <div className="chat-listing-card-wrapper" style={{ marginLeft: 'auto', marginRight: '10px' }}>
+                    <ListingCard
+                      listing={selectedConversation.product}
+                      onClick={() => openModal(selectedConversation.product)} 
+                      isLiked={likedListingIds.has(selectedConversation.product.listingId)}
+                      onLikeClick={handleLikeToggle}
+                      isLiking={likingInProgress.has(selectedConversation.product.listingId)}
+                      currentUserId={userData?.userId}
+                      variant="compact" 
+                    />
                 </div>
-            )}
-          </aside>
-
-        {/* --- Right Chat Area --- */}
-        <main className={`chat-area ${!selectedConversation ? 'no-chat-selected' : ''} ${isChatVisible ? 'mobile-visible' : ''}`}>
-          
-          {isMessagesLoading ? (
-             <ChatWindowSkeleton />
-          ) : selectedConversation ? (
-            <>
-              {/* Chat Header */}
-              <div className="chat-header">
-                <button className="chat-back-button" onClick={handleBackToList}>
-                  <Icons.BackArrow />
-                </button>
-                <div className="chat-user-info" style={{ flexDirection: 'column', justifyContent: 'center' }}>
-                <Link 
-                  to={`/profile/${selectedConversation.otherUser.id}`} 
-                  className="user-name" 
-                  style={{ textDecoration: 'none', color: 'var(--primary-color)', cursor: 'pointer', lineHeight: '1.2' }}
-                >
-                  {selectedConversation.otherUser.name}
-                </Link>
-
-                <span style={{ fontSize: '0.8rem', color: '#6c757d' }}>
-                  {selectedConversation.otherUser.school}
-                </span>
-
-                <UserRatingDisplay 
-                    userId={selectedConversation.otherUser.id} 
-                    initialData={chatUserRating}
-                />
-              </div>
-                
-                {/* Embedded Product Card */}
-                {selectedConversation.product && (
-                  <div className="chat-listing-card-wrapper" style={{ marginLeft: 'auto', marginRight: '10px' }}>
-                      <ListingCard
-                        listing={selectedConversation.product}
-                        onClick={() => openModal(selectedConversation.product)} 
-                        isLiked={likedListingIds.has(selectedConversation.product.listingId)}
-                        onLikeClick={handleLikeToggle}
-                        isLiking={likingInProgress.has(selectedConversation.product.listingId)}
-                        currentUserId={userData?.userId}
-                        variant="compact" 
-                      />
-                  </div>
-                )}
-
-                {/* Review Action Buttons */}
-                {selectedConversation.transactionId && !selectedConversation.hasReviewed && (
-                    <button 
-                        className="btn btn-primary-accent btn-small"
-                        style={{ marginRight: '10px', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
-                        onClick={() => setIsReviewModalOpen(true)}
-                    >
-                        Write Review
-                    </button>
-                )}
-                {selectedConversation.transactionId && selectedConversation.hasReviewed && (
-                    <span style={{ marginRight: '10px', fontSize: '0.8rem', color: '#2ecc71', fontWeight: 'bold' }}>
-                        ✓ Reviewed
-                    </span>
-                )}
-
-                {/* Top Right Chat Actions */}
-                <div style={{ marginLeft: '0', position: 'relative' }}>
-                      <button 
-                          className="icon-button" 
-                          onClick={(e) => { e.stopPropagation(); setIsChatMenuOpen(!isChatMenuOpen); }}
-                          style={{ fontSize: '1.5rem', cursor: 'pointer', padding: '0 5px' }}
-                      >
-                          ⋮
-                      </button>
-                      {isChatMenuOpen && (
-                          <div className="filter-dropdown-menu" style={{ right: 0, left: 'auto', top: '100%', width: '150px', zIndex: 100 }}>
-                              <button className="filter-option" onClick={handleArchiveChat}>
-                                  {selectedConversation.isArchived ? 'Unarchive' : 'Archive'}
-                              </button>
-                              <button className="filter-option" onClick={handleDeleteChat} style={{color: 'red'}}>
-                                  Delete
-                              </button>
-                          </div>
-                      )}
-                </div>
-              </div>
-
-              {/* Chat History */}
-              <div className="chat-content" ref={chatContentRef} onScroll={handleScroll}>
-                {isFetchingMore && <div style={{ textAlign: 'center', padding: '10px', fontSize: '0.8rem', color: '#888' }}>Loading history...</div>}
-                
-                {messages.map((msg, index) => {
-                  const prevMsg = messages[index - 1];
-                  const currentDateLabel = getDateLabel(msg.rawDate);
-                  const prevDateLabel = prevMsg ? getDateLabel(prevMsg.rawDate) : null;
-                  const showDateHeader = currentDateLabel !== prevDateLabel;
-
-                  return (
-                    <React.Fragment key={msg.id}>
-                      {showDateHeader && <div className="date-header-badge">{currentDateLabel}</div>}
-
-                      <div className={`message-bubble-wrapper ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
-                        <div className={`message-bubble ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
-                          {msg.attachmentUrl && (
-                              <img 
-                                  src={msg.attachmentUrl} 
-                                  alt="Attachment" 
-                                  className="message-attachment"
-                                  onClick={() => setSelectedImage(msg.attachmentUrl)}
-                              />
-                          )}
-                          {msg.text && <div>{msg.text}</div>}
-                        </div>
-                        <span className="message-timestamp">
-                            {formatChatTimestamp(msg.rawDate)}
-                        </span>
-                      </div>
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-
-              {showScrollBtn && (
-                  <button className="scroll-bottom-btn" onClick={scrollToBottom}>
-                      ⬇ New Message
-                  </button>
               )}
 
-              {/* Chat Input Area */}
-              <div className="chat-input-area">
-                <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    style={{ display: 'none' }} 
-                    accept="image/*"
-                    onChange={handleFileSelect} 
-                />
-                <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '0.5rem' }}>
-                  {imagePreview && (
-                    <div className="image-preview-container">
-                      <img src={imagePreview} alt="Preview" className="image-preview" />
-                      <button className="remove-preview-btn" onClick={removeImagePreview} aria-label="Remove image">
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', width: '100%' }}>
-                    <textarea
-                      ref={textareaRef}
-                      className="chat-input"
-                      placeholder="Type here..."
-                      value={newMessage}
-                      onChange={handleTextareaChange}
-                      onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                      onPaste={handlePaste}
-                      rows={1}
-                    />
-                    {(newMessage.trim() || imageFile) ? (
-                      <button className="icon-button send-button" onClick={handleSendMessage} aria-label="Send message">
-                        <Icons.Send />
-                      </button>
-                    ) : (
-                      <button className="icon-button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()}>
-                        <Icons.Attachment />
-                      </button>
+              {/* Review Action Buttons */}
+              {selectedConversation.transactionId && !selectedConversation.hasReviewed && (
+                  <button 
+                      className="btn btn-primary-accent btn-small"
+                      style={{ marginRight: '10px', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                      onClick={() => setIsReviewModalOpen(true)}
+                  >
+                      Write Review
+                  </button>
+              )}
+              {selectedConversation.transactionId && selectedConversation.hasReviewed && (
+                  <span style={{ marginRight: '10px', fontSize: '0.8rem', color: '#2ecc71', fontWeight: 'bold' }}>
+                      ✓ Reviewed
+                  </span>
+              )}
+
+              {/* Top Right Chat Actions */}
+              <div style={{ marginLeft: '0', position: 'relative' }}>
+                    <button 
+                        className="icon-button" 
+                        onClick={(e) => { e.stopPropagation(); setIsChatMenuOpen(!isChatMenuOpen); }}
+                        style={{ fontSize: '1.5rem', cursor: 'pointer', padding: '0 5px' }}
+                    >
+                        ⋮
+                    </button>
+                    {isChatMenuOpen && (
+                        <div className="filter-dropdown-menu" style={{ right: 0, left: 'auto', top: '100%', width: '150px', zIndex: 100 }}>
+                            <button className="filter-option" onClick={handleArchiveChat}>
+                                {selectedConversation.isArchived ? 'Unarchive' : 'Archive'}
+                            </button>
+                            <button className="filter-option" onClick={handleDeleteChat} style={{color: 'red'}}>
+                                Delete
+                            </button>
+                        </div>
                     )}
+              </div>
+            </div>
+
+            {/* Chat History */}
+            <div className="chat-content" ref={chatContentRef} onScroll={handleScroll}>
+              {isFetchingMore && <div style={{ textAlign: 'center', padding: '10px', fontSize: '0.8rem', color: '#888' }}>Loading history...</div>}
+              
+              {messages.map((msg, index) => {
+                const prevMsg = messages[index - 1];
+                const currentDateLabel = getDateLabel(msg.rawDate);
+                const prevDateLabel = prevMsg ? getDateLabel(prevMsg.rawDate) : null;
+                const showDateHeader = currentDateLabel !== prevDateLabel;
+
+                return (
+                  <React.Fragment key={msg.id}>
+                    {showDateHeader && <div className="date-header-badge">{currentDateLabel}</div>}
+
+                    <div className={`message-bubble-wrapper ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
+                      <div className={`message-bubble ${msg.senderId === userData.userId ? 'sent' : 'received'}`}>
+                        {msg.attachmentUrl && (
+                            <img 
+                                src={msg.attachmentUrl} 
+                                alt="Attachment" 
+                                className="message-attachment"
+                                onClick={() => setSelectedImage(msg.attachmentUrl)}
+                            />
+                        )}
+                        {msg.text && <div>{msg.text}</div>}
+                      </div>
+                      <span className="message-timestamp">
+                          {formatChatTimestamp(msg.rawDate)}
+                      </span>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
+            {showScrollBtn && (
+                <button className="scroll-bottom-btn" onClick={scrollToBottom}>
+                    ⬇ New Message
+                </button>
+            )}
+
+            {/* Chat Input Area */}
+            <div className="chat-input-area">
+              <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  style={{ display: 'none' }} 
+                  accept="image/*"
+                  onChange={handleFileSelect} 
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '0.5rem' }}>
+                {imagePreview && (
+                  <div className="image-preview-container">
+                    <img src={imagePreview} alt="Preview" className="image-preview" />
+                    <button className="remove-preview-btn" onClick={removeImagePreview} aria-label="Remove image">
+                      ✕
+                    </button>
                   </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', width: '100%' }}>
+                  <textarea
+                    ref={textareaRef}
+                    className="chat-input"
+                    placeholder="Type here..."
+                    value={newMessage}
+                    onChange={handleTextareaChange}
+                    onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                    onPaste={handlePaste}
+                    rows={1}
+                  />
+                  {(newMessage.trim() || imageFile) ? (
+                    <button className="icon-button send-button" onClick={handleSendMessage} aria-label="Send message">
+                      <Icons.Send />
+                    </button>
+                  ) : (
+                    <button className="icon-button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()}>
+                      <Icons.Attachment />
+                    </button>
+                  )}
                 </div>
               </div>
-            </>
-          ) : (
-            <div className="no-conversation-selected">
-              <button onClick={handleBackToList} className="empty-state-back-btn">
-                  ← Back to Messages
-              </button>
-              <span className="no-conversation-icon">💬</span>
-              <h2>Select a conversation</h2>
-              <p>Choose a chat from the left to start messaging.</p>
             </div>
-          )}
-        </main>
+          </>
+        ) : (
+          <div className="no-conversation-selected">
+            <button onClick={handleBackToList} className="empty-state-back-btn">
+                ← Back to Messages
+            </button>
+            <span className="no-conversation-icon">💬</span>
+            <h2>Select a conversation</h2>
+            <p>Choose a chat from the left to start messaging.</p>
+          </div>
+        )}
+      </main>
       </div>
       
       {/* Shared Modals */}
@@ -1507,6 +1503,7 @@ export default function MessagesPage() {
         </div>
       )}
 
+    </div>
     </div>
   );
 }

@@ -33,8 +33,6 @@ import messengerIcon from '../assets/messenger.png';
 export default function Header({ 
   userName, 
   profilePictureUrl, 
-  searchQuery = '', 
-  onSearchChange = () => {}, 
   onLogout, 
   onNotificationClick 
 }) {
@@ -414,98 +412,90 @@ export default function Header({
   return (
     <>
       <header className="dashboard-header">
-        {/* Left Section: Logo & Nav Links */}
-        <div className="header-left">
-          <Link to="/" className="header-logo-link">
-            <img src={eduRentLogo} alt="Edu-Rent Logo" className="header-logo" />
-            <span className="header-logo-text">Edu-Rent</span>
-          </Link>
-          <nav className="header-nav">
-            <Link to="/browse" className={`nav-link ${location.pathname === '/browse' ? 'active' : ''}`}>Browse All Items</Link>
-            <Link to="/for-rent" className={`nav-link ${location.pathname === '/for-rent' ? 'active' : ''}`}>For Rent</Link>
-            <Link to="/for-sale" className={`nav-link ${location.pathname === '/for-sale' ? 'active' : ''}`}>For Sale</Link>
-            <button 
-              onClick={openCategoriesSidebar} 
-              className="nav-link" 
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem 0' }}
-            >
-              All Categories
+        <div className="header-content">
+          {/* Left Section: Logo & Nav Links */}
+          <div className="header-left">
+            <Link to="/" className="header-logo-link">
+              <img src={eduRentLogo} alt="Edu-Rent Logo" className="header-logo" />
+              <span className="header-logo-text">Edu-Rent</span>
+            </Link>
+            <nav className="header-nav">
+              <Link to="/browse" className={`nav-link ${location.pathname === '/browse' ? 'active' : ''}`}>Browse All Items</Link>
+              <Link to="/for-rent" className={`nav-link ${location.pathname === '/for-rent' ? 'active' : ''}`}>For Rent</Link>
+              <Link to="/for-sale" className={`nav-link ${location.pathname === '/for-sale' ? 'active' : ''}`}>For Sale</Link>
+              <button 
+                onClick={openCategoriesSidebar} 
+                className="nav-link" 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem 0' }}
+              >
+                All Categories
+              </button>
+            </nav>
+          </div>
+
+
+
+          {/* Right Section: Auth State Dependent */}
+          <div className="header-right">
+
+            <button className="sell-button" onClick={handleSellClick} style={{ marginRight: '1rem' }}>
+              Sell
             </button>
-          </nav>
-        </div>
+            
+            {/* SCENARIO 1: User is Logged In */}
+            {userData ? (
+              <>
+                <div className="header-icons">
+                  <Link to="/likes" className="icon-link" aria-label="Liked items">
+                    <img src={heartIcon} alt="Likes" className="header-icon" />
+                  </Link>
+                  
+                  <button 
+                    onClick={toggleNotifications} 
+                    className="icon-link notification-bell"
+                    aria-label="Notifications" 
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                  >
+                    <img src={notificationIcon} alt="Notifications" className="header-icon" />
+                    {unreadCount > 0 && (
+                      <span className="notification-badge">{unreadCount}</span>
+                    )}
+                  </button>
 
-        {/* Center Section: Search Bar */}
-        <div className="header-search">
-          <input 
-            type="text" 
-            className="search-input" 
-            placeholder="Search items..." 
-            value={searchQuery} 
-            onChange={onSearchChange} 
-            aria-label="Search listings"
-          />
-        </div>
+                  <Link to="/messages" className="icon-link notification-bell" aria-label="Messages">
+                    <img src={messengerIcon} alt="Messages" className="header-icon" />
+                    {unreadMsgCount > 0 && (
+                      <span className="notification-badge">{unreadMsgCount}</span>
+                    )}
+                  </Link>
+                </div>
 
-        {/* Right Section: Auth State Dependent */}
-        <div className="header-right">
-
-          <button className="sell-button" onClick={handleSellClick} style={{ marginRight: '1rem' }}>
-            Sell
-          </button>
-          
-          {/* SCENARIO 1: User is Logged In */}
-          {userData ? (
-            <>
-              <div className="header-icons">
-                <Link to="/likes" className="icon-link" aria-label="Liked items">
-                  <img src={heartIcon} alt="Likes" className="header-icon" />
-                </Link>
-                
-                <button 
-                  onClick={toggleNotifications} 
-                  className="icon-link notification-bell"
-                  aria-label="Notifications" 
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                >
-                  <img src={notificationIcon} alt="Notifications" className="header-icon" />
-                  {unreadCount > 0 && (
-                    <span className="notification-badge">{unreadCount}</span>
-                  )}
-                </button>
-
-                <Link to="/messages" className="icon-link notification-bell" aria-label="Messages">
-                  <img src={messengerIcon} alt="Messages" className="header-icon" />
-                  {unreadMsgCount > 0 && (
-                    <span className="notification-badge">{unreadMsgCount}</span>
-                  )}
-                </Link>
+                {/* Profile Dropdown */}
+                <UserDropdown 
+                    userName={userName} 
+                    profilePictureUrl={profilePictureUrl} 
+                    onLogout={onLogout} 
+                />
+              </>
+            ) : (
+              /* SCENARIO 2: User is NOT Logged In (Show Login/Register) */
+              <div className="auth-buttons" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                 <button 
+                   onClick={() => navigate('/login')}
+                   style={{ background: 'none', border: 'none', fontWeight: '600', color: 'var(--text-muted)', cursor: 'pointer' }}
+                 >
+                   Log In
+                 </button>
+                 <button 
+                   className="btn-primary-accent"
+                   onClick={() => navigate('/register')}
+                   style={{ padding: '0.5rem 1.2rem', borderRadius: '20px' }} // Pill shape for Register
+                 >
+                   Register
+                 </button>
               </div>
-
-              {/* Profile Dropdown */}
-              <UserDropdown 
-                  userName={userName} 
-                  profilePictureUrl={profilePictureUrl} 
-                  onLogout={onLogout} 
-              />
-            </>
-          ) : (
-            /* SCENARIO 2: User is NOT Logged In (Show Login/Register) */
-            <div className="auth-buttons" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-               <button 
-                 onClick={() => navigate('/login')}
-                 style={{ background: 'none', border: 'none', fontWeight: '600', color: 'var(--text-muted)', cursor: 'pointer' }}
-               >
-                 Log In
-               </button>
-               <button 
-                 className="btn-primary-accent"
-                 onClick={() => navigate('/register')}
-                 style={{ padding: '0.5rem 1.2rem', borderRadius: '20px' }} // Pill shape for Register
-               >
-                 Register
-               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 

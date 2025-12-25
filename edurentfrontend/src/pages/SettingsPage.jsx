@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import ToggleSwitch from '../components/ToggleSwitch';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 // Custom hooks for managing auth state, likes, and global UI logic
 import useAuth from '../hooks/useAuth';
@@ -31,18 +32,20 @@ import { useTheme } from '../context/ThemeContext.jsx';
 // A loading skeleton to keep the UI stable while fetching user data
 function SettingsSkeleton() {
   return (
-    <div className="settings-skeleton-container">
-      {/* Sidebar Skeleton */}
-      <aside className="settings-sidebar" style={{ borderRight: '1px solid #eee' }}>
-        <div className="skeleton skeleton-sidebar-item" style={{ width: '70%' }}></div>
-        <div className="skeleton skeleton-sidebar-item" style={{ width: '80%' }}></div>
-        <div className="skeleton skeleton-sidebar-item" style={{ width: '60%' }}></div>
-        <div className="skeleton skeleton-sidebar-item" style={{ width: '75%' }}></div>
-      </aside>
-      {/* Content Skeleton */}
-      <main className="settings-content">
-        <div className="skeleton skeleton-settings-card"></div>
-      </main>
+    <div className="settings-page">
+      <div className="settings-layout-container">
+        {/* Sidebar Skeleton */}
+        <aside className="settings-sidebar" style={{ borderRight: '1px solid #eee' }}>
+          <div className="skeleton skeleton-sidebar-item" style={{ width: '70%' }}></div>
+          <div className="skeleton skeleton-sidebar-item" style={{ width: '80%' }}></div>
+          <div className="skeleton skeleton-sidebar-item" style={{ width: '60%' }}></div>
+          <div className="skeleton skeleton-sidebar-item" style={{ width: '75%' }}></div>
+        </aside>
+        {/* Content Skeleton */}
+        <main className="settings-content">
+          <div className="skeleton skeleton-settings-card"></div>
+        </main>
+      </div>
     </div>
   );
 }
@@ -50,9 +53,9 @@ function SettingsSkeleton() {
 // --- SUB-COMPONENTS (FORMS) ---
 
 // Handles editing public profile info and uploading a new avatar
-function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto, uploading }) {
-  const [editMode, setEditMode] = useState(false);
+function EditProfileForm({ userData, profileData, onChange, onSave, onCancel, onPickPhoto, uploading }) {
   const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
 
   // Validation logic
   const validate = () => {
@@ -84,8 +87,22 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
     if (Object.keys(validationErrors).length > 0) {
       return false;
     }
+    setSaving(true);
     const result = await onSave(e);
-    if (result !== false) setEditMode(false);
+    setSaving(false);
+    
+    // If onSave returns true (or success), exit edit mode
+    if (result !== false) {
+      setEditMode(false);
+    }
+  };
+
+  // Local state for editMode is fine, but we need to trigger onCancel when clicking Cancel
+  const [editMode, setEditMode] = useState(false);
+
+  const handleCancelClick = () => {
+    onCancel(); 
+    setEditMode(false);
   };
 
   // Logic to decide which image to display: the new upload, the existing one, or a default
@@ -108,14 +125,8 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
 
   return (
     <section className="settings-card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h2 className="settings-card-title" style={{ margin: 0 }}>Edit Profile</h2>
-        {!editMode && (
-          <button type="button" className="btn-save" onClick={() => setEditMode(true)}>
-            Edit Details
-          </button>
-        )}
-      </div>
+      <LoadingOverlay isVisible={saving} message="Saving profile..." />
+      <h2 className="settings-card-title">Edit Profile</h2>
       <div className="profile-photo-section">
         <div className="profile-photo-container">
           <img
@@ -129,12 +140,19 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
               position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
             }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>...</span>
+              <div className="newtons-cradle">
+                <div className="newtons-cradle__dot"></div>
+                <div className="newtons-cradle__dot"></div>
+                <div className="newtons-cradle__dot"></div>
+                <div className="newtons-cradle__dot"></div>
+              </div>
             </div>
           )}
-          <button type="button" className="edit-icon-overlay" title="Change photo" onClick={onPickPhoto} disabled={uploading || !editMode}>
-            ✏️
-          </button>
+          {editMode && (
+            <button type="button" className="edit-icon-overlay" title="Change photo" onClick={onPickPhoto} disabled={uploading}>
+              ✏️
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
           <span style={{ fontWeight: '600', fontSize: '0.95rem' }}>Profile Picture</span>
@@ -197,14 +215,34 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onPickPhoto,
             </div>
           </div>
         </div>
-        {/* Save Button only in edit mode, at the bottom */}
-        {editMode && (
-          <div className="save-button-container">
-            <button type="submit" className="btn-save" disabled={uploading}>
-              {uploading ? 'Uploading Image...' : 'Save Changes'}
-            </button>
-          </div>
-        )}
+        {/* Bottom Actions: Edit Trigger or Save/Cancel */}
+        <div className="save-button-container">
+          {!editMode ? (
+            <div style={{ textAlign: 'right' }}>
+              <button type="button" className="btn-save" onClick={() => setEditMode(true)}>
+                Edit Details
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              <button 
+                type="button" 
+                className="btn-cancel" 
+                onClick={handleCancelClick}
+                disabled={uploading || saving}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="btn-save" 
+                disabled={uploading || saving}
+              >
+                {saving ? 'Saving...' : (uploading ? 'Uploading...' : 'Save Changes')}
+              </button>
+            </div>
+          )}
+        </div>
       </form>
     </section>
   );
@@ -261,6 +299,7 @@ function ChangePasswordForm({ userEmail }) {
 
   return (
     <section className="settings-card">
+      <LoadingOverlay isVisible={loading} message="Updating password..." />
       <h2 className="settings-card-title">Change password</h2>
       <form onSubmit={handleSubmit} className="password-form-section">
         <div className="password-input-group">
@@ -572,13 +611,28 @@ export default function SettingsPage() {
       await retryAuth();
 
       showSuccess('Profile updated successfully!');
-      // Success: let EditProfileForm exit edit mode
-      return;
+      // Success: return true to let EditProfileForm exit edit mode
+      return true;
     } catch (err) {
       console.error('Failed to update profile:', err);
       showError(err.response?.data?.message || 'Failed to update profile');
       // Prevent exiting edit mode
       return false;
+    }
+  };
+
+  const handleCancelProfileEdit = () => {
+    // Revert profileData to original userData
+    if (userData) {
+      setProfileData({
+        fullName: userData.fullName || '',
+        address: userData.address || '',
+        schoolName: userData.school?.name || 'N/A', // School is typically read-only but good to reset
+        bio: userData.bio || '',
+        email: userData.email || '',
+        phoneNumber: userData.phoneNumber || '',
+        profilePictureUrl: userData.profilePictureUrl || '',
+      });
     }
   };
 
@@ -610,46 +664,49 @@ export default function SettingsPage() {
       />
 
       <div className="settings-page">
-        {/* Sidebar Navigation */}
-        <aside className="settings-sidebar">
-          <nav>
-            <ul className="settings-nav-list">
-              <li className="settings-nav-item">
-                <Link to="/settings/profile" className={activeSetting === 'edit-profile' ? 'active' : ''}>Edit Profile</Link>
-              </li>
-              <li className="settings-nav-item">
-                <Link to="/settings/password" className={activeSetting === 'change-password' ? 'active' : ''}>Change Password</Link>
-              </li>
-              <li className="settings-nav-item">
-                <Link to="/settings/notifications" className={activeSetting === 'notification' ? 'active' : ''}>Notification</Link>
-              </li>
-              <li className="settings-nav-item">
-                <Link to="/settings/theme" className={activeSetting === 'theme' ? 'active' : ''}>Theme</Link>
-              </li>
-            </ul>
-          </nav>
-        </aside>
+        <div className="settings-layout-container">
+          {/* Sidebar Navigation */}
+          <aside className="settings-sidebar">
+            <nav>
+              <ul className="settings-nav-list">
+                <li className="settings-nav-item">
+                  <Link to="/settings/profile" className={activeSetting === 'edit-profile' ? 'active' : ''}>Edit Profile</Link>
+                </li>
+                <li className="settings-nav-item">
+                  <Link to="/settings/password" className={activeSetting === 'change-password' ? 'active' : ''}>Change Password</Link>
+                </li>
+                <li className="settings-nav-item">
+                  <Link to="/settings/notifications" className={activeSetting === 'notification' ? 'active' : ''}>Notification</Link>
+                </li>
+                <li className="settings-nav-item">
+                  <Link to="/settings/theme" className={activeSetting === 'theme' ? 'active' : ''}>Theme</Link>
+                </li>
+              </ul>
+            </nav>
+          </aside>
 
-        {/* Main Content Area switches based on the active route */}
-        <main className="settings-content">
-          {activeSetting === 'edit-profile' && (
-            <EditProfileForm
-              userData={userData}
-              profileData={profileData}
-              onChange={handleProfileChange}
-              onSave={handleProfileSave}
-              onPickPhoto={() => fileInputRef.current?.click()}
-              uploading={uploading}
-            />
-          )}
-          {activeSetting === 'change-password' && (
-            <ChangePasswordForm userEmail={userData?.email} />
-          )}
-          {activeSetting === 'notification' && (
-            <NotificationSettingsForm userId={userData?.userId} />
-          )}
-          {activeSetting === 'theme' && <ThemeSettingsForm />}
-        </main>
+          {/* Main Content Area switches based on the active route */}
+          <main className="settings-content">
+            {activeSetting === 'edit-profile' && (
+              <EditProfileForm
+                userData={userData}
+                profileData={profileData}
+                onChange={handleProfileChange}
+                onSave={handleProfileSave}
+                onCancel={handleCancelProfileEdit}
+                onPickPhoto={() => fileInputRef.current?.click()}
+                uploading={uploading}
+              />
+            )}
+            {activeSetting === 'change-password' && (
+              <ChangePasswordForm userEmail={userData?.email} />
+            )}
+            {activeSetting === 'notification' && (
+              <NotificationSettingsForm userId={userData?.userId} />
+            )}
+            {activeSetting === 'theme' && <ThemeSettingsForm />}
+          </main>
+        </div>
       </div>
 
       {/* Hidden container for shared modal logic */}

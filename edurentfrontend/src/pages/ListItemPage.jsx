@@ -29,40 +29,42 @@ import '../static/SettingsPage.css';
 // A placeholder component to display while the form data is loading
 function ListItemSkeleton() {
   return (
-    <div className="skeleton-list-item-container">
-      {/* Left Column: Photo placeholders */}
-      <section className="skeleton-photos-section">
-        <div className="skeleton skeleton-photo-upload-box"></div>
-        <div className="skeleton skeleton-photo-note"></div>
-        <div className="skeleton-preview-grid">
-          {Array.from({ length: 3 }).map((_, i) => ( 
-            <div key={i} className="skeleton skeleton-preview-item"></div>
-          ))}
-        </div>
-      </section>
+    <div className="page-layout-wrapper">
+      <div className="skeleton-list-item-container">
+        {/* Left Column: Photo placeholders */}
+        <section className="skeleton-photos-section">
+          <div className="skeleton skeleton-photo-upload-box"></div>
+          <div className="skeleton skeleton-photo-note"></div>
+          <div className="skeleton-preview-grid">
+            {Array.from({ length: 3 }).map((_, i) => ( 
+              <div key={i} className="skeleton skeleton-preview-item"></div>
+            ))}
+          </div>
+        </section>
 
-      {/* Right Column: Input placeholders */}
-      <section className="skeleton-details-section">
-        <div className="skeleton skeleton-form-label"></div>
-        <div className="skeleton skeleton-form-input"></div>
-        <div className="skeleton skeleton-form-label"></div>
-        <div className="skeleton skeleton-form-input"></div>
-        <div className="skeleton skeleton-form-label"></div>
-        <div className="skeleton-condition-buttons">
-          {Array.from({ length: 4 }).map((_, i) => ( 
-            <div key={i} className="skeleton skeleton-condition-button"></div>
-          ))}
-        </div>
-        <div className="skeleton skeleton-form-label"></div>
-        <div className="skeleton skeleton-textarea"></div>
-        <div className="skeleton skeleton-form-label"></div>
-        <div className="skeleton skeleton-toggle"></div>
-        <div className="skeleton skeleton-form-label" style={{ marginTop: '0.75rem' }}></div>
-        <div className="skeleton skeleton-form-input" style={{ marginBottom: '1.5rem' }}></div>
-        <div className="skeleton skeleton-form-label"></div>
-        <div className="skeleton skeleton-form-input" style={{ height: '30px', marginBottom: '1rem' }}></div>
-        <div className="skeleton skeleton-form-input" style={{ height: '30px' }}></div>
-      </section>
+        {/* Right Column: Input placeholders */}
+        <section className="skeleton-details-section">
+          <div className="skeleton skeleton-form-label"></div>
+          <div className="skeleton skeleton-form-input"></div>
+          <div className="skeleton skeleton-form-label"></div>
+          <div className="skeleton skeleton-form-input"></div>
+          <div className="skeleton skeleton-form-label"></div>
+          <div className="skeleton-condition-buttons">
+            {Array.from({ length: 4 }).map((_, i) => ( 
+              <div key={i} className="skeleton skeleton-condition-button"></div>
+            ))}
+          </div>
+          <div className="skeleton skeleton-form-label"></div>
+          <div className="skeleton skeleton-textarea"></div>
+          <div className="skeleton skeleton-form-label"></div>
+          <div className="skeleton skeleton-toggle"></div>
+          <div className="skeleton skeleton-form-label" style={{ marginTop: '0.75rem' }}></div>
+          <div className="skeleton skeleton-form-input" style={{ marginBottom: '1.5rem' }}></div>
+          <div className="skeleton skeleton-form-label"></div>
+          <div className="skeleton skeleton-form-input" style={{ height: '30px', marginBottom: '1rem' }}></div>
+          <div className="skeleton skeleton-form-input" style={{ height: '30px' }}></div>
+        </section>
+      </div>
     </div>
   );
 }
@@ -356,6 +358,7 @@ export default function ListItemPage() {
         onNotificationClick={handleNotificationClick} 
       />
 
+      <div className="page-layout-wrapper">
       <form onSubmit={handleListNow}>
         <div className="list-item-page-container">
 
@@ -541,6 +544,7 @@ export default function ListItemPage() {
           </section>
         </div>
       </form>
+      </div>
       
       {/* Loading overlay for form submission */}
       <LoadingOverlay 

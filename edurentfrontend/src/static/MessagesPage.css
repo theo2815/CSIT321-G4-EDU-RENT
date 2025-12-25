@@ -14,6 +14,14 @@
   background-color: var(--bg-light);
 }
 
+/* [NEW] Layout Wrapper for Alignment 
+   Aligns content with the header (max-width: 1280px)
+*/
+.messages-layout-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
 /* =========================================
    2. Sidebar (Conversations List)
    ========================================= */
@@ -43,7 +51,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  z-index: 2; /* Ensures header stays above scrolling list content */
+  z-index: 100; /* Ensures header stays above scrolling list content */
 }
 
 /* --- Filter Dropdown Styles --- */
@@ -646,9 +654,18 @@
 
 /* Styles applied when screen width is 768px or larger */
 @media (min-width: 768px) {
-  /* Switch main container to Flex row to show sidebar and chat side-by-side */
-  .messages-page-container {
+  /* Apply centralized layout alignment */
+  .messages-layout-wrapper {
     display: flex;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    box-sizing: border-box;
+  }
+
+  .messages-page-container {
+     /* No longer flex here, just the background wrapper */
+     display: block;
   }
 
   /* Sidebar becomes fixed width */
