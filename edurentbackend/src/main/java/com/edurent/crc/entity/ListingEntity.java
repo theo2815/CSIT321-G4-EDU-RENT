@@ -89,7 +89,7 @@ public class ListingEntity {
     private Set<ListingImageEntity> images;
 
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference(value = "listing-transaction")
+    @JsonIgnoreProperties({ "listing", "buyer", "seller", "hibernateLazyInitializer", "handler" })
     private List<TransactionEntity> transactions = new ArrayList<>();
 
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

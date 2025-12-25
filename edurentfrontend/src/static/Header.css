@@ -207,14 +207,27 @@
 .dropdown-menu {
   position: absolute;
   right: 0;
-  top: calc(100% + 0.75rem);
+  top: 100%; /* Changed from calc(100% + 0.75rem) to eliminate gap */
+  margin-top: 0.5rem; /* Visual spacing using margin instead */
+  padding-top: 0.25rem; /* Extra top padding */
   background-color: var(--bg-light);
   border-radius: 12px; /* Softer radius */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   min-width: 10rem;
   z-index: 20;
-  overflow: hidden;
+  overflow: visible; /* Allow pseudo-element to extend outside */
   border: 1px solid var(--border-color);
+}
+
+/* Invisible bridge to maintain hover when moving from avatar to dropdown */
+.dropdown-menu::before {
+  content: "";
+  position: absolute;
+  top: -0.5rem; /* Extends above the dropdown */
+  left: 0;
+  right: 0;
+  height: 0.5rem;
+  background: transparent;
 }
 
 .dropdown-item {

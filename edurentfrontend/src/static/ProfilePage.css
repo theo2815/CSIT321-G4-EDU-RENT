@@ -512,44 +512,312 @@
   background-color: #E53935;
 }
 
-/* --- Responsive Design --- */
-@media (max-width: 640px) {
-  .profile-name {
-    font-size: 1.5rem;
-  }
+/* --- Share Tooltip Button Styles --- */
+.share-tooltip-container {
+  position: relative;
+  display: inline-block;
+  overflow: visible;
+}
 
-  .profile-picture {
-    width: 100px;
-    height: 100px;
-  }
+/* Main Share Button - Icon Only */
+.share-tooltip-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  color: white;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition:
+    background 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+    transform 0.3s ease,
+    box-shadow 0.4s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 10;
+  overflow: hidden;
+}
 
-  .profile-stats {
-    gap: 1rem;
-  }
+.share-tooltip-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 119, 182, 0.4),
+    rgba(0, 180, 216, 0.4)
+  );
+  filter: blur(15px);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: -1;
+}
 
-  .profile-stat-value {
-    font-size: 1.25rem;
-  }
+.share-tooltip-btn:hover::before {
+  opacity: 1;
+}
 
-  .profile-listings-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.share-tooltip-btn:hover {
+  background: linear-gradient(135deg, var(--accent-color), var(--primary-color));
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  transform: translateY(-2px) scale(1.05);
+}
 
-  .profile-listings-actions {
-    width: 100%;
-    flex-direction: column;
-  }
+.share-tooltip-btn:active {
+  transform: translateY(-1px) scale(0.98);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
 
-  .profile-search-input {
-    width: 100%;
-    min-width: unset;
+.share-tooltip-btn:focus {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(0, 119, 182, 0.4),
+    0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.share-tooltip-btn .share-icon-svg {
+  fill: white;
+  width: 18px;
+  height: 18px;
+  transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.share-tooltip-btn:hover .share-icon-svg {
+  transform: rotate(180deg) scale(1.1);
+}
+
+/* Tooltip Panel */
+.share-tooltip-content {
+  position: absolute;
+  top: 100%; /* Reduced from 115% to eliminate gap */
+  left: 50%;
+  transform: translateX(-50%) scale(0.8);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 16px;
+  padding-top: 24px; /* Extra top padding to account for visual spacing */
+  margin-top: 8px; /* Visual gap without breaking hover */
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+    transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+    visibility 0.4s ease;
+  z-index: 100;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+/* Invisible bridge to maintain hover when moving from button to tooltip */
+.share-tooltip-content::after {
+  content: "";
+  position: absolute;
+  top: -12px; /* Extends above the tooltip */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 12px;
+  background: transparent;
+}
+
+.share-tooltip-container:hover .share-tooltip-content {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) scale(1);
+  pointer-events: auto;
+}
+
+/* Tooltip Arrow */
+.share-tooltip-content::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 0 8px 8px 8px;
+  border-style: solid;
+  border-color: transparent transparent rgba(255, 255, 255, 0.95) transparent;
+  filter: drop-shadow(0 -2px 2px rgba(0, 0, 0, 0.06));
+}
+
+/* Social Icons Container in Tooltip */
+.share-social-icons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+
+/* Dark Mode Support */
+[data-theme="dark"] .share-tooltip-content {
+  background: rgba(30, 39, 50, 0.95);
+}
+
+[data-theme="dark"] .share-tooltip-content::before {
+  border-color: transparent transparent rgba(30, 39, 50, 0.95) transparent;
+}
+
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .share-tooltip-btn,
+  .share-icon-svg,
+  .share-tooltip-content {
+    transition: none;
   }
 }
 
-/* Add to src/static/ProfilePage.css */
+/* --- Social Card Styles --- */
+.card svg {
+  height: 18px;
+  width: 18px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  align-items: stretch; /* stretch children to fill height */
+  justify-content: center;
+  padding: 0; /* Ensure no padding */
+  background: #e7e7e7;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden;
+  height: 36px;
+  width: 100%; /* Matches the container, which is as wide as the widest child (actions) */
+  border-radius: 6px;
+  margin-bottom: 0px; /* Spacing handled by parent gap */
+}
+
+.card::before, .card::after {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  width: 50%;
+  height: 100%;
+  transition: 0.25s linear;
+  z-index: 1;
+}
+
+.card::before {
+  content: "";
+  left: 0;
+  justify-content: flex-end;
+  background-color: var(--primary-color);
+}
+
+.card::after {
+  content: "";
+  right: 0;
+  justify-content: flex-start;
+  background-color: var(--primary-color);
+}
+
+.card:hover {
+  /* box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22); -- Removed to correct "white under it" artifact */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Gentle shadow like other buttons */
+}
+
+.card:hover span {
+  opacity: 0;
+  z-index: -3;
+}
+
+.card:hover::before {
+  opacity: 1;
+  transform: translateY(-100%);
+}
+
+.card:hover::after {
+  opacity: 1;
+  transform: translateY(100%);
+}
+
+.card span {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: whitesmoke;
+  font-family: 'Fira Mono', monospace;
+  font-size: 14px; /* Reduced from 24px */
+  font-weight: 600;
+  opacity: 1;
+  transition: opacity 0.25s;
+  z-index: 2;
+}
+
+/* Styles for SocialIcon when inside .card */
+.card .social-icon {
+  position: relative;
+  display: flex; /* Override SocialIcon default */
+  align-items: center;
+  justify-content: center;
+  flex: 1; /* Replace width: 25% with flex for adaptability */
+  height: 100%;
+  color: whitesmoke;
+  font-size: 16px; /* Reduced */
+  text-decoration: none;
+  transition: 0.25s;
+  
+  /* Overrides for SocialIcon.css defaults */
+  width: auto !important; 
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+.card .social-icon svg {
+  text-shadow: 1px 1px rgba(31, 74, 121, 0.7);
+  transform: scale(1);
+  fill: whitesmoke; /* Override fill */
+  width: 18px; /* Reduced from 24px */
+  height: 18px; /* Reduced from 24px */
+}
+
+.card .social-icon:hover svg {
+  transform: scale(1.1); /* Slight zoom for feedback */
+  fill: white; /* White icon on colored gradient */
+}
+
+/* Platform-Specific Hover Colors for Card */
+.card .social-icon.facebook:hover {
+  background: linear-gradient(135deg, #1877f2, #165ed0) !important;
+}
+
+.card .social-icon.instagram:hover {
+  background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af) !important;
+}
 
 
+@keyframes bounce_613 {
+  40% {
+    transform: scale(1.4);
+  }
+
+  60% {
+    transform: scale(0.8);
+  }
+
+  80% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
 
 /* --- Modal Styles --- */
 
@@ -798,6 +1066,7 @@
     margin-top: 0.75rem;
     margin-bottom: 0.75rem;
     width: 100%;
+    width: 100%;
     order: 2; /* Ensure it wraps below title but above search */
   }
   
@@ -809,242 +1078,5 @@
   .profile-listings-actions {
     width: 100%;
     order: 3;
-  }
-}
-
-/* --- Share Tooltip Button Styles --- */
-.share-tooltip-container {
-  position: relative;
-  display: inline-block;
-  overflow: visible;
-}
-
-/* Main Share Button - Icon Only */
-.share-tooltip-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-  color: white;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  transition:
-    background 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
-    transform 0.3s ease,
-    box-shadow 0.4s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  position: relative;
-  z-index: 10;
-  overflow: hidden;
-}
-
-.share-tooltip-btn::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    135deg,
-    rgba(0, 119, 182, 0.4),
-    rgba(0, 180, 216, 0.4)
-  );
-  filter: blur(15px);
-  opacity: 0;
-  transition: opacity 0.5s ease;
-  z-index: -1;
-}
-
-.share-tooltip-btn:hover::before {
-  opacity: 1;
-}
-
-.share-tooltip-btn:hover {
-  background: linear-gradient(135deg, var(--accent-color), var(--primary-color));
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
-  transform: translateY(-2px) scale(1.05);
-}
-
-.share-tooltip-btn:active {
-  transform: translateY(-1px) scale(0.98);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-}
-
-.share-tooltip-btn:focus {
-  outline: none;
-  box-shadow:
-    0 0 0 3px rgba(0, 119, 182, 0.4),
-    0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.share-tooltip-btn .share-icon-svg {
-  fill: white;
-  width: 18px;
-  height: 18px;
-  transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-.share-tooltip-btn:hover .share-icon-svg {
-  transform: rotate(180deg) scale(1.1);
-}
-
-/* Tooltip Panel */
-.share-tooltip-content {
-  position: absolute;
-  top: 115%;
-  left: 50%;
-  transform: translateX(-50%) scale(0.8);
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.18);
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55),
-    transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55),
-    visibility 0.4s ease;
-  z-index: 100;
-  pointer-events: none;
-  backdrop-filter: blur(8px);
-}
-
-.share-tooltip-container:hover .share-tooltip-content {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) scale(1);
-  pointer-events: auto;
-}
-
-/* Tooltip Arrow */
-.share-tooltip-content::before {
-  content: "";
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 0 8px 8px 8px;
-  border-style: solid;
-  border-color: transparent transparent rgba(255, 255, 255, 0.95) transparent;
-  filter: drop-shadow(0 -2px 2px rgba(0, 0, 0, 0.06));
-}
-
-/* Social Icons Container */
-.share-social-icons {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-/* Individual Social Icon */
-.share-social-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--bg-color);
-  transition:
-    transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55),
-    background 0.3s ease,
-    box-shadow 0.4s ease;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
-  border: none;
-  text-decoration: none;
-}
-
-.share-social-icon svg {
-  width: 20px;
-  height: 20px;
-  fill: var(--text-muted);
-  transition:
-    transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55),
-    fill 0.3s ease;
-}
-
-.share-social-icon:hover {
-  transform: translateY(-4px) scale(1.1);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
-}
-
-.share-social-icon:hover svg {
-  transform: scale(1.15);
-  fill: white;
-}
-
-/* Platform-Specific Hover Colors */
-.share-social-icon.facebook:hover {
-  background: linear-gradient(135deg, #1877f2, #165ed0);
-}
-
-.share-social-icon.messenger:hover {
-  background: linear-gradient(135deg, #0084ff, #0062cc);
-}
-
-.share-social-icon.teams:hover {
-  background: linear-gradient(135deg, #6264a7, #4b4d8f);
-}
-
-.share-social-icon.instagram:hover {
-  background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
-}
-
-/* Dark Mode Support */
-[data-theme="dark"] .share-tooltip-content {
-  background: rgba(30, 39, 50, 0.95);
-}
-
-[data-theme="dark"] .share-tooltip-content::before {
-  border-color: transparent transparent rgba(30, 39, 50, 0.95) transparent;
-}
-
-[data-theme="dark"] .share-social-icon {
-  background: var(--bg-card);
-}
-
-[data-theme="dark"] .share-social-icon svg {
-  fill: var(--text-muted);
-}
-
-/* Responsive adjustments */
-@media (max-width: 480px) {
-  .share-tooltip-btn {
-    width: 32px;
-    height: 32px;
-  }
-
-  .share-tooltip-btn .share-icon-svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .share-tooltip-content {
-    padding: 12px;
-  }
-
-  .share-social-icon {
-    width: 36px;
-    height: 36px;
-  }
-
-  .share-social-icon svg {
-    width: 16px;
-    height: 16px;
-  }
-}
-
-/* Reduced Motion */
-@media (prefers-reduced-motion: reduce) {
-  .share-tooltip-btn,
-  .share-icon-svg,
-  .share-social-icon,
-  .share-tooltip-content {
-    transition: none;
   }
 }

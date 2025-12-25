@@ -107,7 +107,7 @@ public class UserService {
     }
 
     public Optional<UserEntity> getUserById(Long id) {
-        return userRepository.findById(id);
+        return userRepository.findByIdWithSchool(id);
     }
 
     public Optional<UserEntity> getUserByEmail(String email) {
@@ -141,6 +141,12 @@ public class UserService {
 
             currentUser.setProfilePictureUrl(newUrl);
         }
+
+        // --- SOCIAL LINKS UPDATE ---
+        if (req.getFacebookUrl() != null)
+            currentUser.setFacebookUrl(req.getFacebookUrl());
+        if (req.getInstagramUrl() != null)
+            currentUser.setInstagramUrl(req.getInstagramUrl());
 
         return userRepository.save(currentUser);
     }

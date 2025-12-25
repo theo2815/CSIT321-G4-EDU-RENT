@@ -1,0 +1,85 @@
+/* Social Icon Component */
+.social-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--bg-color);
+  transition:
+    transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+    background 0.3s ease,
+    box-shadow 0.4s ease;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  padding: 0; /* Ensure button padding is reset */
+}
+
+.social-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--text-muted);
+  transition:
+    transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+    fill 0.3s ease;
+}
+
+.social-icon:hover {
+  transform: translateY(-4px) scale(1.1);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+}
+
+.social-icon:hover svg {
+  transform: scale(1.15);
+  fill: white;
+}
+
+/* Platform-Specific Hover Colors */
+.social-icon.facebook:hover {
+  background: linear-gradient(135deg, #1877f2, #165ed0);
+}
+
+.social-icon.messenger:hover {
+  background: linear-gradient(135deg, #0084ff, #0062cc);
+}
+
+.social-icon.teams:hover {
+  background: linear-gradient(135deg, #6264a7, #4b4d8f);
+}
+
+.social-icon.instagram:hover {
+  background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .social-icon {
+  background: var(--bg-card);
+}
+
+[data-theme="dark"] .social-icon svg {
+  fill: var(--text-muted);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .social-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .social-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .social-icon,
+  .social-icon svg {
+    transition: none;
+  }
+}

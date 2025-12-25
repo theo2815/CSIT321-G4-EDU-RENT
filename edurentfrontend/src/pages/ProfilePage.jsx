@@ -34,6 +34,7 @@ import {
 // Styles and Assets
 import '../static/ProfilePage.css';
 import '../static/DashboardPage.css';
+import SocialIcon from '../components/SocialIcon';
 import defaultAvatar from '../assets/default-avatar.png';
 
 const API_URL = 'http://localhost:8080/api/v1';
@@ -126,7 +127,7 @@ function ProfileDetailsModal({ user, onClose }) {
         <div className="modal-body">
           <ul className="modal-details-list">
             <li><strong>Joined:</strong> {joinedDate}</li>
-            <li><strong>School:</strong> {user.school?.name || 'N/A'}</li>
+            <li><strong>School:</strong> {user.schoolName || user.school?.name || 'N/A'}</li>
             <li><strong>Location:</strong> {user.address || 'Not specified'}</li>
             {user.bio && user.bio.trim() && (
               <li><strong>Bio:</strong> {user.bio}</li>
@@ -743,6 +744,7 @@ export default function ProfilePage() {
           </div>
           <div className="profile-card-center"> 
              <h1 className="profile-name">{profileUser.fullName}</h1> 
+             
              <button onClick={openProfileModal} className="profile-details-link"> Profile Details &gt; </button> 
           </div>
           <div className="profile-card-right"> 
@@ -750,83 +752,137 @@ export default function ProfilePage() {
              <div className="profile-card-reviews">{totalReviewsDisplay} Reviews</div> 
              <div className="profile-card-joined"><span>Joined </span><span>{joinedDate}</span></div> 
              
-             <div className="profile-card-actions"> 
-               {isMyProfile ? (
-                 <button className="btn btn-small btn-primary" onClick={() => navigate('/settings/profile')}> Edit Profile </button> 
-               ) : (
-                 <button className="btn btn-small btn-primary" onClick={handleChatClick}> Message </button> 
-               )}
-               {/* Share Button with Tooltip */}
-               <div className="share-tooltip-container">
-                 <button className="share-tooltip-btn" title="Share profile">
-                   <svg
-                     className="share-icon-svg"
-                     xmlns="http://www.w3.org/2000/svg"
-                     viewBox="0 0 24 24"
-                     width="24"
-                     height="24"
-                   >
-                     <path
-                       d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92zM18 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM6 13c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm12 7.02c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"
+             {/* Actions and Social Wrapper for alignment */}
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: 'fit-content', alignItems: 'stretch', marginTop: '0.5rem' }}>
+               
+               {/* New Reveal Card for Social Links */}
+               {(profileUser.facebookUrl || profileUser.instagramUrl) && (
+                 <div className="card">
+                   <span>Social</span>
+                   {profileUser.facebookUrl && (
+                     <SocialIcon 
+                       platform="facebook" 
+                       href={profileUser.facebookUrl} 
+                       title="Facebook" 
                      />
-                   </svg>
-                 </button>
-                 <div className="share-tooltip-content">
-                   <div className="share-social-icons">
-                     {/* Facebook */}
-                     <a
-                       href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.userId}`)}`}
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="share-social-icon facebook"
-                       title="Share on Facebook"
+                   )}
+                   {profileUser.instagramUrl && (
+                     <SocialIcon 
+                       platform="instagram" 
+                       href={profileUser.instagramUrl} 
+                       title="Instagram" 
+                     />
+                   )}
+                 </div>
+               )}
+
+               <div className="profile-card-actions" style={{ marginTop: 0 }}> 
+                 {isMyProfile ? (
+                   <button className="btn btn-small btn-primary" onClick={() => navigate('/settings/profile')}> Edit Profile </button> 
+                 ) : (
+                   <button className="btn btn-small btn-primary" onClick={handleChatClick}> Message </button> 
+                 )}
+                 {/* Share Button with Tooltip */}
+                 <div className="share-tooltip-container">
+                   <button className="share-tooltip-btn" title="Share profile">
+                     <svg
+                       className="share-icon-svg"
+                       xmlns="http://www.w3.org/2000/svg"
+                       viewBox="0 0 24 24"
+                       width="24"
+                       height="24"
                      >
-                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                         <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                       </svg>
-                     </a>
-                     {/* Messenger */}
-                     <a
-                       href={`https://www.facebook.com/dialog/send?link=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.userId}`)}&app_id=291494419107518&redirect_uri=${encodeURIComponent(window.location.origin)}`}
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="share-social-icon messenger"
-                       title="Share via Messenger"
-                     >
-                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                         <path d="M12 0C5.373 0 0 4.974 0 11.111c0 3.498 1.744 6.614 4.469 8.654V24l4.088-2.242c1.092.3 2.246.464 3.443.464 6.627 0 12-4.974 12-11.111S18.627 0 12 0zm1.191 14.963l-3.055-3.26-5.963 3.26L10.732 8l3.131 3.26L19.752 8l-6.561 6.963z" />
-                       </svg>
-                     </a>
-                     {/* Microsoft Teams */}
-                     <a
-                       href={`https://teams.microsoft.com/share?href=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.userId}`)}&msgText=${encodeURIComponent(`Check out ${profileUser?.fullName}'s profile on Edu-Rent!`)}`}
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="share-social-icon teams"
-                       title="Share on Microsoft Teams"
-                     >
-                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                         <path d="M19.5 4C18.12 4 17 5.12 17 6.5c0 1.38 1.12 2.5 2.5 2.5S22 7.88 22 6.5C22 5.12 20.88 4 19.5 4zM14.5 5C12.57 5 11 6.57 11 8.5c0 1.93 1.57 3.5 3.5 3.5S18 10.43 18 8.5C18 6.57 16.43 5 14.5 5zM18 13h3c.55 0 1 .45 1 1v5c0 1.1-.9 2-2 2h-2v-8zM8 13v9c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H9c-.55 0-1 .45-1 1z" />
-                       </svg>
-                     </a>
-                     {/* Instagram */}
-                     <button
-                       onClick={() => {
-                         const url = `${window.location.origin}/profile/${profileUser?.userId}`;
-                         navigator.clipboard.writeText(url)
-                           .then(() => showSuccess('Profile link copied! Share it on Instagram.'))
-                           .catch(() => showError('Failed to copy link.'));
-                       }}
-                       className="share-social-icon instagram"
-                       title="Copy link for Instagram"
-                     >
-                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                         <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
-                       </svg>
-                     </button>
+                       <path
+                         d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92zM18 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM6 13c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm12 7.02c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"
+                       />
+                     </svg>
+                   </button>
+                   <div className="share-tooltip-content">
+                     <div className="share-social-icons">
+                        <SocialIcon 
+                          platform="facebook" 
+                          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.userId}`)}`} 
+                          title="Share on Facebook" 
+                        />
+                        <SocialIcon 
+                          platform="messenger" 
+                          href={`https://www.facebook.com/dialog/send?link=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.userId}`)}&app_id=291494419107518&redirect_uri=${encodeURIComponent(window.location.origin)}`} 
+                          title="Share via Messenger" 
+                        />
+                        <SocialIcon 
+                          platform="teams" 
+                          href={`https://teams.microsoft.com/share?href=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.userId}`)}&msgText=${encodeURIComponent(`Check out ${profileUser?.fullName}'s profile on Edu-Rent!`)}`} 
+                          title="Share on Microsoft Teams" 
+                        />
+                        <SocialIcon 
+                          platform="instagram" 
+                          onClick={() => {
+                            const url = `${window.location.origin}/profile/${profileUser?.userId}`;
+                            navigator.clipboard.writeText(url)
+                              .then(() => showSuccess('Profile link copied! Share it on Instagram.'))
+                              .catch(() => showError('Failed to copy link.'));
+                          }}
+                          title="Copy link for Instagram" 
+                        />
+                     </div>
+                     
+                     {/* Copy Link Section */}
+                     <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color-light, #eee)' }}>
+                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem', textAlign: 'center' }}>
+                         Or copy link
+                       </div>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                         <input 
+                           type="text" 
+                           readOnly 
+                           value={`${window.location.origin}/profile/${profileUser?.userId}`}
+                           style={{
+                             flex: 1,
+                             padding: '0.4rem 0.6rem',
+                             fontSize: '0.75rem',
+                             border: '1px solid var(--border-color, #ddd)',
+                             borderRadius: '6px',
+                             backgroundColor: 'var(--bg-color, #f8f9fa)',
+                             color: 'var(--text-muted)',
+                             outline: 'none',
+                             minWidth: 0
+                           }}
+                           onClick={(e) => e.target.select()}
+                         />
+                         <button
+                           onClick={() => {
+                             const url = `${window.location.origin}/profile/${profileUser?.userId}`;
+                             navigator.clipboard.writeText(url)
+                               .then(() => showSuccess('Profile link copied!'))
+                               .catch(() => showError('Failed to copy link.'));
+                           }}
+                           style={{
+                             padding: '0.4rem 0.6rem',
+                             border: '1px solid var(--primary-color)',
+                             borderRadius: '6px',
+                             backgroundColor: 'var(--primary-color)',
+                             color: 'white',
+                             cursor: 'pointer',
+                             fontSize: '0.75rem',
+                             fontWeight: '600',
+                             display: 'flex',
+                             alignItems: 'center',
+                             gap: '0.3rem',
+                             transition: 'opacity 0.2s'
+                           }}
+                           title="Copy link"
+                         >
+                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                           </svg>
+                           Copy
+                         </button>
+                       </div>
+                     </div>
                    </div>
                  </div>
-               </div>
+               </div> 
              </div> 
           </div>
         </section>

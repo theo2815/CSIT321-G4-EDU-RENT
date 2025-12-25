@@ -26,11 +26,9 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
-
-
 @Entity
 @Table(name = "users")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class UserEntity implements UserDetails {
 
     @Id
@@ -62,17 +60,23 @@ public class UserEntity implements UserDetails {
     @Column(name = "bio", length = 1000)
     private String bio;
 
+    @Column(name = "facebook_url", length = 500)
+    private String facebookUrl;
+
+    @Column(name = "instagram_url", length = 500)
+    private String instagramUrl;
+
     @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     // --- Relationships ---
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "school_id", nullable = false)
-    @JsonIgnoreProperties({"users", "hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({ "users", "hibernateLazyInitializer", "handler" })
     private SchoolEntity school;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    //@JsonManagedReference(value = "user-listings")
+    // @JsonManagedReference(value = "user-listings")
     @JsonIgnore
     private Set<ListingEntity> listings;
 
@@ -191,6 +195,22 @@ public class UserEntity implements UserDetails {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+
+    public String getFacebookUrl() {
+        return facebookUrl;
+    }
+
+    public void setFacebookUrl(String facebookUrl) {
+        this.facebookUrl = facebookUrl;
+    }
+
+    public String getInstagramUrl() {
+        return instagramUrl;
+    }
+
+    public void setInstagramUrl(String instagramUrl) {
+        this.instagramUrl = instagramUrl;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -332,12 +352,14 @@ public class UserEntity implements UserDetails {
     // equals, hashCode, toString (excluding relationships)
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         UserEntity that = (UserEntity) o;
         return Objects.equals(userId, that.userId) &&
-               Objects.equals(email, that.email) &&
-               Objects.equals(studentIdNumber, that.studentIdNumber);
+                Objects.equals(email, that.email) &&
+                Objects.equals(studentIdNumber, that.studentIdNumber);
     }
 
     @Override
@@ -354,4 +376,3 @@ public class UserEntity implements UserDetails {
                 '}';
     }
 }
-

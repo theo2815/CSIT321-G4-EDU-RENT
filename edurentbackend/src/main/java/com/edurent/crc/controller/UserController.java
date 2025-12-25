@@ -55,10 +55,21 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<com.edurent.crc.dto.UserDTO> getUserById(@PathVariable Long id) {
         return userService.getUserById(id)
-                .map(user -> new com.edurent.crc.dto.UserDTO(
-                        user.getUserId(),
-                        user.getFullName(),
-                        user.getProfilePictureUrl()))
+                .map(user -> {
+                    com.edurent.crc.dto.UserDTO dto = new com.edurent.crc.dto.UserDTO(
+                            user.getUserId(),
+                            user.getFullName(),
+                            user.getProfilePictureUrl());
+                    if (user.getSchool() != null) {
+                        dto.setSchoolName(user.getSchool().getName());
+                    }
+                    dto.setFacebookUrl(user.getFacebookUrl());
+                    dto.setInstagramUrl(user.getInstagramUrl());
+                    dto.setAddress(user.getAddress());
+                    dto.setBio(user.getBio());
+                    dto.setCreatedAt(user.getCreatedAt());
+                    return dto;
+                })
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

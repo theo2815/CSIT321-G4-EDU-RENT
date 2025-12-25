@@ -90,9 +90,10 @@ export default function usePageLogic(userData, likeData = null, availableListing
     try {
       // Parallel fetch of listing + conversations
       // Transaction is fetched AFTER we know listing status to avoid 404s for Available items
+      // Note: We use size=100 and filter='All' to ensure we find chats for sold/rented items too
       const promises = [
         getListingById(listingId),
-        userData?.userId ? getConversationsForUser(userData.userId) : Promise.resolve(null)
+        userData?.userId ? getConversationsForUser(userData.userId, 0, 100, 'All') : Promise.resolve(null)
       ];
 
       const [listingRes, conversationsRes] = await Promise.all(promises);
@@ -122,10 +123,13 @@ export default function usePageLogic(userData, likeData = null, availableListing
         }
 
         if (conversationsRes?.data) {
-          const related = conversationsRes.data.filter(c => 
-            c.listing && c.listing.listingId === listing.listingId
-          );
-
+          // Use Number() to ensure consistent comparison (handles string vs number mismatch)
+          const targetListingId = Number(listing.listingId);
+          const related = conversationsRes.data.filter(c => {
+            const convListingId = c.listing ? Number(c.listing.listingId) : null;
+            return convListingId === targetListingId;
+          });
+          
           context.relatedConversations = related;
           context.chatCount = related.length;
           context.existingChat = related.length > 0 ? related[0] : null; 
@@ -182,9 +186,11 @@ export default function usePageLogic(userData, likeData = null, availableListing
 
   // Opens the modal for a given listing object
   const openModal = useCallback((listing) => {
-    if (listing && listing.listingId) {
+    // Support both listingId and id (Messages page uses 'id', other pages use 'listingId')
+    const listingId = listing?.listingId || listing?.id;
+    if (listing && listingId) {
         // Pass the listing as partial data for optimistic loading
-        handleOpenListing(listing.listingId, {}, listing);
+        handleOpenListing(listingId, {}, listing);
     } else {
         console.error("Attempted to open listing without an ID:", listing);
     }

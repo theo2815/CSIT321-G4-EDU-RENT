@@ -126,6 +126,12 @@ public class ConversationService {
                     if (conv.getIsArchivedForCurrentUser())
                         match = true;
                     break;
+                case "All":
+                    // All conversations regardless of sold status (not archived)
+                    // Used by Product Detail Modal to find existing chats
+                    if (!conv.getIsArchivedForCurrentUser())
+                        match = true;
+                    break;
                 case "All Messages":
                 default:
                     // All active conversations (not sold, not archived)

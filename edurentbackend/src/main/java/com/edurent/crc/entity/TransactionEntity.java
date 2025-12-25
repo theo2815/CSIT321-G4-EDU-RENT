@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Objects;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
@@ -44,19 +44,22 @@ public class TransactionEntity {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     // --- Relationships ---
-    @ManyToOne(fetch = FetchType.LAZY) 
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "listing_id", nullable = false)
-    @JsonBackReference(value = "listing-transaction")
+    @JsonIgnoreProperties({ "user", "transactions", "likes", "listingImages", "category", "hibernateLazyInitializer",
+            "handler" })
     private ListingEntity listing;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "buyer_id", nullable = false)
-    @JsonBackReference(value = "buyer-transactions")
+    @JsonIgnoreProperties({ "buyerTransactions", "sellerTransactions", "listings", "password", "notificationsReceived",
+            "hibernateLazyInitializer", "handler" })
     private UserEntity buyer;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seller_id", nullable = false)
-    @JsonBackReference(value = "seller-transactions")
+    @JsonIgnoreProperties({ "buyerTransactions", "sellerTransactions", "listings", "password", "notificationsReceived",
+            "hibernateLazyInitializer", "handler" })
     private UserEntity seller;
 
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -151,8 +154,10 @@ public class TransactionEntity {
     // equals, hashCode, toString (excluding relationships)
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         TransactionEntity that = (TransactionEntity) o;
         return Objects.equals(transactionId, that.transactionId);
     }
@@ -170,4 +175,3 @@ public class TransactionEntity {
                 '}';
     }
 }
-

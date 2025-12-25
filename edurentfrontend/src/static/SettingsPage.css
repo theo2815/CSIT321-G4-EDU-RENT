@@ -1204,3 +1204,25 @@ input:checked + .toggle-slider:before {
   animation-timing-function: ease-in;
  }
 }
+
+/* --- Social Links Section --- */
+.social-input-label {
+  display: flex;
+  align-items: center;
+}
+
+.social-label-icon {
+  margin-right: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  color: var(--text-muted);
+}
+
+.social-label-icon svg {
+  fill: currentColor;
+  width: 16px;
+  height: 16px;
+  display: block;
+}

@@ -450,26 +450,36 @@ export default function MessagesPage() {
                if (passedConv) {
                    const participants = passedConv.participants || [];
                    const otherParticipant = participants.find(p => {
-                        const pId = p.user?.userId || p.userId; 
+                        // Handle both structures: p.user?.userId (nested) or p.userId (flat)
+                        const pId = p.user?.userId || p.userId || p.id; 
                         return pId !== userId;
                    });
-                   const otherUserObj = otherParticipant?.user || {};
+                   // The participant can BE the user object directly OR have a nested user property
+                   const otherUserObj = otherParticipant?.user || otherParticipant || {};
  
                    targetConv = {
                       id: passedConv.conversationId,
                       otherUser: {
-                          id: otherUserObj.userId,
-                          name: otherUserObj.fullName || 'User',
+                          id: otherUserObj.userId || otherUserObj.id,
+                          name: otherUserObj.fullName || otherUserObj.name || 'User',
                           avatar: otherUserObj.profilePictureUrl
                       },
-                      product: passedConv.listing ? {
-                          id: passedConv.listing.listingId,
-                          title: passedConv.listing.title,
-                          price: passedConv.listing.price,
-                          ownerId: passedConv.listing.user?.userId,
-                          image: passedConv.listing.images?.[0]?.imageUrl,
-                          iconUrl: passedConv.listing.images?.[0]?.imageUrl
-                      } : null,
+                      product: passedConv.listing ? (() => {
+                          // Handle multiple image URL formats from different sources
+                          const listing = passedConv.listing;
+                          const imgUrl = listing.imageUrl 
+                              || listing.images?.[0]?.imageUrl 
+                              || listing.listingImages?.[0]?.imageUrl
+                              || null;
+                          return {
+                              id: listing.listingId || listing.id,
+                              title: listing.title,
+                              price: listing.price,
+                              ownerId: listing.owner?.userId || listing.user?.userId,
+                              image: imgUrl,
+                              iconUrl: imgUrl
+                          };
+                      })() : null,
                       lastMessagePreview: 'Start a conversation',
                       lastMessageDate: new Date().toISOString(),
                       isUnread: false
