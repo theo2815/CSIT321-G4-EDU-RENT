@@ -14,8 +14,8 @@ import AnimatedCheckbox from '../components/AnimatedCheckbox';
 import useAuth from '../hooks/useAuth';
 
 // New Feedback Hooks
-import { useToast } from '../context/ToastContext';
-import { useConfirm } from '../context/ConfirmationContext';
+import { useToast } from '../hooks/useToast';
+import { useConfirm } from '../hooks/useConfirm';
 
 // Services
 import { 
@@ -313,7 +313,6 @@ export default function ManageListingsPage() {
             ? { ...item, status: 'Sold' } 
             : item
         ));
-        showSuccess(`"${listingToMarkSold.title}" marked as Sold`);
     }
     setListingToMarkSold(null);
     setIsMarkSoldModalOpen(false);
@@ -429,40 +428,7 @@ export default function ManageListingsPage() {
   };
 
   // Basic bulk mark as sold (without assigning a specific buyer)
-  const handleBulkMarkSold = async () => {
-    const numToUpdate = selectedItems.size;
-    if (numToUpdate === 0) return;
-
-    const isConfirmed = await confirm({
-      title: 'Mark as Sold?',
-      message: `Mark ${numToUpdate} selected items as Sold? (Note: This won't assign a specific buyer)`,
-      confirmText: 'Mark Sold',
-      isDangerous: false
-    });
-
-    if (!isConfirmed) return;
-
-    try {
-      setIsProcessing(true);
-      const updatePromises = Array.from(selectedItems).map(id => 
-          updateListingStatus(id, 'Sold')
-      );
-      
-      await Promise.all(updatePromises);
-      
-      setAllListings(prev => prev.map(item => 
-          selectedItems.has(item.listingId) ? { ...item, status: 'Sold' } : item
-      ));
-      
-      setSelectedItems(new Set()); 
-      showSuccess(`Marked ${numToUpdate} items as Sold.`);
-    } catch (err) {
-       console.error("Failed to update items:", err);
-       showError("Some items could not be updated.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  // handleBulkMarkSold was removed as it was unused.
 
   const handleBulkDelete = async () => {
     const numToDelete = selectedItems.size;
@@ -579,7 +545,7 @@ export default function ManageListingsPage() {
     try {
       if (isCurrentlyLiked) await unlikeListing(listingId);
       else await likeListing(listingId);
-    } catch (err) {
+    } catch {
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
           if (isCurrentlyLiked) revertedIds.add(listingId);

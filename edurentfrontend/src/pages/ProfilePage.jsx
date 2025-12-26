@@ -8,8 +8,8 @@ import usePageLogic from '../hooks/usePageLogic';
 import useSearch from '../hooks/useSearch';
 
 // New Feedback Hooks
-import { useToast } from '../context/ToastContext';
-import { useConfirm } from '../context/ConfirmationContext';
+import { useToast } from '../hooks/useToast';
+import { useConfirm } from '../hooks/useConfirm';
 
 // UI Components
 import Header from '../components/Header';
@@ -140,6 +140,8 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
   const reviewerName = review.reviewer?.fullName || 'Anonymous';
   const reviewerAvatar = getImageUrl(review.reviewer?.profilePictureUrl) || defaultAvatar;
   const reviewerId = review.reviewer?.userId;
+  // Use profileSlug or username for the URL, fallback to userId only if necessary
+  const reviewerSlug = review.reviewer?.profileSlug || review.reviewer?.username || reviewerId;
     
   const listingTitle = review.listing?.title || 'Unknown Item';
     
@@ -181,21 +183,21 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                     />
                     <Link 
                       to={(() => {
-                        if (!reviewerId) return '#';
+                        if (!reviewerSlug) return '#';
                         const isLoggedIn = !!localStorage.getItem('eduRentUserData');
                         const basePath = isLoggedIn ? '' : '/guest';
-                        return `${basePath}/profile/${reviewerId}`;
+                        return `${basePath}/profile/${reviewerSlug}`;
                       })()}
                       className="review-reviewer"
                       style={{ 
                           color: 'var(--primary-color)', 
                           textDecoration: 'none',
                           fontWeight: '700', 
-                          cursor: reviewerId ? 'pointer' : 'default'
+                          cursor: reviewerSlug ? 'pointer' : 'default'
                       }}
                       onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
                       onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                      onClick={(e) => !reviewerId && e.preventDefault()} 
+                      onClick={(e) => !reviewerSlug && e.preventDefault()} 
                     >
                         {reviewerName}
                     </Link>
@@ -535,7 +537,7 @@ export default function ProfilePage() {
     loadProfileUser();
 
     return () => { cancel = true; };
-  }, [username, loggedInUser, isLoadingAuth, fetchBuyerReviews, fetchSellerReviews]); // Removed profileUser form deps to allow controlled updates
+  }, [username, loggedInUser, isLoadingAuth, fetchBuyerReviews, fetchSellerReviews, profileUser]); // Added profileUser and logic handles uniqueness
 
   // Fetch Listings (Tab Data) Logic
   useEffect(() => {
@@ -551,7 +553,7 @@ export default function ProfilePage() {
     if (!tabData[listingFilter].initialized) {
         fetchTabData(idToFetch, listingFilter, 0);
     }
-  }, [profileUser?.userId, listingFilter]); // Minimized dependencies
+  }, [profileUser?.userId, listingFilter, fetchTabData, tabData]); // Minimized dependencies
 
   // specialized effect to reset tabData when switching users
   useEffect(() => {

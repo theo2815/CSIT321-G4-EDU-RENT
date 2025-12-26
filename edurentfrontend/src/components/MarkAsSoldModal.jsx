@@ -5,7 +5,7 @@ import LoadingOverlay from './LoadingOverlay';
 import '../static/ProductDetailModal.css';
 
 // Import Feedback Hook
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 
 export default function MarkAsSoldModal({ listing, currentUser, onClose, onSuccess }) {
   const [conversations, setConversations] = useState([]);

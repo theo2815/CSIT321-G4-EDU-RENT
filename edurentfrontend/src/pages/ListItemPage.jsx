@@ -7,7 +7,7 @@ import useAuth from '../hooks/useAuth';
 import usePageLogic from '../hooks/usePageLogic';
 
 // New Feedback Hook
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 import imageCompression from 'browser-image-compression';
 
 // Components

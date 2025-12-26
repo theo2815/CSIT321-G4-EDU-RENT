@@ -32,7 +32,6 @@ import com.edurent.crc.entity.TransactionEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.service.ReviewService;
 
-
 @RestController
 @RequestMapping("/api/v1/reviews")
 @CrossOrigin(origins = "*")
@@ -44,11 +43,11 @@ public class ReviewController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<ReviewDTO>> getReviewsReceivedByUser(@PathVariable Long userId) {
         List<ReviewEntity> reviews = reviewService.getReviewsForUser(userId);
-        
+
         List<ReviewDTO> reviewDTOs = reviews.stream()
-            .map(this::convertToDTO)
-            .collect(Collectors.toList());
-        
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+
         return ResponseEntity.ok(reviewDTOs);
     }
 
@@ -75,7 +74,7 @@ public class ReviewController {
         Page<ReviewDTO> dtos = reviews.map(this::convertToDTO);
         return ResponseEntity.ok(dtos);
     }
-    
+
     // Helper method to convert Entity to DTO
     private ReviewDTO convertToDTO(ReviewEntity review) {
         ReviewDTO dto = new ReviewDTO();
@@ -88,17 +87,18 @@ public class ReviewController {
         if (review.getImages() != null) {
             Set<Long> seenIds = new HashSet<>();
             dto.setReviewImages(review.getImages().stream()
-                .filter(img -> seenIds.add(img.getImageId())) // Only allow unique IDs
-                .map(img -> new ReviewImageDTO(img.getImageId(), img.getImageUrl()))
-                .collect(Collectors.toList()));
+                    .filter(img -> seenIds.add(img.getImageId())) // Only allow unique IDs
+                    .map(img -> new ReviewImageDTO(img.getImageId(), img.getImageUrl()))
+                    .collect(Collectors.toList()));
         }
 
         if (review.getReviewer() != null) {
-            dto.setReviewer(new UserDTO(
-                review.getReviewer().getUserId(),
-                review.getReviewer().getFullName(),
-                review.getReviewer().getProfilePictureUrl()
-            ));
+            UserDTO reviewerDto = new UserDTO(
+                    review.getReviewer().getUserId(),
+                    review.getReviewer().getFullName(),
+                    review.getReviewer().getProfilePictureUrl());
+            reviewerDto.setProfileSlug(review.getReviewer().getProfileSlug());
+            dto.setReviewer(reviewerDto);
         }
 
         try {
@@ -111,32 +111,35 @@ public class ReviewController {
                         dto.setReviewerRole("SELLER");
                     }
                 }
-            if (transaction.getListing() != null) {
-                ListingDTO listingDto = new ListingDTO();
-                listingDto.setListingId(transaction.getListing().getListingId());
-                listingDto.setTitle(transaction.getListing().getTitle());
-                listingDto.setPrice(transaction.getListing().getPrice());
-                // Prioritize the image marked as "Cover Photo"
+                if (transaction.getListing() != null) {
+                    ListingDTO listingDto = new ListingDTO();
+                    listingDto.setListingId(transaction.getListing().getListingId());
+                    listingDto.setTitle(transaction.getListing().getTitle());
+                    listingDto.setPrice(transaction.getListing().getPrice());
+                    // Prioritize the image marked as "Cover Photo"
 
-                if (transaction.getListing().getImages() != null && !transaction.getListing().getImages().isEmpty()) {
-                    String coverUrl = transaction.getListing().getImages().stream()
-                        .filter(img -> Boolean.TRUE.equals(img.getCoverPhoto())) // Look for cover photo
-                        .map(ListingImageEntity::getImageUrl)
-                        .findFirst()
-                        .orElse(transaction.getListing().getImages().iterator().next().getImageUrl()); // Fallback to first
-                    
-                    listingDto.setImageUrl(coverUrl);
+                    if (transaction.getListing().getImages() != null
+                            && !transaction.getListing().getImages().isEmpty()) {
+                        String coverUrl = transaction.getListing().getImages().stream()
+                                .filter(img -> Boolean.TRUE.equals(img.getCoverPhoto())) // Look for cover photo
+                                .map(ListingImageEntity::getImageUrl)
+                                .findFirst()
+                                .orElse(transaction.getListing().getImages().iterator().next().getImageUrl()); // Fallback
+                                                                                                               // to
+                                                                                                               // first
+
+                        listingDto.setImageUrl(coverUrl);
+                    }
+                    dto.setListing(listingDto);
                 }
-                dto.setListing(listingDto);
             }
-        }
         } catch (jakarta.persistence.EntityNotFoundException | org.hibernate.ObjectNotFoundException e) {
             System.err.println("Warning: Review " + review.getReviewId() + " points to a missing transaction.");
-            dto.setReviewerRole("UNKNOWN"); 
+            dto.setReviewerRole("UNKNOWN");
         }
         return dto;
     }
-    
+
     @GetMapping("/transaction/{transactionId}")
     public ResponseEntity<ReviewEntity> getReviewByTransaction(@PathVariable Long transactionId) {
         return reviewService.getReviewByTransactionId(transactionId)
@@ -145,14 +148,13 @@ public class ReviewController {
     }
 
     // --- UPDATED CREATE ENDPOINT ---
-    @PostMapping(consumes = {"multipart/form-data"})
+    @PostMapping(consumes = { "multipart/form-data" })
     public ResponseEntity<ReviewEntity> createReview(
             @RequestParam("rating") Integer rating,
             @RequestParam("comment") String comment,
             @RequestParam("transactionId") Long transactionId,
             @RequestParam("reviewerId") Long reviewerId,
-            @RequestPart(value = "images", required = false) List<MultipartFile> images
-    ) {
+            @RequestPart(value = "images", required = false) List<MultipartFile> images) {
         try {
             ReviewEntity review = new ReviewEntity();
             review.setRating(rating);
@@ -166,25 +168,23 @@ public class ReviewController {
         }
     }
 
-    @PutMapping(value = "/{reviewId}", consumes = {"multipart/form-data"}) // Change to multipart
+    @PutMapping(value = "/{reviewId}", consumes = { "multipart/form-data" }) // Change to multipart
     public ResponseEntity<ReviewDTO> updateReview(
             @PathVariable Long reviewId,
             @RequestParam(required = false) Integer rating,
             @RequestParam(required = false) String comment,
             @RequestParam(required = false) List<Long> imagesToDelete, // New param
             @RequestPart(value = "newImages", required = false) List<MultipartFile> newImages, // New param
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
             ReviewEntity updated = reviewService.updateReview(
-                reviewId, 
-                currentUser.getUserId(), 
-                rating, 
-                comment, 
-                imagesToDelete, 
-                newImages
-            );
+                    reviewId,
+                    currentUser.getUserId(),
+                    rating,
+                    comment,
+                    imagesToDelete,
+                    newImages);
             return ResponseEntity.ok(convertToDTO(updated));
         } catch (Exception e) {
             e.printStackTrace();
@@ -195,8 +195,7 @@ public class ReviewController {
     @DeleteMapping("/{reviewId}")
     public ResponseEntity<Void> deleteReview(
             @PathVariable Long reviewId,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
             reviewService.deleteReview(reviewId, currentUser.getUserId());
@@ -206,4 +205,3 @@ public class ReviewController {
         }
     }
 }
-

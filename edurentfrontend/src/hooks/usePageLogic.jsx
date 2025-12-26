@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useLikes from './useLikes';
-import { useListingCache } from '../context/ListingCacheContext';
+import { useListingCache } from './useListingCache';
 import { getListingById, getUserReviews, getConversationsForUser, getTransactionByListing } from '../services/apiService';
 import ProductDetailModal from '../components/ProductDetailModal';
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';

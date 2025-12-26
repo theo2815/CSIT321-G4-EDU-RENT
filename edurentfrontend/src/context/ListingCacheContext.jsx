@@ -1,10 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-
-const ListingCacheContext = createContext();
-
-export function useListingCache() {
-  return useContext(ListingCacheContext);
-}
+import React, { useState, useCallback, useRef } from 'react';
+import { ListingCacheContext } from './ContextDefinitions';
 
 export function ListingCacheProvider({ children }) {
   // We use a Map to store listings by ID for O(1) access
@@ -70,13 +65,15 @@ export function ListingCacheProvider({ children }) {
     return cached.data;
   }, []);
 
-  return (
-    <ListingCacheContext.Provider value={{ 
+  const contextValue = React.useMemo(() => ({ 
       cacheListings, 
       getCachedListing,
       cacheSellerRating,
       getCachedRating
-    }}>
+    }), [cacheListings, getCachedListing, cacheSellerRating, getCachedRating]);
+
+  return (
+    <ListingCacheContext.Provider value={contextValue}>
       {children}
     </ListingCacheContext.Provider>
   );

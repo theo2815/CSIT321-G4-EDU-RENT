@@ -8,8 +8,8 @@ import Stomp from 'stompjs';
 
 // Hooks for handling Auth state and the Auth Modals
 import useAuth from '../hooks/useAuth';
-import { useAuthModal } from '../context/AuthModalContext';
-import { useToast } from '../context/ToastContext';
+import { useAuthModal } from '../hooks/useAuthModal';
+import { useToast } from '../hooks/useToast';
 
 // API helpers to talk to the backend
 import { 
@@ -67,6 +67,25 @@ export default function Header({
     locationRef.current = location;
   }, [location]);
 
+  // Keep refs updated for socket callbacks
+  const notifPrefsRef = useRef(notifPrefs);
+  useEffect(() => {
+    notifPrefsRef.current = notifPrefs;
+  }, [notifPrefs]);
+
+  // Fetch initial unread message count
+  const fetchUnreadMessagesCount = useCallback(async () => {
+      if (!userData) return;
+      try {
+          const response = await getConversationsForUser(userData.userId);
+          const conversations = response.data || [];
+          const count = conversations.filter(c => c.isUnread).length;
+          setUnreadMsgCount(count);
+      } catch (error) {
+          console.error("Failed to fetch unread messages count", error);
+      }
+  }, [userData]);
+
   // Listen for active chat changes from MessagesPage
   useEffect(() => {
     const handler = (e) => {
@@ -85,24 +104,11 @@ export default function Header({
         window.removeEventListener('active-chat-change', handler);
         window.removeEventListener('message-read', readHandler);
     };
-  }, []);
-
-  // Fetch initial unread message count
-  const fetchUnreadMessagesCount = async () => {
-      if (!userData) return;
-      try {
-          const response = await getConversationsForUser(userData.userId);
-          const conversations = response.data || [];
-          const count = conversations.filter(c => c.isUnread).length;
-          setUnreadMsgCount(count);
-      } catch (error) {
-          console.error("Failed to fetch unread messages count", error);
-      }
-  };
+  }, [fetchUnreadMessagesCount]);
 
   useEffect(() => {
       fetchUnreadMessagesCount();
-  }, [userData]);
+  }, [userData, fetchUnreadMessagesCount]);
 
   // Listen for notification preference changes from SettingsPage
   useEffect(() => {
@@ -158,7 +164,7 @@ export default function Header({
           });
           
           // Only show toast if likes are enabled in preferences
-          if (notifPrefs.likes) {
+          if (notifPrefsRef.current.likes) {
             showInfo("New notification received");
           }
         } 
@@ -180,7 +186,7 @@ export default function Header({
           setUnreadMsgCount(prev => prev + 1);
 
           // 1. Show Toast (only if messages are enabled in preferences)
-          if (notifPrefs.messages) {
+          if (notifPrefsRef.current.messages) {
             // Strip HTML tags for clean toast text
             const plainText = payload.notificationContent.replace(/<[^>]*>?/gm, '');
             showInfo(plainText);

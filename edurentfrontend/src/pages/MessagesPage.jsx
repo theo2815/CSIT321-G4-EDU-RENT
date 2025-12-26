@@ -11,8 +11,8 @@ import useChatScroll from '../hooks/useChatScroll';
 import useAuth from '../hooks/useAuth';
 
 // New Feedback Hooks
-import { useToast } from '../context/ToastContext';
-import { useConfirm } from '../context/ConfirmationContext';
+import { useToast } from '../hooks/useToast';
+import { useConfirm } from '../hooks/useConfirm';
 
 // UI Components
 import Header from '../components/Header';
@@ -271,7 +271,7 @@ export default function MessagesPage() {
     try { 
       if (isCurrentlyLiked) await unlikeListing(listingId); 
       else await likeListing(listingId); 
-    } catch (err) {
+    } catch {
       // Revert if failed
       setLikedListingIds(prevIds => {
           const revertedIds = new Set(prevIds);
@@ -416,7 +416,6 @@ export default function MessagesPage() {
 
       // 2. Fetch User Conversations based on CURRENT Active Filter
       // We only fetch for the active tab initially. Others load when clicked.
-      const currentTabState = conversationsMap[activeFilter];
       
       // If we already have data for this tab, maybe we don't need to fetch? 
       // But typically on full page reload/init, we should fetch page 0.
@@ -595,7 +594,8 @@ export default function MessagesPage() {
                 userId: otherUserObj.userId || otherUserObj.id || 0, 
                 fullName: otherUserObj.fullName || otherUserObj.name || 'Unknown User', 
                 profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null,
-                school: otherUserObj.schoolName || 'N/A'
+                school: otherUserObj.schoolName || 'N/A',
+                profileSlug: otherUserObj.profileSlug 
             };
             
             let productImageUrl = null;
@@ -611,7 +611,8 @@ export default function MessagesPage() {
                     id: otherUser.userId,
                     name: otherUser.fullName,
                     avatar: otherUser.profilePictureUrl,
-                    school: otherUser.school
+                    school: otherUser.school,
+                    profileSlug: otherUser.profileSlug
                 },
                 product: conv.listing ? {
                     ...conv.listing, 

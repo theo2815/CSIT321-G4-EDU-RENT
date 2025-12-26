@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-
-const ThemeContext = createContext({ theme: 'light', setTheme: () => {} });
+import React, { useEffect, useMemo, useState } from 'react';
+import { ThemeContext } from './ContextDefinitions';
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
@@ -14,15 +13,13 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     try {
       localStorage.setItem('theme', theme);
-    } catch {}
+    } catch {
+      // Ignore
+    }
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
   }, [theme]);
 
   const value = useMemo(() => ({ theme, setTheme }), [theme]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
-}
-
-export function useTheme() {
-  return useContext(ThemeContext);
 }

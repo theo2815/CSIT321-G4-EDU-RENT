@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useAuthModal } from '../context/AuthModalContext';
+import { useAuthModal } from '../hooks/useAuthModal';
 
 const defaultPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3e%3crect width='200' height='200' fill='%23f0f0f0'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' fill='%23aaaaaa'%3eNo Image%3c/text%3e%3c/svg%3e";
 

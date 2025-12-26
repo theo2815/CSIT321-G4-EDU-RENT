@@ -16,8 +16,8 @@ import {
 } from '../services/apiService';
 
 // Bring in our new feedback hooks
-import { useToast } from '../context/ToastContext';
-import { useConfirm } from '../context/ConfirmationContext';
+import { useToast } from '../hooks/useToast';
+import { useConfirm } from '../hooks/useConfirm';
 
 import '../static/ListItemPage.css';
 import '../static/SettingsPage.css';

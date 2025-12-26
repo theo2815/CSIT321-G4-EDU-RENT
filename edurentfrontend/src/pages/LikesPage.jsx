@@ -1,5 +1,5 @@
 import React from 'react'; 
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 // Import custom hooks for state management
 import useAuth from '../hooks/useAuth';
@@ -37,7 +37,7 @@ export default function LikesPage() {
   const likesHook = useLikes(); 
   const { 
     likedListings, 
-    likedListingIds,
+
     likingInProgress,
     isLoadingLikes,
     likeError,

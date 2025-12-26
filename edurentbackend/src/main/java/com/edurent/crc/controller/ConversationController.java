@@ -116,6 +116,7 @@ public class ConversationController {
                             entity.getListing().getUser().getUserId(),
                             entity.getListing().getUser().getFullName(),
                             entity.getListing().getUser().getProfilePictureUrl());
+                    ownerDto.setProfileSlug(entity.getListing().getUser().getProfileSlug());
                     listingDto.setOwner(ownerDto);
                 }
                 dto.setListing(listingDto);
@@ -142,6 +143,7 @@ public class ConversationController {
                 UserDTO u = new UserDTO(p.getUser().getUserId(), p.getUser().getFullName(),
                         p.getUser().getProfilePictureUrl());
                 u.setSchoolName(p.getUser().getSchool() != null ? p.getUser().getSchool().getName() : "N/A");
+                u.setProfileSlug(p.getUser().getProfileSlug());
                 return u;
             }).collect(Collectors.toList());
 

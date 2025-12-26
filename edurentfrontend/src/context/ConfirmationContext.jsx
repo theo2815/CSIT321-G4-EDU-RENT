@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { useState } from 'react';
 import '../static/Feedback.css';
-
-const ConfirmationContext = createContext();
+import { ConfirmationContext } from './ContextDefinitions';
 
 export const ConfirmationProvider = ({ children }) => {
   const [modalConfig, setModalConfig] = useState(null);
@@ -62,5 +61,3 @@ export const ConfirmationProvider = ({ children }) => {
     </ConfirmationContext.Provider>
   );
 };
-
-export const useConfirm = () => useContext(ConfirmationContext);

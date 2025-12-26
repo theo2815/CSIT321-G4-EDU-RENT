@@ -47,7 +47,7 @@ export default function UserRatingDisplay({ userId, align = 'left', initialData 
 
     fetchStats();
     return () => { isMounted = false; };
-  }, [userId, initialData]);
+  }, [userId, initialData, stats.count, stats.loading]);
 
 
   if (stats.loading) {

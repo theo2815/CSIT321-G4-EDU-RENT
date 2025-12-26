@@ -1,8 +1,7 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '../services/apiService';
-
-export const AuthContext = createContext();
+import { AuthContext } from './ContextDefinitions';
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
@@ -20,7 +19,7 @@ export const AuthProvider = ({ children }) => {
 
   // Loading should be true initially to show skeleton during auth check
   const [isLoadingAuth, setIsLoadingAuth] = useState(!!userData);
-  const [authError, setAuthError] = useState(null);
+  // const [authError, setAuthError] = useState(null); // Unused
 
   const logout = useCallback(() => {
     localStorage.removeItem('eduRentUserData');
@@ -63,15 +62,16 @@ export const AuthProvider = ({ children }) => {
     return () => clearTimeout(timer);
   }, [fetchUser]);
 
+  const contextValue = useMemo(() => ({
+    userData, 
+    userName: userData?.fullName?.split(' ')[0] || '',
+    isLoadingAuth, 
+    logout, 
+    retryAuth: fetchUser 
+  }), [userData, isLoadingAuth, logout, fetchUser]);
+
   return (
-    <AuthContext.Provider value={{ 
-      userData, 
-      userName: userData?.fullName?.split(' ')[0] || '',
-      isLoadingAuth, 
-      authError, 
-      logout, 
-      retryAuth: fetchUser 
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

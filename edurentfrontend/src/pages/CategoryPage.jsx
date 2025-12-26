@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'; 
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 
 // Import our custom hooks
 import useAuth from '../hooks/useAuth';
@@ -15,7 +15,7 @@ import PaginationControls from '../components/PaginationControls';
 import LoadMoreButton from '../components/LoadMoreButton';
 
 // Import API functions needed for this specific page
-import { getCategories, getCategoryById, getCategoryBySlug, getListingsByCategoryId } from '../services/apiService';
+import { getCategoryById, getCategoryBySlug, getListingsByCategoryId } from '../services/apiService';
 
 // Import styles
 import '../static/CategoryPage.css';
@@ -33,14 +33,13 @@ const Icons = {
 
 export default function CategoryPage() {
   const { slug } = useParams(); 
-  const navigate = useNavigate();
   const location = useLocation();
 
   // Get the current user's session data
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
 
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+
   const [hasMore, setHasMore] = useState(true);
   const [totalElements, setTotalElements] = useState(0);
   
@@ -150,7 +149,7 @@ export default function CategoryPage() {
         const data = listingsResponse.data;
         if (data.content) {
             setCategoryListings(data.content);
-            setTotalPages(data.totalPages);
+
             setCurrentPage(data.number);
             setHasMore(data.number < data.totalPages - 1);
             setTotalElements(data.totalElements || 0);

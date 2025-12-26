@@ -2,10 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import {
-  markNotificationAsRead,
-  deleteNotification,
-  markAllNotificationsAsRead,
-  markNotificationAsUnread 
 } from '../services/apiService'; 
 
 // Import CSS
@@ -46,7 +42,7 @@ export default function NotificationsPopup({
   isVisible, 
   onClose, 
   notifications, 
-  onRefresh,
+
   currentFilter, 
   onFilterChange,
   onNotificationClick,

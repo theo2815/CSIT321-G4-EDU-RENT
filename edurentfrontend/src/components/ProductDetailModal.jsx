@@ -8,11 +8,11 @@ import UserRatingDisplay from './UserRatingDisplay';
 import LoadingOverlay from './LoadingOverlay';
 import LoadingDots from './LoadingDots';
 
-import { useAuthModal } from '../context/AuthModalContext';
+import { useAuthModal } from '../hooks/useAuthModal';
 
 // New Feedback Hooks
-import { useToast } from '../context/ToastContext';
-import { useConfirm } from '../context/ConfirmationContext';
+import { useToast } from '../hooks/useToast';
+import { useConfirm } from '../hooks/useConfirm';
 
 import '../static/ProductDetailModal.css';
 import '../static/ProfilePage.css';
@@ -237,7 +237,7 @@ export default function ProductDetailModal({
         })
         .finally(() => setIsFetchingTransaction(false));
     }
-  }, [currentListing.listingId, currentListing.status]); // Removed activeTransaction and isFetchingTransaction to prevent re-triggers
+  }, [currentListing.listingId, currentListing.status, activeTransaction, isFetchingTransaction]);
 
   // Helper to format dates using local time to avoid shifts
   const formatRentalDate = (dateString) => {

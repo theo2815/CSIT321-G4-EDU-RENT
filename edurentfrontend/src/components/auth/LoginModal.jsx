@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser } from "../../services/apiService";
 import useAuth from '../../hooks/useAuth';
-import { useAuthModal } from '../../context/AuthModalContext'; // Using the modal context to handle redirects
+import { useAuthModal } from '../../hooks/useAuthModal'; // Using the modal context to handle redirects
 import '../../static/Auth.css';
 import '../../static/ProductDetailModal.css';
 

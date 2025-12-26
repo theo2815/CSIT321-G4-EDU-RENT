@@ -9,7 +9,7 @@ import useLikes from '../hooks/useLikes';
 import usePageLogic from '../hooks/usePageLogic';
 
 // New Feedback Hook
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 
 // Components
 import Header from '../components/Header';
@@ -27,7 +27,7 @@ import {
 
 // Styles
 import '../static/SettingsPage.css';
-import { useTheme } from '../context/ThemeContext.jsx';
+import { useTheme } from '../hooks/useTheme';
 
 // A loading skeleton to keep the UI stable while fetching user data
 function SettingsSkeleton() {
@@ -298,7 +298,7 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onCancel, on
 }
 
 // Allows the user to change their password
-function ChangePasswordForm({ userEmail }) {
+function ChangePasswordForm() {
   const { showSuccess, showError } = useToast();
   const [passwords, setPasswords] = useState({
     currentPassword: '',

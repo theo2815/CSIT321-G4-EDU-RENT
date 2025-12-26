@@ -6,7 +6,7 @@ import useAuth from '../hooks/useAuth';
 import useSearch from '../hooks/useSearch';
 import usePageLogic from '../hooks/usePageLogic';
 import useLikes from '../hooks/useLikes';
-import { useAuthModal } from '../context/AuthModalContext';
+import { useAuthModal } from '../hooks/useAuthModal';
 
 // Import UI components
 import Header from '../components/Header';
@@ -46,7 +46,7 @@ export default function ForRentPage() {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+
   const [totalElements, setTotalElements] = useState(0);
 
   // Likes and Page Logic
@@ -97,7 +97,6 @@ export default function ForRentPage() {
           if (data.content) {
               setListings(prev => page === 0 ? data.content : [...prev, ...data.content]);
               setCurrentPage(data.number);
-              setTotalPages(data.totalPages);
               setHasMore(data.number < data.totalPages - 1);
               setTotalElements(data.totalElements || 0);
           } else {

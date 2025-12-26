@@ -7,7 +7,7 @@ import usePageLogic from '../hooks/usePageLogic';
 import usePageData from '../hooks/usePageData';     
 import useSearch from '../hooks/useSearch';       
 import useLikes from '../hooks/useLikes';
-import { useAuthModal } from '../context/AuthModalContext';
+import { useAuthModal } from '../hooks/useAuthModal';
 import LoadMoreButton from '../components/LoadMoreButton';
 
 // Import UI components

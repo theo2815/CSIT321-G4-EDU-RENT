@@ -5,7 +5,7 @@ import LoadingOverlay from './LoadingOverlay';
 import '../static/ProductDetailModal.css';
 
 // New Feedback Hook
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 
 // Helper function to resolve image paths (handles both relative paths from DB and absolute URLs)
 const getImageUrl = (path) => {

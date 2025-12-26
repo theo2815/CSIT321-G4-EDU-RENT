@@ -1,13 +1,12 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react'; // Import useMemo
+import React, { useState, useCallback, useMemo } from 'react'; // Import useMemo
 import '../static/Feedback.css';
-
-const ToastContext = createContext();
+import { ToastContext } from './ContextDefinitions';
 
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((message, type = 'info') => {
-    const id = Date.now();
+    const id = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
     
     setToasts(prev => {
       // Prevent duplicate toasts: if exact same message & type exists, don't add
@@ -53,5 +52,3 @@ export const ToastProvider = ({ children }) => {
     </ToastContext.Provider>
   );
 };
-
-export const useToast = () => useContext(ToastContext);

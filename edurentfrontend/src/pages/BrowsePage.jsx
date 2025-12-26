@@ -6,7 +6,7 @@ import useAuth from '../hooks/useAuth';
 import useSearch from '../hooks/useSearch';
 import usePageLogic from '../hooks/usePageLogic';
 import useLikes from '../hooks/useLikes';
-import { useAuthModal } from '../context/AuthModalContext';
+import { useAuthModal } from '../hooks/useAuthModal';
 
 // Import UI components
 import Header from '../components/Header';

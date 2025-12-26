@@ -25,6 +25,7 @@ export default function EnterOtpModal({ isOpen, onClose, email, onSwitchToReset,
             setMessage({ type: 'error', content: 'Failed to resend code.' });
         }
     } catch (error) {
+        console.error('Resend OTP error:', error);
         setMessage({ type: 'error', content: 'Network error.' });
     } finally {
         setLoading(false);
