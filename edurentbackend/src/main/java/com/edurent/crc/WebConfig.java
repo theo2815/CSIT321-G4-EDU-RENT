@@ -1,5 +1,7 @@
 package com.edurent.crc;
 
+import org.springframework.lang.NonNull;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -14,7 +16,7 @@ public class WebConfig implements WebMvcConfigurer {
     private final String uploadDir = "uploads/listing-images/";
 
     @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
         Path uploadPath = Paths.get(uploadDir).toAbsolutePath();
         String uploadPathString = uploadPath.toString();
 
@@ -23,6 +25,5 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/uploads/listing-images/**")
                 .addResourceLocations("file:" + uploadPathString + "/");
 
-        
     }
 }

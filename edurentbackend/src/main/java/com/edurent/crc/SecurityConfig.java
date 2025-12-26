@@ -39,7 +39,6 @@ public class SecurityConfig {
     @Autowired
     private UserRepository userRepository;
 
-    @SuppressWarnings("removal")
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http

@@ -1,5 +1,8 @@
 package com.edurent.crc.service;
 
+import org.springframework.lang.NonNull;
+import java.util.Objects;
+
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -42,7 +45,7 @@ public class UserService {
     // --- Auth Methods ---
     public AuthResponse registerUser(RegisterRequest request) {
         // 1. Find the school
-        SchoolEntity school = schoolRepository.findById(request.getSchoolId())
+        SchoolEntity school = schoolRepository.findById(Objects.requireNonNull(request.getSchoolId()))
                 .orElseThrow(() -> new IllegalStateException("School not found with id: " + request.getSchoolId()));
 
         // 2. Validate email domain
@@ -121,7 +124,7 @@ public class UserService {
         return userRepository.findAll();
     }
 
-    public Optional<UserEntity> getUserById(Long id) {
+    public Optional<UserEntity> getUserById(@NonNull Long id) {
         return userRepository.findByIdWithSchool(id);
     }
 
@@ -133,12 +136,12 @@ public class UserService {
         return userRepository.findByUsernameWithSchool(username);
     }
 
-    public void deleteUser(Long id) {
+    public void deleteUser(@NonNull Long id) {
         userRepository.deleteById(id);
     }
 
     // Update Current User Profile
-    public UserEntity updateCurrentUser(UserEntity currentUser, UpdateUserRequest req) {
+    public UserEntity updateCurrentUser(@NonNull UserEntity currentUser, UpdateUserRequest req) {
         if (req.getFullName() != null)
             currentUser.setFullName(req.getFullName());
         if (req.getAddress() != null)
@@ -171,7 +174,7 @@ public class UserService {
     }
 
     // Change password for current user
-    public void changePassword(UserEntity currentUser, String currentPassword, String newPassword) {
+    public void changePassword(@NonNull UserEntity currentUser, String currentPassword, String newPassword) {
         // verify current password
         if (!passwordEncoder.matches(currentPassword, currentUser.getPasswordHash())) {
             throw new IllegalArgumentException("Current password is incorrect.");
@@ -188,7 +191,7 @@ public class UserService {
     @Autowired
     private CloudinaryService cloudinaryService;
 
-    public String uploadProfilePicture(UserEntity user, MultipartFile file) throws IOException {
+    public String uploadProfilePicture(@NonNull UserEntity user, MultipartFile file) throws IOException {
         // Only upload the image and return the URL.
         // Do NOT save the user or delete the old image yet. This allows "Cancel" on
         // frontend.

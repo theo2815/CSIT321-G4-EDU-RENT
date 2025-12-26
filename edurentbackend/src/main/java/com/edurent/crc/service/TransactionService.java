@@ -1,7 +1,9 @@
 package com.edurent.crc.service;
 
+import org.springframework.lang.NonNull;
+
 import java.util.Date;
-import java.util.List; 
+import java.util.List;
 import java.util.Optional;
 import java.time.LocalDateTime;
 
@@ -37,26 +39,27 @@ public class TransactionService {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
-    public List<TransactionEntity> getAllTransactions() { 
+    public List<TransactionEntity> getAllTransactions() {
         return transactionRepository.findAll();
     }
 
-    public Optional<TransactionEntity> getTransactionById(Long id) {
+    public Optional<TransactionEntity> getTransactionById(@NonNull Long id) {
         return transactionRepository.findById(id);
     }
-    
-    public List<TransactionEntity> getTransactionsByBuyerId(Long buyerId) { 
+
+    public List<TransactionEntity> getTransactionsByBuyerId(@NonNull Long buyerId) {
         return transactionRepository.findByBuyerId(buyerId);
     }
 
-    @Transactional 
-    public TransactionEntity createTransaction(TransactionEntity transaction, Long listingId, Long buyerId) { 
-        ListingEntity listing = listingRepository.findById(listingId) 
+    @Transactional
+    public TransactionEntity createTransaction(TransactionEntity transaction, @NonNull Long listingId,
+            @NonNull Long buyerId) {
+        ListingEntity listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new RuntimeException("Listing not found"));
-        
-        UserEntity buyer = userRepository.findById(buyerId) 
+
+        UserEntity buyer = userRepository.findById(buyerId)
                 .orElseThrow(() -> new RuntimeException("Buyer not found"));
-        
+
         UserEntity seller = listing.getUser();
 
         if (buyer.getUserId().equals(seller.getUserId())) {
@@ -69,7 +72,7 @@ public class TransactionService {
         transaction.setListing(listing);
         transaction.setBuyer(buyer);
         transaction.setSeller(seller);
-        
+
         TransactionEntity savedTransaction = transactionRepository.save(transaction);
 
         // Send Notification based on type
@@ -86,15 +89,17 @@ public class TransactionService {
 
     // --- RENTAL NOTIFICATIONS ---
 
-    private void sendRentNotificationToRenter(TransactionEntity transaction, ListingEntity listing, UserEntity buyer, UserEntity seller) {
+    private void sendRentNotificationToRenter(TransactionEntity transaction, ListingEntity listing, UserEntity buyer,
+            UserEntity seller) {
         try {
             NotificationEntity notification = new NotificationEntity();
             notification.setUser(buyer);
             notification.setType("RENTAL_STARTED_RENTER");
             notification.setLinkUrl("/listing/" + listing.getListingId()); // Opens Product Modal
 
-            String content = String.format("<strong>%s</strong> rented this item to you. Don't forget to leave a review!", 
-                                         seller.getFullName());
+            String content = String.format(
+                    "<strong>%s</strong> rented this item to you. Don't forget to leave a review!",
+                    seller.getFullName());
             notification.setContent(content);
             notification.setCreatedAt(LocalDateTime.now());
             notification.setIsRead(false);
@@ -106,16 +111,18 @@ public class TransactionService {
         }
     }
 
-    private void sendRentNotificationToOwner(TransactionEntity transaction, ListingEntity listing, UserEntity buyer, UserEntity seller) {
+    private void sendRentNotificationToOwner(TransactionEntity transaction, ListingEntity listing, UserEntity buyer,
+            UserEntity seller) {
         try {
             NotificationEntity notification = new NotificationEntity();
             notification.setUser(seller);
             notification.setType("RENTAL_STARTED_OWNER");
             // Includes ?review=true to trigger the Review Modal flow we built earlier
-            notification.setLinkUrl("/listing/" + listing.getListingId() + "?review=true"); 
+            notification.setLinkUrl("/listing/" + listing.getListingId() + "?review=true");
 
-            String content = String.format("You recently rented this item to <strong>%s</strong>. Don't forget to leave a review!", 
-                                         buyer.getFullName());
+            String content = String.format(
+                    "You recently rented this item to <strong>%s</strong>. Don't forget to leave a review!",
+                    buyer.getFullName());
             notification.setContent(content);
             notification.setCreatedAt(LocalDateTime.now());
             notification.setIsRead(false);
@@ -127,16 +134,18 @@ public class TransactionService {
         }
     }
 
-    private void sendSellerNotification(TransactionEntity transaction, ListingEntity listing, UserEntity buyer, UserEntity seller) {
+    private void sendSellerNotification(TransactionEntity transaction, ListingEntity listing, UserEntity buyer,
+            UserEntity seller) {
         try {
             NotificationEntity notification = new NotificationEntity();
             notification.setUser(seller); // Notify the Seller
             notification.setType("TRANSACTION_COMPLETED_SELLER");
             // Append query param to trigger review mode
-            notification.setLinkUrl("/listing/" + listing.getListingId() + "?review=true"); 
+            notification.setLinkUrl("/listing/" + listing.getListingId() + "?review=true");
 
-            String content = String.format("You recently sold <strong>%s</strong> to <strong>%s</strong>. Don't forget to leave a review!", 
-                                         listing.getTitle(), buyer.getFullName());
+            String content = String.format(
+                    "You recently sold <strong>%s</strong> to <strong>%s</strong>. Don't forget to leave a review!",
+                    listing.getTitle(), buyer.getFullName());
             notification.setContent(content);
             notification.setCreatedAt(LocalDateTime.now());
             notification.setIsRead(false);
@@ -148,15 +157,17 @@ public class TransactionService {
         }
     }
 
-    private void sendSaleNotification(TransactionEntity transaction, ListingEntity listing, UserEntity buyer, UserEntity seller) {
+    private void sendSaleNotification(TransactionEntity transaction, ListingEntity listing, UserEntity buyer,
+            UserEntity seller) {
         try {
             NotificationEntity notification = new NotificationEntity();
             notification.setUser(buyer); // Notify the Buyer
             notification.setType("TRANSACTION_COMPLETED");
             notification.setLinkUrl("/listing/" + listing.getListingId()); // Link triggers the Modal
 
-            String content = String.format("<strong>%s</strong> sold <strong>%s</strong> to you. Don't forget to leave a review!", 
-                                         seller.getFullName(), listing.getTitle());
+            String content = String.format(
+                    "<strong>%s</strong> sold <strong>%s</strong> to you. Don't forget to leave a review!",
+                    seller.getFullName(), listing.getTitle());
             notification.setContent(content);
             notification.setCreatedAt(LocalDateTime.now());
             notification.setIsRead(false);
@@ -169,7 +180,7 @@ public class TransactionService {
     }
 
     // --- NEW: Update Rental Dates ---
-    public TransactionEntity updateRentalDates(Long transactionId, Date startDate, Date endDate) {
+    public TransactionEntity updateRentalDates(@NonNull Long transactionId, Date startDate, Date endDate) {
         TransactionEntity transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction not found: " + transactionId));
 
@@ -181,7 +192,7 @@ public class TransactionService {
 
     // --- NEW: Mark Rental as Returned (Available) ---
     @org.springframework.transaction.annotation.Transactional
-    public void completeRental(Long transactionId) {
+    public void completeRental(@NonNull Long transactionId) {
         TransactionEntity transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction not found: " + transactionId));
 
@@ -193,15 +204,14 @@ public class TransactionService {
 
         // 2. Mark transaction as Completed
         transaction.setStatus("Completed");
-        // We set end date to "now" to reflect early return? 
-        transaction.setEndDate(new Date()); 
+        // We set end date to "now" to reflect early return?
+        transaction.setEndDate(new Date());
         transactionRepository.save(transaction);
 
-    } 
+    }
 
     // --- NEW: Helper to find active transaction by listing ---
     public Optional<TransactionEntity> getActiveTransactionByListing(Long listingId) {
         return transactionRepository.findLatestByListingId(listingId);
     }
 }
-

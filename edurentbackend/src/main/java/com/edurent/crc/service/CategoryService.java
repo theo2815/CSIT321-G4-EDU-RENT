@@ -1,5 +1,7 @@
 package com.edurent.crc.service;
 
+import org.springframework.lang.NonNull;
+
 import com.edurent.crc.entity.CategoryEntity;
 import com.edurent.crc.repository.CategoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +19,7 @@ public class CategoryService {
         return categoryRepository.findAll();
     }
 
-    public Optional<CategoryEntity> getCategoryById(Long id) {
+    public Optional<CategoryEntity> getCategoryById(@NonNull Long id) {
         return categoryRepository.findById(id);
     }
 
@@ -39,7 +41,7 @@ public class CategoryService {
         return categoryRepository.save(category);
     }
 
-    public void deleteCategory(Long id) {
+    public void deleteCategory(@NonNull Long id) {
         categoryRepository.deleteById(id);
     }
 }

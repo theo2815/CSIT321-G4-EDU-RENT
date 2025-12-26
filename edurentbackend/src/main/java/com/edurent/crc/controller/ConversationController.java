@@ -1,5 +1,8 @@
 package com.edurent.crc.controller;
 
+import org.springframework.lang.NonNull;
+import java.util.Objects;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +60,7 @@ public class ConversationController {
     // --- 1. Get User's Conversations (DTO) - Optimized with batch queries ---
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<ConversationDTO>> getConversationsForUser(
-            @PathVariable Long userId,
+            @PathVariable @NonNull Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size,
             @RequestParam(defaultValue = "All") String filter) {
@@ -153,9 +156,9 @@ public class ConversationController {
     // --- 2. Start Conversation ---
     @PostMapping
     public ResponseEntity<ConversationEntity> startConversation(
-            @RequestParam Long listingId,
-            @RequestParam Long starterId,
-            @RequestParam Long receiverId) {
+            @RequestParam @NonNull Long listingId,
+            @RequestParam @NonNull Long starterId,
+            @RequestParam @NonNull Long receiverId) {
         try {
             ConversationEntity newConversation = conversationService.startConversation(listingId, starterId,
                     receiverId);
@@ -168,7 +171,7 @@ public class ConversationController {
     // --- 3. Updated: Get Messages (With Pagination) ---
     @GetMapping("/{conversationId}/messages")
     public ResponseEntity<List<MessageEntity>> getMessages(
-            @PathVariable Long conversationId,
+            @PathVariable @NonNull Long conversationId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication // Inject Authentication
@@ -176,20 +179,21 @@ public class ConversationController {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         // Pass userId to service
         List<MessageEntity> messages = messageService.getMessagesForConversation(conversationId,
-                currentUser.getUserId(), page, size);
+                Objects.requireNonNull(currentUser.getUserId()), page, size);
         return ResponseEntity.ok(messages);
     }
 
     // --- 4. NEW: Send Message ---
     @PostMapping("/{conversationId}/messages")
     public ResponseEntity<MessageEntity> sendMessage(
-            @PathVariable Long conversationId,
+            @PathVariable @NonNull Long conversationId,
             @RequestBody MessageEntity message,
             Authentication authentication) {
 
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
-            MessageEntity sentMessage = messageService.sendMessage(message, conversationId, currentUser.getUserId());
+            MessageEntity sentMessage = messageService.sendMessage(message, conversationId,
+                    Objects.requireNonNull(currentUser.getUserId()));
             return new ResponseEntity<>(sentMessage, HttpStatus.CREATED);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -199,11 +203,12 @@ public class ConversationController {
     // --- 5. Soft Delete Endpoint ---
     @DeleteMapping("/{conversationId}")
     public ResponseEntity<Void> deleteConversation(
-            @PathVariable Long conversationId,
+            @PathVariable @NonNull Long conversationId,
             Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
-            conversationService.deleteConversationForUser(conversationId, currentUser.getUserId());
+            conversationService.deleteConversationForUser(conversationId,
+                    Objects.requireNonNull(currentUser.getUserId()));
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
@@ -213,7 +218,7 @@ public class ConversationController {
     // --- 6. Archive Endpoint ---
     @PutMapping("/{conversationId}/archive")
     public ResponseEntity<Void> archiveConversation(
-            @PathVariable Long conversationId,
+            @PathVariable @NonNull Long conversationId,
             Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
@@ -227,11 +232,11 @@ public class ConversationController {
     // --- NEW 7. Mark as Read Endpoint ---
     @PutMapping("/{conversationId}/read")
     public ResponseEntity<Void> markConversationAsRead(
-            @PathVariable Long conversationId,
+            @PathVariable @NonNull Long conversationId,
             Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
-            messageService.markConversationAsRead(conversationId, currentUser.getUserId());
+            messageService.markConversationAsRead(conversationId, Objects.requireNonNull(currentUser.getUserId()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -241,11 +246,11 @@ public class ConversationController {
     // --- 8. NEW: Mark as Unread Endpoint ---
     @PutMapping("/{conversationId}/unread")
     public ResponseEntity<Void> markConversationAsUnread(
-            @PathVariable Long conversationId,
+            @PathVariable @NonNull Long conversationId,
             Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
-            messageService.markConversationAsUnread(conversationId, currentUser.getUserId());
+            messageService.markConversationAsUnread(conversationId, Objects.requireNonNull(currentUser.getUserId()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -255,7 +260,7 @@ public class ConversationController {
     // --- 9. NEW: Endpoint to upload an image for a conversation
     @PostMapping("/{conversationId}/messages/upload-image")
     public ResponseEntity<Map<String, String>> uploadMessageImage(
-            @PathVariable Long conversationId,
+            @PathVariable @NonNull Long conversationId,
             @RequestParam("image") MultipartFile image,
             Authentication authentication) {
         try {

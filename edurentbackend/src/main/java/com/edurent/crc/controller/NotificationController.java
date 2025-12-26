@@ -1,5 +1,8 @@
 package com.edurent.crc.controller;
 
+import org.springframework.lang.NonNull;
+import java.util.Objects;
+
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +38,7 @@ public class NotificationController {
             Authentication authentication, // Get user from token
             @RequestParam(required = false) Boolean unread) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-        Long userId = currentUser.getUserId();
+        Long userId = Objects.requireNonNull(currentUser.getUserId());
 
         List<NotificationEntity> notifications;
         if (Boolean.TRUE.equals(unread)) {
@@ -56,13 +59,13 @@ public class NotificationController {
     // --- UPDATED: Securely mark one as read ---
     @PutMapping("/{notificationId}/read")
     public ResponseEntity<NotificationEntity> markAsRead(
-            @PathVariable Long notificationId,
+            @PathVariable @NonNull Long notificationId,
             Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
             // Pass user ID to the service for ownership check
             NotificationEntity updatedNotification = notificationService.markAsRead(notificationId,
-                    currentUser.getUserId());
+                    Objects.requireNonNull(currentUser.getUserId()));
             return ResponseEntity.ok(updatedNotification);
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -76,7 +79,7 @@ public class NotificationController {
     public ResponseEntity<Void> markAllAsRead(Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
-            notificationService.markAllAsRead(currentUser.getUserId());
+            notificationService.markAllAsRead(Objects.requireNonNull(currentUser.getUserId()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -87,12 +90,12 @@ public class NotificationController {
     // --- NEW ENDPOINT: Delete Notification ---
     @DeleteMapping("/{notificationId}")
     public ResponseEntity<Void> deleteNotification(
-            @PathVariable Long notificationId,
+            @PathVariable @NonNull Long notificationId,
             Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
             // Pass user ID for ownership check
-            notificationService.deleteNotification(notificationId, currentUser.getUserId());
+            notificationService.deleteNotification(notificationId, Objects.requireNonNull(currentUser.getUserId()));
             return ResponseEntity.noContent().build(); // 204
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -105,13 +108,13 @@ public class NotificationController {
     // --- NEW ENDPOINT: Mark as Unread ---
     @PutMapping("/{notificationId}/unread")
     public ResponseEntity<NotificationEntity> markAsUnread(
-            @PathVariable Long notificationId,
+            @PathVariable @NonNull Long notificationId,
             Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
             // Pass user ID to the service for ownership check
             NotificationEntity updatedNotification = notificationService.markAsUnread(notificationId,
-                    currentUser.getUserId());
+                    Objects.requireNonNull(currentUser.getUserId()));
             return ResponseEntity.ok(updatedNotification);
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();

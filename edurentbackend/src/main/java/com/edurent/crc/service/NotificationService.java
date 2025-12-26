@@ -1,8 +1,11 @@
 package com.edurent.crc.service;
 
-import java.util.List; 
+import org.springframework.lang.NonNull;
+import java.util.Objects;
 
-import org.springframework.beans.factory.annotation.Autowired; 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,32 +20,32 @@ public class NotificationService {
 
     @Autowired
     private NotificationRepository notificationRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
 
     // Get Notifications for User
-    public List<NotificationEntity> getNotificationsForUser(Long userId) { 
+    public List<NotificationEntity> getNotificationsForUser(@NonNull Long userId) {
         return notificationRepository.findByUserId(userId);
     }
-    
+
     // Get Unread Notifications for User
-    public List<NotificationEntity> getUnreadNotificationsForUser(Long userId) { 
+    public List<NotificationEntity> getUnreadNotificationsForUser(@NonNull Long userId) {
         return notificationRepository.findByUserIdAndIsRead(userId, false);
     }
 
     // Create Notification
-    public NotificationEntity createNotification(NotificationEntity notification, Long userId) { 
-        UserEntity user = userRepository.findById(userId) 
+    public NotificationEntity createNotification(NotificationEntity notification, @NonNull Long userId) {
+        UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
-        
+
         notification.setUser(user);
         return notificationRepository.save(notification);
     }
 
     // Mark as Read without Ownership Check
-    public NotificationEntity markAsRead(Long notificationId) { 
-        NotificationEntity notification = notificationRepository.findById(notificationId) 
+    public NotificationEntity markAsRead(@NonNull Long notificationId) {
+        NotificationEntity notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notification not found: " + notificationId));
         notification.setIsRead(true);
         return notificationRepository.save(notification);
@@ -50,38 +53,43 @@ public class NotificationService {
 
     // Mark as Read for User with Ownership Check
     @Transactional
-    public NotificationEntity markAsRead(Long notificationId, Long userId) {
-        NotificationEntity notification = notificationRepository.findByNotificationIdAndUser_UserId(notificationId, userId)
-                .orElseThrow(() -> new AccessDeniedException("Notification not found or user does not have permission."));
-        
+    public NotificationEntity markAsRead(@NonNull Long notificationId, @NonNull Long userId) {
+        NotificationEntity notification = notificationRepository
+                .findByNotificationIdAndUser_UserId(notificationId, userId)
+                .orElseThrow(
+                        () -> new AccessDeniedException("Notification not found or user does not have permission."));
+
         notification.setIsRead(true);
         return notificationRepository.save(notification);
     }
 
     // Mark as Unread
     @Transactional
-    public NotificationEntity markAsUnread(Long notificationId, Long userId) {
-        NotificationEntity notification = notificationRepository.findByNotificationIdAndUser_UserId(notificationId, userId)
-                .orElseThrow(() -> new AccessDeniedException("Notification not found or user does not have permission."));
-        
-        notification.setIsRead(false); 
+    public NotificationEntity markAsUnread(@NonNull Long notificationId, @NonNull Long userId) {
+        NotificationEntity notification = notificationRepository
+                .findByNotificationIdAndUser_UserId(notificationId, userId)
+                .orElseThrow(
+                        () -> new AccessDeniedException("Notification not found or user does not have permission."));
+
+        notification.setIsRead(false);
         return notificationRepository.save(notification);
     }
 
     // Mark All as Read
     @Transactional
-    public void markAllAsRead(Long userId) {
+    public void markAllAsRead(@NonNull Long userId) {
         int updatedCount = notificationRepository.markAllAsReadByUserId(userId);
         System.out.println("Marked " + updatedCount + " notifications as read for user " + userId);
     }
 
     // Delete Notification
     @Transactional
-    public void deleteNotification(Long notificationId, Long userId) {
-        NotificationEntity notification = notificationRepository.findByNotificationIdAndUser_UserId(notificationId, userId)
-                .orElseThrow(() -> new AccessDeniedException("Notification not found or user does not have permission."));
-        
-        notificationRepository.delete(notification);
+    public void deleteNotification(@NonNull Long notificationId, @NonNull Long userId) {
+        NotificationEntity notification = notificationRepository
+                .findByNotificationIdAndUser_UserId(notificationId, userId)
+                .orElseThrow(
+                        () -> new AccessDeniedException("Notification not found or user does not have permission."));
+
+        notificationRepository.delete(Objects.requireNonNull(notification));
     }
 }
-

@@ -1,5 +1,8 @@
 package com.edurent.crc.service;
 
+import org.springframework.lang.NonNull;
+import java.util.Objects;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +43,7 @@ public class ConversationService {
     private MessageRepository messageRepository;
 
     // 1. Get Conversations for User (Optimized with batch queries)
-    public List<ConversationEntity> getConversationsForUser(Long userId, int page, int size, String filter) {
+    public List<ConversationEntity> getConversationsForUser(@NonNull Long userId, int page, int size, String filter) {
         List<ConversationParticipantEntity> participants = participantRepository
                 .findById_UserIdAndIsDeletedFalse(userId);
 
@@ -165,7 +168,8 @@ public class ConversationService {
 
     // 2. Start Conversation
     @Transactional
-    public ConversationEntity startConversation(Long listingId, Long starterId, Long receiverId) {
+    public ConversationEntity startConversation(@NonNull Long listingId, @NonNull Long starterId,
+            @NonNull Long receiverId) {
         // 1. Check if conversation already exists
         Optional<ConversationEntity> existing = conversationRepository.findExistingConversation(listingId, starterId,
                 receiverId);
@@ -210,13 +214,13 @@ public class ConversationService {
                 savedConversation, receiver);
         participantRepository.save(receiverParticipant);
 
-        return conversationRepository.findById(savedConversation.getConversationId())
+        return conversationRepository.findById(Objects.requireNonNull(savedConversation.getConversationId()))
                 .orElse(savedConversation);
     }
 
     // 3. Delete Conversation for User (Soft Delete)
     @Transactional
-    public void deleteConversationForUser(Long conversationId, Long userId) {
+    public void deleteConversationForUser(@NonNull Long conversationId, @NonNull Long userId) {
         ConversationParticipantIdEntity id = new ConversationParticipantIdEntity(conversationId, userId);
         ConversationParticipantEntity participant = participantRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Participant record not found"));
@@ -244,7 +248,7 @@ public class ConversationService {
         // 3. If everyone deleted it, hard delete from database
         if (allParticipantsDeleted) {
             System.out.println("All participants deleted conversation " + conversationId + ". Performing hard delete.");
-            conversationRepository.delete(conversation);
+            conversationRepository.delete(Objects.requireNonNull(conversation));
         }
     }
 

@@ -1,5 +1,7 @@
 package com.edurent.crc.service;
 
+import org.springframework.lang.NonNull;
+
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -54,7 +56,7 @@ public class ListingService {
     // --- Core Listing Logic ---
 
     @Transactional
-    public ListingEntity createListingWithImages(ListingEntity listing, Long userId, Long categoryId,
+    public ListingEntity createListingWithImages(ListingEntity listing, @NonNull Long userId, @NonNull Long categoryId,
             List<MultipartFile> images) throws IOException {
         // 1. Fetch User and Category
         UserEntity user = userRepository.findById(userId)
@@ -116,8 +118,8 @@ public class ListingService {
     @Transactional
     public ListingEntity updateListing(
             String listingIdentifier,
-            Long currentUserId,
-            Long categoryId,
+            @NonNull Long currentUserId,
+            @NonNull Long categoryId,
             ListingEntity updateData,
             List<Long> imagesToDelete,
             List<MultipartFile> newImages) throws IOException {
@@ -167,6 +169,7 @@ public class ListingService {
         if (newImages != null && !newImages.isEmpty()) {
             boolean needsNewCover = existingListing.getImages().stream().noneMatch(ListingImageEntity::isCoverPhoto);
             final boolean finalNeedsNewCover = needsNewCover; // For lambda access
+            final ListingEntity finalListing = existingListing;
 
             // Create parallel upload tasks
             List<CompletableFuture<ListingImageEntity>> uploadFutures = newImages.stream()
@@ -177,7 +180,7 @@ public class ListingService {
                             String publicUrl = cloudinaryService.uploadImage(imageFile, "listings");
 
                             ListingImageEntity listingImage = new ListingImageEntity();
-                            listingImage.setListing(existingListing);
+                            listingImage.setListing(finalListing);
                             listingImage.setImageUrl(publicUrl);
                             listingImage.setCoverPhoto(false); // We handle this after collecting
 
@@ -223,7 +226,7 @@ public class ListingService {
         return listingRepository.findByStatusIn(PUBLIC_STATUSES, pageable);
     }
 
-    public Optional<ListingEntity> getListingById(Long listingId) {
+    public Optional<ListingEntity> getListingById(@NonNull Long listingId) {
         return listingRepository.findById(listingId);
     }
 
@@ -234,7 +237,7 @@ public class ListingService {
     // Fetches listings for a specific user.
     // If includeInactive is true, returns EVERYTHING (for "Manage Listings").
     // If false, returns only PUBLIC items (for public profile view).
-    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size, boolean includeInactive,
+    public Page<ListingEntity> getListingsByUserId(@NonNull Long userId, int page, int size, boolean includeInactive,
             String statusGroup, String listingType) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
@@ -263,11 +266,11 @@ public class ListingService {
     }
 
     // Kept for backward compatibility if needed, though controller uses the new one
-    public Page<ListingEntity> getListingsByUserId(Long userId, int page, int size, boolean includeInactive) {
+    public Page<ListingEntity> getListingsByUserId(@NonNull Long userId, int page, int size, boolean includeInactive) {
         return getListingsByUserId(userId, page, size, includeInactive, null, null);
     }
 
-    public Page<ListingEntity> getListingsByCategoryId(Long categoryId, int page, int size) {
+    public Page<ListingEntity> getListingsByCategoryId(@NonNull Long categoryId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return listingRepository.findByCategory_CategoryIdAndStatusIn(categoryId, PUBLIC_STATUSES, pageable);
     }
@@ -280,7 +283,7 @@ public class ListingService {
     // --- Listing Management ---
 
     @Transactional
-    public void deleteListing(Long listingId, Long currentUserId) {
+    public void deleteListing(@NonNull Long listingId, @NonNull Long currentUserId) {
         ListingEntity existingListing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
 
@@ -298,7 +301,7 @@ public class ListingService {
     }
 
     @Transactional
-    public void updateListingStatus(Long listingId, String newStatus, Long currentUserId) {
+    public void updateListingStatus(@NonNull Long listingId, String newStatus, @NonNull Long currentUserId) {
         ListingEntity listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
 

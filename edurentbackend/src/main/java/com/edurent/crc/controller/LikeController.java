@@ -1,5 +1,8 @@
 package com.edurent.crc.controller;
 
+import org.springframework.lang.NonNull;
+import java.util.Objects;
+
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,19 +34,19 @@ public class LikeController {
     @GetMapping("/my-likes")
     public ResponseEntity<List<ListingEntity>> getMyLikedListings(Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-        List<ListingEntity> likedListings = likeService.getLikedListings(currentUser.getUserId());
+        List<ListingEntity> likedListings = likeService
+                .getLikedListings(Objects.requireNonNull(currentUser.getUserId()));
         return ResponseEntity.ok(likedListings);
     }
 
     // Like a Listing
     @PostMapping("/{listingId}")
     public ResponseEntity<LikeEntity> likeListing(
-            @PathVariable Long listingId,
-            Authentication authentication
-    ) {
+            @PathVariable @NonNull Long listingId,
+            Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
-            LikeEntity newLike = likeService.likeListing(currentUser.getUserId(), listingId);
+            LikeEntity newLike = likeService.likeListing(Objects.requireNonNull(currentUser.getUserId()), listingId);
             return new ResponseEntity<>(newLike, HttpStatus.CREATED);
         } catch (Exception e) {
             // Handle "already liked"
@@ -51,19 +54,17 @@ public class LikeController {
         }
     }
 
-    //  Unlike a Listing
+    // Unlike a Listing
     @DeleteMapping("/{listingId}")
     public ResponseEntity<Void> unlikeListing(
-            @PathVariable Long listingId,
-            Authentication authentication
-    ) {
+            @PathVariable @NonNull Long listingId,
+            Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
-            likeService.unlikeListing(currentUser.getUserId(), listingId);
+            likeService.unlikeListing(Objects.requireNonNull(currentUser.getUserId()), listingId);
             return ResponseEntity.noContent().build(); // 204 No Content
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 }
-

@@ -1,5 +1,8 @@
 package com.edurent.crc.service;
 
+import org.springframework.lang.NonNull;
+import java.util.Objects;
+
 import com.edurent.crc.entity.PasswordResetTokenEntity;
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.repository.PasswordResetTokenRepository;
@@ -38,9 +41,10 @@ public class PasswordResetService {
      */
     @Transactional
     public void requestPasswordReset(String email) {
-        // Find user by email - if not found, silently return to avoid account enumeration
+        // Find user by email - if not found, silently return to avoid account
+        // enumeration
         UserEntity user = userRepository.findByEmail(email).orElse(null);
-        
+
         if (user == null) {
             // Don't reveal that the email doesn't exist - security best practice
             System.out.println("⚠️ Password reset requested for non-existent email: " + email);
@@ -48,7 +52,7 @@ public class PasswordResetService {
         }
 
         // Invalidate any existing unused tokens for this user
-        invalidateExistingTokens(user.getUserId());
+        invalidateExistingTokens(Objects.requireNonNull(user.getUserId()));
 
         // Generate new token
         String token = UUID.randomUUID().toString();
@@ -56,10 +60,9 @@ public class PasswordResetService {
 
         // Save token to database
         PasswordResetTokenEntity resetToken = new PasswordResetTokenEntity(
-            user.getUserId(),
-            token,
-            expiresAt
-        );
+                user.getUserId(),
+                token,
+                expiresAt);
         tokenRepository.save(resetToken);
 
         // Send email
@@ -70,8 +73,8 @@ public class PasswordResetService {
             System.err.println("❌ Failed to send reset email: " + e.getMessage());
             // Delete the token if email fails
             tokenRepository.delete(resetToken);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
-                "Failed to send reset email. Please try again later.");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to send reset email. Please try again later.");
         }
     }
 
@@ -85,31 +88,31 @@ public class PasswordResetService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token is required");
         }
         if (newPassword == null || newPassword.length() < 6) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
-                "Password must be at least 6 characters long");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Password must be at least 6 characters long");
         }
 
         // Find token
         PasswordResetTokenEntity resetToken = tokenRepository.findByToken(token)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, 
-                "Invalid or expired reset token"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Invalid or expired reset token"));
 
         // Check if token is already used
         if (resetToken.isUsed()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
-                "This reset token has already been used");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "This reset token has already been used");
         }
 
         // Check if token is expired
         if (resetToken.isExpired()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
-                "Reset token has expired. Please request a new one");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Reset token has expired. Please request a new one");
         }
 
         // Find user
-        UserEntity user = userRepository.findById(resetToken.getUserId())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                "User not found"));
+        UserEntity user = userRepository.findById(Objects.requireNonNull(resetToken.getUserId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "User not found"));
 
         // Update password (hash it)
         user.setPasswordHash(passwordEncoder.encode(newPassword));
@@ -120,7 +123,7 @@ public class PasswordResetService {
         tokenRepository.save(resetToken);
 
         // Invalidate any other unused tokens for this user
-        invalidateExistingTokens(user.getUserId());
+        invalidateExistingTokens(Objects.requireNonNull(user.getUserId()));
 
         System.out.println("✅ Password successfully reset for user: " + user.getEmail());
     }
@@ -128,15 +131,15 @@ public class PasswordResetService {
     /**
      * Invalidate all existing unused tokens for a user
      */
-    private void invalidateExistingTokens(Long userId) {
+    private void invalidateExistingTokens(@NonNull Long userId) {
         List<PasswordResetTokenEntity> existingTokens = tokenRepository
-            .findByUserIdAndUsedFalseAndExpiresAtAfter(userId, Instant.now());
-        
+                .findByUserIdAndUsedFalseAndExpiresAtAfter(userId, Instant.now());
+
         for (PasswordResetTokenEntity token : existingTokens) {
             token.setUsed(true);
             tokenRepository.save(token);
         }
-        
+
         if (!existingTokens.isEmpty()) {
             System.out.println("🔒 Invalidated " + existingTokens.size() + " existing tokens for user ID: " + userId);
         }
@@ -147,8 +150,8 @@ public class PasswordResetService {
      */
     public boolean isTokenValid(String token) {
         return tokenRepository.findByToken(token)
-            .map(PasswordResetTokenEntity::isValid)
-            .orElse(false);
+                .map(PasswordResetTokenEntity::isValid)
+                .orElse(false);
     }
 
     /**

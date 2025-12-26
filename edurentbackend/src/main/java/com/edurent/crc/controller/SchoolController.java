@@ -1,5 +1,7 @@
 package com.edurent.crc.controller;
 
+import org.springframework.lang.NonNull;
+
 import com.edurent.crc.entity.SchoolEntity; // Updated
 import com.edurent.crc.service.SchoolService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +24,7 @@ public class SchoolController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SchoolEntity> getSchoolById(@PathVariable Long id) { // Updated
+    public ResponseEntity<SchoolEntity> getSchoolById(@PathVariable @NonNull Long id) { // Updated
         return schoolService.getSchoolById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -46,9 +48,8 @@ public class SchoolController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteSchool(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteSchool(@PathVariable @NonNull Long id) {
         schoolService.deleteSchool(id);
         return ResponseEntity.noContent().build();
     }
 }
-

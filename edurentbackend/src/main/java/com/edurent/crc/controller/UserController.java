@@ -1,5 +1,8 @@
 package com.edurent.crc.controller;
 
+import org.springframework.lang.NonNull;
+import java.util.Objects;
+
 import java.util.List;
 
 import java.io.IOException;
@@ -53,7 +56,7 @@ public class UserController {
 
     // Get User by ID (Public Profile - Returns DTO to hide sensitive info)
     @GetMapping("/{id}")
-    public ResponseEntity<com.edurent.crc.dto.UserDTO> getUserById(@PathVariable Long id) {
+    public ResponseEntity<com.edurent.crc.dto.UserDTO> getUserById(@PathVariable @NonNull Long id) {
         return userService.getUserById(id)
                 .map(user -> {
                     com.edurent.crc.dto.UserDTO dto = new com.edurent.crc.dto.UserDTO(
@@ -101,7 +104,7 @@ public class UserController {
 
     // Delete User by ID (Secured: Users can only delete their own account)
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
+    public ResponseEntity<Void> deleteUser(@PathVariable @NonNull Long id, Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
 
         if (!currentUser.getUserId().equals(id)) {
@@ -118,7 +121,7 @@ public class UserController {
     public ResponseEntity<UserEntity> updateMyProfile(Authentication authentication,
             @RequestBody UpdateUserRequest request) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-        UserEntity updated = userService.updateCurrentUser(currentUser, request);
+        UserEntity updated = userService.updateCurrentUser(Objects.requireNonNull(currentUser), request);
         return ResponseEntity.ok(updated);
     }
 
@@ -126,7 +129,7 @@ public class UserController {
     public ResponseEntity<String> uploadProfileImage(Authentication authentication,
             @RequestParam("file") MultipartFile file) throws IOException {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-        String imageUrl = userService.uploadProfilePicture(currentUser, file);
+        String imageUrl = userService.uploadProfilePicture(Objects.requireNonNull(currentUser), file);
         return ResponseEntity.ok(imageUrl);
     }
 }

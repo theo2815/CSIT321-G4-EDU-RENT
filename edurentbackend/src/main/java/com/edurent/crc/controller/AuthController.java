@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Objects;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,8 +33,6 @@ public class AuthController {
         this.passwordResetService = passwordResetService;
     }
 
-
-
     // Endpoints
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
@@ -44,7 +43,8 @@ public class AuthController {
             // Catches domain mismatches or if user already exists
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new AuthResponse(null, e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new AuthResponse(null, "An unexpected error occurred."));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new AuthResponse(null, "An unexpected error occurred."));
         }
     }
 
@@ -56,18 +56,21 @@ public class AuthController {
             return ResponseEntity.ok(authResponse);
         } catch (Exception e) {
             // Catches bad credentials or other login issues
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthResponse(null, "Invalid email or password."));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(null, "Invalid email or password."));
         }
     }
 
     // Change Password for authenticated user
     @PutMapping("/change-password")
     public ResponseEntity<Map<String, String>> changePassword(@RequestBody ChangePasswordRequest request,
-                                                              org.springframework.security.core.Authentication authentication) {
+            org.springframework.security.core.Authentication authentication) {
         Map<String, String> response = new HashMap<>();
         try {
-            com.edurent.crc.entity.UserEntity currentUser = (com.edurent.crc.entity.UserEntity) authentication.getPrincipal();
-            userService.changePassword(currentUser, request.getCurrentPassword(), request.getNewPassword());
+            com.edurent.crc.entity.UserEntity currentUser = (com.edurent.crc.entity.UserEntity) authentication
+                    .getPrincipal();
+            userService.changePassword(Objects.requireNonNull(currentUser), request.getCurrentPassword(),
+                    request.getNewPassword());
             response.put("message", "Password changed successfully.");
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
@@ -84,10 +87,10 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody ForgotPasswordRequest request) {
         try {
             passwordResetService.requestPasswordReset(request.getEmail());
-            
+
             Map<String, String> response = new HashMap<>();
             response.put("message", "If an account with that email exists, a password reset link has been sent.");
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, String> errorResponse = new HashMap<>();
@@ -101,10 +104,10 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> resetPassword(@RequestBody ResetPasswordRequest request) {
         try {
             passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
-            
+
             Map<String, String> response = new HashMap<>();
             response.put("message", "Password successfully reset. You can now login with your new password.");
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, String> errorResponse = new HashMap<>();
@@ -113,4 +116,3 @@ public class AuthController {
         }
     }
 }
-

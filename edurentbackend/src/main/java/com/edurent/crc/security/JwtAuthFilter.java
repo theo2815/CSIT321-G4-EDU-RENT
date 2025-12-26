@@ -1,5 +1,7 @@
 package com.edurent.crc.security;
 
+import org.springframework.lang.NonNull;
+
 import java.io.IOException;
 
 import org.slf4j.Logger;
@@ -33,7 +35,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     // Main filter method
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
@@ -109,7 +112,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
 
             // If valid, set authentication in context
-            if (isTokenValid) {
+            if (isTokenValid && user != null) {
                 log.info("Proceeding to set Authentication context for user: {}", userEmail);
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         user,

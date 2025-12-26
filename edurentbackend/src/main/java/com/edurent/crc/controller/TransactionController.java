@@ -1,5 +1,7 @@
 package com.edurent.crc.controller;
 
+import org.springframework.lang.NonNull;
+
 import java.util.Date;
 import java.util.List;
 
@@ -32,7 +34,7 @@ public class TransactionController {
     @Autowired
     private RentalSchedulerService rentalSchedulerService;
 
-    //  Test Endpoint
+    // Test Endpoint
     @PostMapping("/test-scheduler")
     public ResponseEntity<String> triggerSchedulerManually() {
         rentalSchedulerService.checkExpiredRentals();
@@ -40,19 +42,19 @@ public class TransactionController {
     }
 
     @GetMapping
-    public List<TransactionEntity> getAllTransactions() { 
+    public List<TransactionEntity> getAllTransactions() {
         return transactionService.getAllTransactions();
     }
-    
+
     @GetMapping("/buyer/{buyerId}")
-    public List<TransactionEntity> getTransactionsByBuyer(@PathVariable Long buyerId) { 
+    public List<TransactionEntity> getTransactionsByBuyer(@PathVariable @NonNull Long buyerId) {
         return transactionService.getTransactionsByBuyerId(buyerId);
     }
 
     @PostMapping
     public ResponseEntity<TransactionEntity> createTransaction(@RequestBody TransactionEntity transaction,
-                                                         @RequestParam Long listingId,
-                                                         @RequestParam Long buyerId) {
+            @RequestParam @NonNull Long listingId,
+            @RequestParam @NonNull Long buyerId) {
         try {
             TransactionEntity newTransaction = transactionService.createTransaction(transaction, listingId, buyerId);
             return new ResponseEntity<>(newTransaction, HttpStatus.CREATED);
@@ -63,7 +65,7 @@ public class TransactionController {
 
     // --- NEW: Get Active Transaction for a Listing ---
     @GetMapping("/listing/{listingId}")
-    public ResponseEntity<TransactionEntity> getTransactionByListing(@PathVariable Long listingId) {
+    public ResponseEntity<TransactionEntity> getTransactionByListing(@PathVariable @NonNull Long listingId) {
         return transactionService.getActiveTransactionByListing(listingId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -72,10 +74,9 @@ public class TransactionController {
     // --- NEW: Edit Rental Dates ---
     @PutMapping("/{transactionId}/dates")
     public ResponseEntity<TransactionEntity> updateRentalDates(
-            @PathVariable Long transactionId,
-            @RequestParam @DateTimeFormat(pattern="yyyy-MM-dd") Date startDate,
-            @RequestParam @DateTimeFormat(pattern="yyyy-MM-dd") Date endDate
-    ) {
+            @PathVariable @NonNull Long transactionId,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate) {
         try {
             TransactionEntity updated = transactionService.updateRentalDates(transactionId, startDate, endDate);
             return ResponseEntity.ok(updated);
@@ -86,7 +87,7 @@ public class TransactionController {
 
     // --- NEW: Mark as Returned (Complete Rental) ---
     @PutMapping("/{transactionId}/return")
-    public ResponseEntity<Void> completeRental(@PathVariable Long transactionId) {
+    public ResponseEntity<Void> completeRental(@PathVariable @NonNull Long transactionId) {
         try {
             transactionService.completeRental(transactionId);
             return ResponseEntity.ok().build();
@@ -95,4 +96,3 @@ public class TransactionController {
         }
     }
 }
-

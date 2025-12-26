@@ -32,7 +32,8 @@ public class CloudinaryService {
                 "resource_type", "auto" // Auto detect image/video
         );
 
-        Map uploadResult = cloudinary.uploader().upload(file.getBytes(), params);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), params);
         return (String) uploadResult.get("secure_url");
     }
 

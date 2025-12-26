@@ -1,5 +1,7 @@
 package com.edurent.crc.controller;
 
+import org.springframework.lang.NonNull;
+
 import com.edurent.crc.entity.CategoryEntity;
 import com.edurent.crc.service.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +25,7 @@ public class CategoryController {
 
     // Get Category by ID
     @GetMapping("/{id}")
-    public ResponseEntity<CategoryEntity> getCategoryById(@PathVariable Long id) {
+    public ResponseEntity<CategoryEntity> getCategoryById(@PathVariable @NonNull Long id) {
         return categoryService.getCategoryById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -50,7 +52,7 @@ public class CategoryController {
 
     // Delete Category
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteCategory(@PathVariable @NonNull Long id) {
         categoryService.deleteCategory(id);
         return ResponseEntity.noContent().build();
     }

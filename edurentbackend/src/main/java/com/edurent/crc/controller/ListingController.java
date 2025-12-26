@@ -1,5 +1,8 @@
 package com.edurent.crc.controller;
 
+import org.springframework.lang.NonNull;
+import java.util.Objects;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -44,9 +47,7 @@ public class ListingController {
             listing = listingService.getListingByPublicId(listingId);
         }
 
-        return listing
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return listing.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     // Retrieves listings for a specific user.
@@ -54,7 +55,7 @@ public class ListingController {
     // Manage Listings page)
     @GetMapping("/user/{userId}")
     public ResponseEntity<Page<ListingEntity>> getListingsByUserId(
-            @PathVariable Long userId,
+            @PathVariable @NonNull Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "false") boolean includeInactive,
@@ -69,7 +70,7 @@ public class ListingController {
     // Retrieves listings by category
     @GetMapping("/category/{categoryId}")
     public ResponseEntity<Page<ListingEntity>> getListingsByCategoryId(
-            @PathVariable Long categoryId,
+            @PathVariable @NonNull Long categoryId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         Page<ListingEntity> listings = listingService.getListingsByCategoryId(categoryId, page, size);
@@ -96,7 +97,7 @@ public class ListingController {
     @PostMapping(consumes = { "multipart/form-data" })
     public ResponseEntity<ListingEntity> createListing(
             Authentication authentication,
-            @RequestParam("categoryId") Long categoryId,
+            @RequestParam("categoryId") @NonNull Long categoryId,
             @RequestParam("title") String title,
             @RequestParam("condition") String condition,
             @RequestParam("description") String description,
@@ -123,7 +124,7 @@ public class ListingController {
 
         try {
             ListingEntity createdListing = listingService.createListingWithImages(
-                    newListing, userId, categoryId, images);
+                    newListing, Objects.requireNonNull(userId), categoryId, images);
             return new ResponseEntity<>(createdListing, HttpStatus.CREATED);
         } catch (RuntimeException | IOException e) {
             e.printStackTrace();
@@ -137,7 +138,7 @@ public class ListingController {
     public ResponseEntity<ListingEntity> updateListing(
             @PathVariable String listingId,
             Authentication authentication,
-            @RequestParam("categoryId") Long categoryId,
+            @RequestParam("categoryId") @NonNull Long categoryId,
             @RequestParam("title") String title,
             @RequestParam("condition") String condition,
             @RequestParam("description") String description,
@@ -165,7 +166,7 @@ public class ListingController {
 
             ListingEntity updatedListing = listingService.updateListing(
                     listingId,
-                    currentUser.getUserId(),
+                    Objects.requireNonNull(currentUser.getUserId()),
                     categoryId,
                     listingUpdateData,
                     imagesToDelete,
@@ -203,7 +204,8 @@ public class ListingController {
                 id = listing.getListingId();
             }
 
-            listingService.updateListingStatus(id, status, currentUser.getUserId());
+            listingService.updateListingStatus(Objects.requireNonNull(id), status,
+                    Objects.requireNonNull(currentUser.getUserId()));
             return ResponseEntity.ok().build();
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -228,7 +230,7 @@ public class ListingController {
                 id = listing.getListingId();
             }
 
-            listingService.deleteListing(id, currentUser.getUserId());
+            listingService.deleteListing(Objects.requireNonNull(id), Objects.requireNonNull(currentUser.getUserId()));
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
             if (e instanceof AccessDeniedException) {
