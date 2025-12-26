@@ -32,7 +32,7 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
   // Determine mode based on listing type
   const isRent = listing.listingType?.toUpperCase().includes('RENT');
   const actionLabel = isRent ? 'Mark as Rented' : 'Mark as Sold';
-  const pastTenseLabel = isRent ? 'rented' : 'sold';
+  const pastTenseLabel = isRent ? 'Rented' : 'Sold';
 
   useEffect(() => {
     const fetchRelevantChats = async () => {
@@ -208,7 +208,6 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
         </div>
       </div>
       <LoadingOverlay isVisible={submitting} message={`Marking as ${pastTenseLabel}...`} />
-      <LoadingOverlay isVisible={loading} message="Loading buyers..." />
     </div>
   );
 }

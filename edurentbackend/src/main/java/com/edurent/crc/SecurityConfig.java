@@ -75,6 +75,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/listings/**").permitAll()
                         .requestMatchers("/api/v1/transactions/test-scheduler").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/transactions/listing/**").permitAll()
 
                         // --- Private Endpoints ---
                         .requestMatchers("/api/v1/conversations/**").authenticated()

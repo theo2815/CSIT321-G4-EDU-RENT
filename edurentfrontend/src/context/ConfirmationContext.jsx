@@ -31,11 +31,18 @@ export const ConfirmationProvider = ({ children }) => {
     <ConfirmationContext.Provider value={confirm}>
       {children}
       {modalConfig && (
-        <div className="confirm-overlay">
-          <div className="confirm-box">
-            <h3 className="confirm-title">{modalConfig.title}</h3>
-            <p className="confirm-message">{modalConfig.message}</p>
-            <div className="confirm-actions">
+        <div className="confirm-overlay" onClick={modalConfig.onCancel}>
+          <div className="confirm-box" onClick={e => e.stopPropagation()}>
+            <div className="confirm-header">
+              <h3 className="confirm-title">{modalConfig.title}</h3>
+              <button className="modal-close-btn" onClick={modalConfig.onCancel}>&times;</button>
+            </div>
+            
+            <div className="confirm-body">
+              <p className="confirm-message">{modalConfig.message}</p>
+            </div>
+
+            <div className="confirm-footer">
               <button 
                 className="btn btn-outline" 
                 onClick={modalConfig.onCancel}

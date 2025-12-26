@@ -6,6 +6,7 @@ import MarkAsSoldModal from './MarkAsSoldModal';
 import ReviewModal from './ReviewModal';
 import UserRatingDisplay from './UserRatingDisplay';
 import LoadingOverlay from './LoadingOverlay';
+import LoadingDots from './LoadingDots';
 
 import { useAuthModal } from '../context/AuthModalContext';
 
@@ -165,11 +166,16 @@ export default function ProductDetailModal({
   // OPTIMIZATION: Initialize from pre-fetched transaction data instead of separate fetch
   const [activeTransaction, setActiveTransaction] = useState(initialContext?.transaction || null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isFetchingTransaction, setIsFetchingTransaction] = useState(false);
+  // Track if we've already attempted to fetch transaction (prevents infinite loop on 401)
+  const transactionFetchAttempted = React.useRef(false);
 
   // Status checks using local state
   const isSold = currentListing.status === 'Sold';
   const isRented = currentListing.status === 'Rented';
   const isOwner = currentUserId && currentUserId === currentListing?.user?.userId;
+  // Check if current user is the buyer/renter of this transaction
+  const isBuyer = currentUserId && activeTransaction?.buyer?.userId === currentUserId;
   // Memoized seller info to avoid recalculating on every render
   const seller = useMemo(() => getSellerInfo(currentListing.user), [currentListing.user]);
 
@@ -182,11 +188,13 @@ export default function ProductDetailModal({
       const shouldFetch = currentListing.status === 'Rented' || currentListing.status === 'Sold';
 
       if (shouldFetch) {
+        setIsFetchingTransaction(true);
         getTransactionByListing(currentListing.listingId)
             .then(res => {
                 setActiveTransaction(res.data);
             })
-            .catch(err => console.error("Could not load transaction info:", err));
+            .catch(err => console.error("Could not load transaction info:", err))
+            .finally(() => setIsFetchingTransaction(false));
       }
   };
 
@@ -195,6 +203,7 @@ export default function ProductDetailModal({
   useEffect(() => {
     if (initialContext?.transaction) {
       setActiveTransaction(initialContext.transaction);
+      transactionFetchAttempted.current = true; // Mark as fetched since we got it from context
       
       // Check if we should auto-open review modal
       const userHasReviewed = initialContext.transaction.reviews?.some(
@@ -207,19 +216,27 @@ export default function ProductDetailModal({
   }, [initialContext?.transaction, initialAction, isOwner, currentUserId]);
 
   // NEW: Fetch transaction on mount for sold/rented items to identify buyer/renter
+  // Only attempt ONCE to prevent infinite loop when API returns 401 for guests
   useEffect(() => {
     const shouldFetch = (currentListing.status === 'Sold' || currentListing.status === 'Rented') 
                         && !activeTransaction 
-                        && !initialContext?.transaction;
+                        && !isFetchingTransaction
+                        && !transactionFetchAttempted.current;
     
     if (shouldFetch && currentListing.listingId) {
+      transactionFetchAttempted.current = true; // Mark as attempted BEFORE fetching
+      setIsFetchingTransaction(true);
       getTransactionByListing(currentListing.listingId)
         .then(res => {
           setActiveTransaction(res.data);
         })
-        .catch(err => console.error("Could not load transaction info:", err));
+        .catch(err => {
+          // Expected for guests (401 Unauthorized) - just log and stop, don't retry
+          console.error("Could not load transaction info:", err);
+        })
+        .finally(() => setIsFetchingTransaction(false));
     }
-  }, [currentListing.listingId, currentListing.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentListing.listingId, currentListing.status]); // Removed activeTransaction and isFetchingTransaction to prevent re-triggers
 
   // Helper to format dates using local time to avoid shifts
   const formatRentalDate = (dateString) => {
@@ -300,19 +317,7 @@ export default function ProductDetailModal({
   const chatCount = initialContext?.chatCount || 0;
   const existingChat = initialContext?.existingChat;
   
-  // Transaction Participant Logic
-  // Check if user is the transaction participant via existingChat, activeTransaction, OR initialContext.transaction
-  // We need to check all three sources because:
-  // - existingChat is from the conversation context
-  // - activeTransaction is fetched separately
-  // - initialContext.transaction is pre-fetched and available immediately on modal open
-  const transactionData = activeTransaction || initialContext?.transaction;
-  const isTransactionParticipant = (existingChat && existingChat.transactionId) || 
-    (transactionData && (transactionData.buyer?.userId === currentUserId || transactionData.buyer?.id === currentUserId));
-  const isBuyerOfSoldItem = isSold && isTransactionParticipant;
-  const isRenter = isRented && isTransactionParticipant;
-  const hasAlreadyReviewed = existingChat?.hasReviewed || 
-    transactionData?.reviews?.some(r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId);
+
 
   const handlePrevImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1); };
   const handleNextImage = (e) => { e.stopPropagation(); setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1); };
@@ -329,14 +334,7 @@ export default function ProductDetailModal({
     onClose();
   };
 
-  const handleReviewClick = () => {
-    if (hasAlreadyReviewed) {
-        navigate(`/profile/${seller.id}`); 
-        onClose();
-    } else {
-        setShowReviewModal(true);
-    }
-  };
+
 
   const handleChatClick = async () => {
     if (!currentUserId) { openLogin(); return; }
@@ -423,30 +421,6 @@ export default function ProductDetailModal({
               </div>
             </div>
 
-            {/* Viewer View: Clean Date Display (Hidden for Owner) */}
-            {isRented && activeTransaction && !isOwner && (
-                <div style={{ 
-                    marginBottom: '1rem', 
-                    padding: '0.5rem 0', 
-                    borderTop: '1px solid #eee', 
-                    borderBottom: '1px solid #eee',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.2rem',
-                    fontSize: '0.9rem',
-                    color: '#555'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Start Date:</span>
-                        <strong style={{ color: '#2ecc71' }}>{formatRentalDate(activeTransaction.startDate)}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>End Date:</span>
-                        <strong style={{ color: '#e53935' }}>{formatRentalDate(activeTransaction.endDate)}</strong>
-                    </div>
-                </div>
-            )}
-
             <p className="product-info-price">{priceDisplay}</p>
             
             {/* Deal Methods */}
@@ -493,7 +467,6 @@ export default function ProductDetailModal({
           <div className="seller-info-section">
             
             {/* VIEW 1: OWNER */}
-            {/* VIEW 1: OWNER */}
             {isOwner ? (
               <>
                 <div className="seller-info-header">
@@ -501,155 +474,156 @@ export default function ProductDetailModal({
                   <div className="seller-details">
                     <div className="seller-username">{seller.username} (You)</div>
                     <div style={{ fontSize: '0.8rem', color: '#6c757d', marginBottom: '2px' }}>{seller.school}</div>
-                    <UserRatingDisplay userId={currentUserId} initialData={sellerRatingInitialData} />
+                    {!isLoadingContext && !isFetchingTransaction && (
+                        <UserRatingDisplay userId={currentUserId} initialData={sellerRatingInitialData} />
+                    )}
                   </div>
                 </div>
 
-                {/* Show loading state for chat count or button to prevent jump */}
-                {isLoadingContext ? (
-                    <button className="btn-chat" disabled style={{ backgroundColor: "#e9ecef", color: "#6c757d", marginBottom: '0.5rem', cursor: 'wait' }}>
-                        Loading...
-                    </button>
-                ) : chatCount > 0 ? (
-                    <button className="btn-chat" style={{ backgroundColor: "#0077B6", marginBottom: '0.5rem' }} onClick={handleViewChats}>
-                        View {chatCount} Chat{chatCount !== 1 ? 's' : ''}
-                    </button>
-                ) : null}
-
-                {/* Owner Status Actions */}
-                {isSold ? (
-                  <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
-                      <div className="action-note" style={{ color: '#e53935', fontWeight: 'bold' }}>
-                        Item marked as Sold
-                      </div>
-                      
-                      {isLoadingContext ? (
-                          <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#888' }}>Checking reviews...</div>
-                      ) : activeTransaction ? (() => {
-                          const userHasReviewed = activeTransaction.reviews?.some(
-                              r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
-                          );
-                          
-                          if (userHasReviewed) {
-                              return (
-                                  <div style={{ 
-                                      marginTop: '0.75rem', 
-                                      color: '#2ecc71', 
-                                      fontWeight: '600', 
-                                      fontSize: '0.9rem',
-                                      padding: '0.5rem',
-                                      backgroundColor: '#f0fdf4',
-                                      borderRadius: '8px',
-                                      border: '1px solid #bbf7d0'
-                                  }}>
-                                      ✓ You already reviewed this buyer
-                                  </div>
-                              );
-                          }
-
-                          return (
-                              <button 
-                                  className="btn-chat" 
-                                  style={{ 
-                                      marginTop: '0.5rem', 
-                                      backgroundColor: "#f1c40f", 
-                                      color: "#333",
-                                      fontSize: '0.9rem'
-                                  }}
-                                  onClick={() => setShowReviewModal(true)}
-                              >
-                                  ⭐ Review Buyer
-                              </button>
-                          );
-                      })() : null}
-                  </div>
-                ) : isRented ? (
-                   // --- Rented Controls: Edit Dates or Return ---
-                   <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                           <span style={{ fontWeight: 'bold', color: '#0284c7' }}>Item is Rented</span>
-                           <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                               {activeTransaction ? `${formatRentalDate(activeTransaction.startDate)} - ${formatRentalDate(activeTransaction.endDate)}` : 'Loading...'}
-                           </span>
-                       </div>
-                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                           <button
-                               className="btn-chat" 
-                               style={{ backgroundColor: "#ffffff", color: "#0284c7", border: "1px solid #0284c7", flex: 1, fontSize: '0.85rem' }} 
-                               onClick={() => setShowEditDatesModal(true)}
-                               disabled={!activeTransaction}
-                           >
-                               Edit Dates
-                           </button>
-                           <button 
-                               className="btn-chat" 
-                               style={{ backgroundColor: "#e53935", flex: 1, fontSize: '0.85rem' }} 
-                               onClick={handleReturnItem}
-                               disabled={!activeTransaction}
-                           >
-                               Mark Returned
-                           </button>
-                       </div>
-
-                       {/* Review Renter Logic */}
-                       {isLoadingContext ? (
-                           <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#888', textAlign: 'center' }}>Updating...</div>
-                       ) : activeTransaction ? (() => {
-                          const userHasReviewed = activeTransaction.reviews?.some(
-                              r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
-                          );
-                          
-                          if (userHasReviewed) {
-                              return (
-                                  <div style={{ 
-                                      marginTop: '0.75rem', 
-                                      color: '#2ecc71', 
-                                      fontWeight: '600', 
-                                      fontSize: '0.9rem',
-                                      textAlign: 'center'
-                                  }}>
-                                      ✓ You reviewed this renter
-                                  </div>
-                              );
-                          }
-
-                          return (
-                              <button 
-                                  className="btn-chat" 
-                                  style={{ 
-                                      marginTop: '0.75rem', 
-                                      backgroundColor: "#f1c40f", 
-                                      color: "#333",
-                                      fontSize: '0.9rem'
-                                  }}
-                                  onClick={() => setShowReviewModal(true)}
-                              >
-                                  ⭐ Review Renter
-                              </button>
-                          );
-                      })() : null}
-                   </div>
+                {(isLoadingContext || isFetchingTransaction) ? (
+                    <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}>
+                      <LoadingDots />
+                    </div>
                 ) : (
-                   // --- Available Controls ---
-                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <button className="btn-chat" style={{ backgroundColor: "var(--text-muted)", flex: 1, opacity: isLoadingContext ? 0.6 : 1 }} disabled={isLoadingContext} onClick={() => { 
-                        navigate(`/edit-listing/${currentListing.listingId}`, { 
-                          state: { 
-                            returnTo: window.location.pathname, 
-                            openListingId: currentListing.listingId 
-                          } 
-                        }); 
-                        onClose(); 
-                      }}>
-                        {isLoadingContext ? 'Loading...' : 'Edit'}
-                      </button>
-                      <button className="btn-chat" style={{ backgroundColor: "#2ecc71", flex: 1, opacity: isLoadingContext ? 0.6 : 1 }} disabled={isLoadingContext} onClick={() => setShowMarkSoldModal(true)}>
-                        {isLoadingContext ? 'Loading...' : (isRentType ? 'Mark as Rented' : 'Mark as Sold')}
-                      </button>
-                   </div>
+                    <>
+                        {/* Show chat count button if chats exist */}
+                        {chatCount > 0 ? (
+                            <button className="btn-chat" style={{ backgroundColor: "#0077B6", marginBottom: '0.5rem' }} onClick={handleViewChats}>
+                                View {chatCount} Chat{chatCount !== 1 ? 's' : ''}
+                            </button>
+                        ) : null}
+
+                        {/* Owner Status Actions */}
+                        {isSold ? (
+                        <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                            <div className="action-note" style={{ color: '#e53935', fontWeight: 'bold' }}>
+                                Item marked as Sold
+                            </div>
+                            
+                            {activeTransaction ? (() => {
+                                const userHasReviewed = activeTransaction.reviews?.some(
+                                    r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
+                                );
+                                
+                                if (userHasReviewed) {
+                                    return (
+                                        <div style={{ 
+                                            marginTop: '0.75rem', 
+                                            color: '#2ecc71', 
+                                            fontWeight: '600', 
+                                            fontSize: '0.9rem',
+                                            padding: '0.5rem',
+                                            backgroundColor: '#f0fdf4',
+                                            borderRadius: '8px',
+                                            border: '1px solid #bbf7d0'
+                                        }}>
+                                            ✓ You already reviewed this buyer
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <button 
+                                        className="btn-chat" 
+                                        style={{ 
+                                            marginTop: '0.5rem', 
+                                            backgroundColor: "#f1c40f", 
+                                            color: "#333",
+                                            fontSize: '0.9rem'
+                                        }}
+                                        onClick={() => setShowReviewModal(true)}
+                                    >
+                                        ⭐ Review Buyer
+                                    </button>
+                                );
+                            })() : null}
+                        </div>
+                        ) : isRented ? (
+                        /* --- Rented Controls --- */
+                        <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                <span style={{ fontWeight: 'bold', color: '#0284c7' }}>Item is Rented</span>
+                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                    {activeTransaction ? `${formatRentalDate(activeTransaction.startDate)} - ${formatRentalDate(activeTransaction.endDate)}` : ''}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                    className="btn-chat" 
+                                    style={{ backgroundColor: "#ffffff", color: "#0284c7", border: "1px solid #0284c7", flex: 1, fontSize: '0.85rem', opacity: !activeTransaction ? 0.6 : 1 }} 
+                                    onClick={() => setShowEditDatesModal(true)}
+                                    disabled={!activeTransaction}
+                                >
+                                    Edit Dates
+                                </button>
+                                <button 
+                                    className="btn-chat" 
+                                    style={{ backgroundColor: "#e53935", flex: 1, fontSize: '0.85rem', opacity: !activeTransaction ? 0.6 : 1 }} 
+                                    onClick={handleReturnItem}
+                                    disabled={!activeTransaction}
+                                >
+                                    Mark Returned
+                                </button>
+                            </div>
+
+                            {/* Review Renter Logic */}
+                            {activeTransaction ? (() => {
+                                const userHasReviewed = activeTransaction.reviews?.some(
+                                    r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
+                                );
+                                
+                                if (userHasReviewed) {
+                                    return (
+                                        <div style={{ 
+                                            marginTop: '0.75rem', 
+                                            color: '#2ecc71', 
+                                            fontWeight: '600', 
+                                            fontSize: '0.9rem',
+                                            textAlign: 'center'
+                                        }}>
+                                            ✓ You reviewed this renter
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <button 
+                                        className="btn-chat" 
+                                        style={{ 
+                                            marginTop: '0.75rem', 
+                                            backgroundColor: "#f1c40f", 
+                                            color: "#333",
+                                            fontSize: '0.9rem'
+                                        }}
+                                        onClick={() => setShowReviewModal(true)}
+                                    >
+                                        ⭐ Review Renter
+                                    </button>
+                                );
+                            })() : null}
+                        </div>
+                        ) : (
+                        /* --- Available Controls --- */
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                            <button className="btn-chat" style={{ backgroundColor: "var(--text-muted)", flex: 1 }} onClick={() => { 
+                                navigate(`/edit-listing/${currentListing.listingId}`, { 
+                                state: { 
+                                    returnTo: window.location.pathname, 
+                                    openListingId: currentListing.listingId 
+                                } 
+                                }); 
+                                onClose(); 
+                            }}>
+                                Edit
+                            </button>
+                            <button className="btn-chat" style={{ backgroundColor: "#2ecc71", flex: 1 }} onClick={() => setShowMarkSoldModal(true)}>
+                                {isRentType ? 'Mark as Rented' : 'Mark as Sold'}
+                            </button>
+                        </div>
+                        )}
+                    </>
                 )}
               </>
-
             ) : (
               /* VIEW 2: BUYER / VISITOR */
               <>
@@ -660,121 +634,168 @@ export default function ProductDetailModal({
                         <Link to={`/profile/${seller.id}`} onClick={onClose} className="seller-link">{seller.username}</Link>
                     </div>
                     <div style={{ fontSize: '0.8rem', color: '#6c757d', marginBottom: '2px' }}>{seller.school}</div>
-                      <UserRatingDisplay userId={seller.id} initialData={sellerRatingInitialData} />
+                      {!isLoadingContext && !isFetchingTransaction && (
+                        <UserRatingDisplay userId={seller.id} initialData={sellerRatingInitialData} />
+                      )}
                   </div>
                 </div>
 
-                {isSold && (
-                    isBuyerOfSoldItem ? (
+                {/* Show loading state for chat count or button to prevent jump */}
+                {(isLoadingContext || isFetchingTransaction) ? (
+                    <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}>
+                      <LoadingDots />
+                    </div>
+                ) : (
+                    <>
+                    {/* Item Status Handling */}
+                    {isSold ? (
                         <>
-                            <div className="action-note" style={{ color: '#2ecc71', fontWeight: 'bold' }}>SOLD TO YOU</div>
-                            {isLoadingContext ? (
-                                <button className="btn-chat" disabled style={{ backgroundColor: "#e9ecef", color: "#888" }}>Loading status...</button>
-                            ) : (
+                            {isBuyer ? (
+                                /* Buyer view for sold item */
                                 <>
-                                    <button 
-                                        className="btn-chat" 
-                                        style={{ backgroundColor: hasAlreadyReviewed ? "#2ecc71" : "#f1c40f", color: hasAlreadyReviewed ? "white" : "#333" }} 
-                                        onClick={handleReviewClick}
-                                    >
-                                        {hasAlreadyReviewed ? "✓ You already reviewed this seller" : "⭐ Leave a Review"}
-                                    </button>
-                                    <button 
-                                        className="btn-chat" 
-                                        style={{ backgroundColor: "#0077B6", marginTop: '0.5rem' }} 
-                                        onClick={handleChatClick}
-                                    >
-                                        {existingChat ? '💬 View Existing Chat' : '💬 Chat with Seller'}
-                                    </button>
+                                    <div style={{ 
+                                        fontSize: '0.95rem', 
+                                        fontWeight: '600', 
+                                        color: '#e53935', 
+                                        textAlign: 'center' 
+                                    }}>
+                                        ✓ Sold to You
+                                    </div>
+                                    {/* Review Seller Logic */}
+                                    {activeTransaction ? (() => {
+                                        const userHasReviewed = activeTransaction.reviews?.some(
+                                            r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
+                                        );
+
+                                        if (userHasReviewed) {
+                                            return (
+                                                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#2ecc71', display: 'flex', alignItems: 'center', gap: '0.25rem', justifyContent: 'center' }}>
+                                                    <span>✓</span> You reviewed this seller
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <button 
+                                                className="btn-chat" 
+                                                style={{ backgroundColor: "#ffc107", color: "#000", marginTop: '0.5rem' }} 
+                                                onClick={() => {
+                                                    setShowReviewModal(true);
+                                                }}
+                                            >
+                                                ⭐ Review Seller
+                                            </button>
+                                        );
+                                    })() : null}
                                 </>
+                            ) : (
+                                /* Public/other user view for sold item */
+                                <div className="action-note" style={{ color: '#dc3545', fontWeight: 'bold' }}>SOLD</div>
                             )}
                         </>
+                    ) : isRented ? (
+                        <>
+                             {/* Renter View Controls - Restricted to actual renter only */}
+                             <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isBuyer ? '0.5rem' : '0' }}>
+                                    <span style={{ fontWeight: 'bold', color: '#0284c7' }}>Item is Rented</span>
+                                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                        {activeTransaction ? `${formatRentalDate(activeTransaction.startDate)} - ${formatRentalDate(activeTransaction.endDate)}` : ''}
+                                    </span>
+                                </div>
+                                {/* Only the actual renter can review - but NOT edit dates or return */}
+                                {isBuyer ? (
+                                  <>
+                                    <div style={{ 
+                                        marginTop: '0.5rem', 
+                                        fontSize: '0.95rem', 
+                                        fontWeight: '600', 
+                                        color: '#2ecc71', 
+                                        textAlign: 'center' 
+                                    }}>
+                                        ✓ Rented to You
+                                    </div>
+                                    <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                                        {(() => {
+                                            const userHasReviewed = activeTransaction?.reviews?.some(
+                                                r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
+                                            );
+
+                                            if (userHasReviewed) {
+                                                return (
+                                                    <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#2ecc71', display: 'flex', alignItems: 'center', gap: '0.25rem', justifyContent: 'center' }}>
+                                                        <span>✓</span> You reviewed this seller
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <button 
+                                                    className="btn-chat" 
+                                                    style={{ backgroundColor: "#ffc107", color: "#000", marginTop: '0.5rem', width: '100%' }} 
+                                                    onClick={() => {
+                                                        setShowReviewModal(true);
+                                                    }}
+                                                >
+                                                    ⭐ Review Seller
+                                                </button>
+                                            );
+                                        })()}
+                                    </div>
+                                  </>
+                                ) : (
+                                  /* Public viewer of rented item - show option to reserve */
+                                  <>
+                                    <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#64748b', textAlign: 'center' }}>
+                                        Interested in this item?
+                                    </div>
+                                    <button className="btn-chat" style={{ marginTop: '0.5rem' }} onClick={handleChatClick}>
+                                        {existingChat ? 'View Existing Chat' : 'Chat with Seller to Reserve'}
+                                    </button>
+                                  </>
+                                )}
+                             </div>
+                        </>
                     ) : (
-                        <button className="btn-chat" disabled style={{ backgroundColor: "#e0e0e0", color: "#888", cursor: "not-allowed" }}>
-                            This item is already sold
+                        <div className="action-note">Interested in this item?</div>
+                    )}
+
+                    {/* Chat Button - Only if available (not sold/rented) */}
+                    {!isSold && !isRented && (
+                        <button className="btn-chat" onClick={handleChatClick}>
+                        {existingChat ? 'View Existing Chat' : 'Chat with the Seller'}
                         </button>
-                    )
-                )}
+                    )}
 
-                {isRented && (
-                    isRenter ? (
-                        <>
-                            <div className="action-note" style={{ color: '#2ecc71', fontWeight: 'bold' }}>RENTED TO YOU</div>
-                            {isLoadingContext ? (
-                                <button className="btn-chat" disabled style={{ backgroundColor: "#e9ecef", color: "#888" }}>Loading status...</button>
-                            ) : (
-                                <>
-                                    <button 
-                                        className="btn-chat" 
-                                        style={{ backgroundColor: hasAlreadyReviewed ? "#2ecc71" : "#f1c40f", color: hasAlreadyReviewed ? "white" : "#333" }} 
-                                        onClick={handleReviewClick}
-                                    >
-                                        {hasAlreadyReviewed ? "✓ You already reviewed this seller" : "⭐ Leave a Review"}
-                                    </button>
-                                    {existingChat ? (
-                                        <button 
-                                            className="btn-chat" 
-                                            style={{ backgroundColor: "#0077B6", marginTop: '0.5rem' }} 
-                                            onClick={handleChatClick}
-                                        >
-                                            💬 View Existing Chat
-                                        </button>
-                                    ) : (
-                                        <button 
-                                            className="btn-chat" 
-                                            style={{ backgroundColor: "#0077B6", marginTop: '0.5rem' }} 
-                                            onClick={handleChatClick}
-                                        >
-                                            💬 Chat with Seller
-                                        </button>
-                                    )}
-                                </>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            <div className="action-note" style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>Want this item?</div>
-                            <button className="btn-chat" onClick={handleChatClick} disabled={isLoadingContext}>
-                              {isLoadingContext ? 'Loading...' : 'Chat with seller to reserve!'}
-                            </button>
-                        </>
-                    )
-                )}
-
-                {!isSold && !isRented && (
-                    <button className="btn-chat" onClick={handleChatClick} disabled={isLoadingContext}>
-                      {isLoadingContext ? 'Loading...' : (existingChat ? 'View Existing Chat' : 'Chat with the Seller')}
-                    </button>
-                )}
-
-                {/* Social Links Section - Show for available and rented items, hide for sold */}
-                {!isSold && (seller.facebookUrl || seller.instagramUrl) && (
-                  <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                      Or contact via social
+                    {/* Social Links Section - Show for available and rented items, hide for sold */}
+                    {!isSold && (seller.facebookUrl || seller.instagramUrl) && (
+                    <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                        Or contact via social
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+                        {seller.facebookUrl && (
+                            <SocialIcon 
+                            platform="facebook" 
+                            href={seller.facebookUrl} 
+                            title="Contact on Facebook" 
+                            />
+                        )}
+                        {seller.instagramUrl && (
+                            <SocialIcon 
+                            platform="instagram" 
+                            href={seller.instagramUrl} 
+                            title="Contact on Instagram" 
+                            />
+                        )}
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
-                      {seller.facebookUrl && (
-                        <SocialIcon 
-                          platform="facebook" 
-                          href={seller.facebookUrl} 
-                          title="Contact on Facebook" 
-                        />
-                      )}
-                      {seller.instagramUrl && (
-                        <SocialIcon 
-                          platform="instagram" 
-                          href={seller.instagramUrl} 
-                          title="Contact on Instagram" 
-                        />
-                      )}
-                    </div>
-                  </div>
+                    )}
+                    </>
                 )}
               </>
             )}
           </div>
-
         </section>
       </div>
 

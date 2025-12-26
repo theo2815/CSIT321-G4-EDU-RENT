@@ -51,30 +51,122 @@
 
 .confirm-box {
   background: white;
-  padding: 2rem;
+  padding: 1.5rem;
   border-radius: 12px;
   width: 90%;
-  max-width: 400px;
+  max-width: 450px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.confirm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
 }
 
 .confirm-title {
   font-size: 1.25rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
   color: var(--text-color);
+  margin: 0;
+}
+
+.confirm-body {
+  margin-bottom: 1.5rem;
 }
 
 .confirm-message {
   color: var(--text-muted);
-  margin-bottom: 1.5rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 0;
+  /* Option: Center text if it's a simple question, or left if detailed */
+  text-align: left; 
 }
 
-.confirm-actions {
+.confirm-footer {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 1rem;
+}
+
+/* Ensure buttons in footer are uniform in height */
+.confirm-footer .btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.confirm-footer .btn-delete {
+  background-color: #e53935; /* Strong Red */
+  color: white;
+  box-shadow: 0 4px 6px rgba(229, 57, 53, 0.25);
+}
+
+.confirm-footer .btn-delete:hover {
+  background-color: #c62828;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(229, 57, 53, 0.35);
+}
+
+.confirm-footer .btn-primary-accent {
+  background-color: var(--primary-color, #0077B6);
+  color: white;
+  box-shadow: 0 4px 6px rgba(0, 119, 182, 0.25);
+}
+
+.confirm-footer .btn-primary-accent:hover {
+  background-color: #023e8a;
+  transform: translateY(-1px);
+}
+
+.confirm-footer .btn-outline {
+  background-color: transparent;
+  border: 1px solid #dee2e6;
+  color: #6c757d;
+}
+
+.confirm-footer .btn-outline:hover {
+  background-color: #f8f9fa;
+  border-color: #c1c9d0;
+  color: #343a40;
+}
+
+/* Close button reuse from other modals if available, otherwise style here */
+.confirm-box .modal-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: #aaa;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; /* Touch target */
+  height: 32px;
+  border-radius: 50%;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.confirm-box .modal-close-btn:hover {
+  background-color: #f1f3f5;
+  color: var(--text-color);
 }
 
 /* --- Inline Alert Banner --- */
