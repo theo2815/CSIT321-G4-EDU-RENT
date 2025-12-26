@@ -9,8 +9,15 @@ import com.edurent.crc.entity.ConversationParticipantEntity;
 import com.edurent.crc.entity.ConversationParticipantIdEntity;
 
 @Repository
-public interface ConversationParticipantRepository extends JpaRepository<ConversationParticipantEntity, ConversationParticipantIdEntity> { // Updated
-    List<ConversationParticipantEntity> findById_UserIdAndIsDeletedFalse(Long userId);
+public interface ConversationParticipantRepository
+        extends JpaRepository<ConversationParticipantEntity, ConversationParticipantIdEntity> { // Updated
+    @org.springframework.data.jpa.repository.Query("SELECT p FROM ConversationParticipantEntity p " +
+            "LEFT JOIN FETCH p.conversation c " +
+            "LEFT JOIN FETCH c.listing l " +
+            "LEFT JOIN FETCH l.user " +
+            "WHERE p.id.userId = :userId AND p.isDeleted = false")
+    List<ConversationParticipantEntity> findById_UserIdAndIsDeletedFalse(
+            @org.springframework.data.repository.query.Param("userId") Long userId);
+
     List<ConversationParticipantEntity> findById_ConversationId(Long conversationId);
 }
-

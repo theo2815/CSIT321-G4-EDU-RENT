@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 
 // Libraries for real-time chat functionality
 import SockJS from 'sockjs-client';
@@ -303,22 +303,47 @@ export default function MessagesPage() {
 
   // --- Effects & Data Fetching ---
 
+  // --- Effects & Data Fetching ---
+  
+  // Parse URL Query parameters for standard links/open-in-new-tab support
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
-      if (location.state?.filterByListingId) {
-          const targetId = location.state.filterByListingId;
+      // 1. Check for Listing Filter (State OR Query Param)
+      const listingIdParam = searchParams.get('listingId');
+      const stateListingId = location.state?.filterByListingId;
+      
+      if (listingIdParam || stateListingId) {
+          // If in URL, use that. Else use state.
+          const targetId = listingIdParam ? parseInt(listingIdParam) : stateListingId;
           setListingFilterId(targetId);
           setSearchQuery('');
-          // Use 'Sold' filter since this is typically used from sold/rented item modals
+          
+          // Default to 'Sold' if filtering by listing (common pattern), unless overridden below
           setActiveFilter('Sold'); 
       }
-      // Handle preferredFilter from navigation (e.g., from "View Existing Chat" button)
-      if (location.state?.preferredFilter) {
-          setActiveFilter(location.state.preferredFilter);
+
+      // 2. Check for Preferred Filter (Filter Name)
+      const filterParam = searchParams.get('filter');
+      const stateFilter = location.state?.preferredFilter;
+      
+      if (filterParam) {
+          setActiveFilter(filterParam);
+      } else if (stateFilter) {
+          setActiveFilter(stateFilter);
       }
-  }, [location.state]);
+      
+      // 3. Check for specific Conversation ID to open
+      const convIdParam = searchParams.get('conversationId');
+      if (convIdParam) {
+           // We will handle opening this in fetchData
+      }
+      
+  }, [location.state, searchParams]); // Added searchParams
 
   const clearListingFilter = () => {
       setListingFilterId(null);
+      // Clear query params too
       navigate(location.pathname, { replace: true, state: {} });
   };
 
@@ -417,10 +442,10 @@ export default function MessagesPage() {
       // 2. Fetch User Conversations based on CURRENT Active Filter
       // We only fetch for the active tab initially. Others load when clicked.
       
-      // If we already have data for this tab, maybe we don't need to fetch? 
-      // But typically on full page reload/init, we should fetch page 0.
-      
-      const convResponse = await getConversationsForUser(userId, 0, 5, activeFilter); 
+      // Check if we have a listing filter from navigation state (set in useEffect) or state variable (though state update might be async)
+      const stateListingId = location.state?.filterByListingId || listingFilterId;
+
+      const convResponse = await getConversationsForUser(userId, 0, 5, activeFilter, stateListingId); 
       const convs = convResponse.data || [];
       
       const hasMoreForTab = convs.length >= 5;
@@ -439,8 +464,16 @@ export default function MessagesPage() {
       
       // 3. Handle External Navigation (e.g. clicking "Chat" on a listing)
       const passedConv = location.state?.openConversation;
-      const passedConvId = location.state?.openConversationId;
-      const initiateChat = location.state?.initiateChat;
+      const passedConvId = location.state?.openConversationId || (searchParams.get('conversationId') ? parseInt(searchParams.get('conversationId')) : null);
+      
+      const initiateChatState = location.state?.initiateChat;
+      const initiateChatId = searchParams.get('listingId');
+      const initiateChatSellerId = searchParams.get('sellerId');
+      
+      const initiateChat = initiateChatState || (initiateChatId && initiateChatSellerId ? {
+          listingId: parseInt(initiateChatId),
+          sellerId: parseInt(initiateChatSellerId)
+      } : null);
 
       if (passedConvId) {
            // Check if it exists in the fetched list (or maybe we need to check All Messages if we are on a filtered tab?)
@@ -640,7 +673,11 @@ export default function MessagesPage() {
       if (!userData) return;
       setIsFetchingConversations(true);
       try {
-          const response = await getConversationsForUser(userData.userId, pageNum, 5, filterKey);
+          // If a listing filter is active, pass it to the backend to ensure we find the relevant chats
+          // even if they are old and paginated out of the standard view.
+          const currentListingId = listingFilterId; 
+          
+          const response = await getConversationsForUser(userData.userId, pageNum, 5, filterKey, currentListingId);
           const rawConvs = response.data || [];
           const processed = processConversationData(rawConvs, userData.userId);
           
@@ -662,7 +699,7 @@ export default function MessagesPage() {
       } finally {
           setIsFetchingConversations(false);
       }
-  }, [userData, toast]);
+  }, [userData, toast, listingFilterId]);
 
   // When activeFilter changes, only load if tab not already initialized (caching)
   useEffect(() => {

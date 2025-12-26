@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 // Merged API imports to include rental management functions
-import { startConversation, getTransactionByListing, updateRentalDates, returnRental } from '../services/apiService'; 
+import { getTransactionByListing, updateRentalDates, returnRental } from '../services/apiService'; 
 import MarkAsSoldModal from './MarkAsSoldModal';
 import ReviewModal from './ReviewModal';
 import UserRatingDisplay from './UserRatingDisplay';
@@ -330,45 +330,11 @@ export default function ProductDetailModal({
     if (onLikeClick) onLikeClick(currentListing.listingId);
   };
 
-  const handleViewChats = () => {
-    navigate('/messages', { state: { filterByListingId: currentListing.listingId } });
-    onClose();
-  };
 
 
 
-  const handleChatClick = async () => {
-    if (!currentUserId) { openLogin(); return; }
 
-    if (existingChat) {
-        // Pass preferredFilter to open the correct tab for sold/rented items
-        const filter = (isSold || isRented) ? 'Sold' : undefined;
-        navigate('/messages', { 
-            state: { 
-                openConversation: existingChat, 
-                openConversationId: existingChat.conversationId,
-                preferredFilter: filter
-            } 
-        });
-        onClose();
-        return;
-    }
 
-    const sellerId = listing?.user?.userId;
-    if (!sellerId) return;
-
-    navigate('/messages', { state: { initiateChat: { listingId: currentListing.listingId, sellerId: sellerId } } });
-    onClose();
-
-    try {
-        const response = await startConversation(currentListing.listingId, currentUserId, sellerId);
-        const fullConversation = response.data;
-        navigate('/messages', { state: { openConversation: fullConversation, openConversationId: fullConversation.conversationId } });
-    } catch (error) {
-        console.error("Failed to start conversation:", error);
-        showError("Could not start conversation. Please try again.");
-    }
-  };
 
   return (
     <div className="modal-overlay visible" onClick={handleOverlayClick} role="dialog" aria-modal="true">
@@ -489,9 +455,14 @@ export default function ProductDetailModal({
                     <>
                         {/* Show chat count button if chats exist */}
                         {chatCount > 0 ? (
-                            <button className="btn-chat" style={{ backgroundColor: "#0077B6", marginBottom: '0.5rem' }} onClick={handleViewChats}>
+                            <Link 
+                                to={`/messages?listingId=${currentListing.listingId}&filter=${(isSold || isRented) ? 'Sold' : 'Selling'}`}
+                                onClick={onClose}
+                                className="btn-chat" 
+                                style={{ backgroundColor: "#0077B6", marginBottom: '0.5rem', display: 'block', textDecoration: 'none', textAlign: 'center' }} 
+                            >
                                 View {chatCount} Chat{chatCount !== 1 ? 's' : ''}
-                            </button>
+                            </Link>
                         ) : null}
 
                         {/* Owner Status Actions */}
@@ -670,6 +641,22 @@ export default function ProductDetailModal({
                                         ✓ Sold to You
                                     </div>
                                     {/* Review Seller Logic */}
+                                    <Link 
+                                        to={`/messages?listingId=${currentListing.listingId}&filter=Sold`}
+                                        onClick={onClose}
+                                        className="btn-chat" 
+                                        style={{ 
+                                            marginTop: '0.5rem', 
+                                            backgroundColor: "#0077B6", 
+                                            marginBottom: '0.5rem',
+                                            display: 'block', 
+                                            textDecoration: 'none', 
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        View Existing Chat
+                                    </Link>
+
                                     {activeTransaction ? (() => {
                                         const userHasReviewed = activeTransaction.reviews?.some(
                                             r => r.reviewer?.userId === currentUserId || r.reviewer?.id === currentUserId
@@ -723,6 +710,21 @@ export default function ProductDetailModal({
                                     }}>
                                         ✓ Rented to You
                                     </div>
+                                    <Link 
+                                        to={`/messages?listingId=${currentListing.listingId}&filter=Sold`}
+                                        onClick={onClose}
+                                        className="btn-chat" 
+                                        style={{ 
+                                            marginTop: '0.5rem', 
+                                            backgroundColor: "#0077B6", 
+                                            marginBottom: '0.5rem',
+                                            display: 'block', 
+                                            textDecoration: 'none', 
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        View Existing Chat
+                                    </Link>
                                     <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
                                         {(() => {
                                             const userHasReviewed = activeTransaction?.reviews?.some(
@@ -757,9 +759,17 @@ export default function ProductDetailModal({
                                     <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#64748b', textAlign: 'center' }}>
                                         Interested in this item?
                                     </div>
-                                    <button className="btn-chat" style={{ marginTop: '0.5rem' }} onClick={handleChatClick}>
+                                    <Link 
+                                        to={existingChat 
+                                            ? `/messages?conversationId=${existingChat.conversationId}`
+                                            : `/messages?listingId=${currentListing.listingId}&sellerId=${seller.id}`
+                                        }
+                                        onClick={onClose}
+                                        className="btn-chat" 
+                                        style={{ marginTop: '0.5rem', display: 'block', textDecoration: 'none', textAlign: 'center' }} 
+                                    >
                                         {existingChat ? 'View Existing Chat' : 'Chat with Seller to Reserve'}
-                                    </button>
+                                    </Link>
                                   </>
                                 )}
                              </div>
@@ -770,9 +780,17 @@ export default function ProductDetailModal({
 
                     {/* Chat Button - Only if available (not sold/rented) */}
                     {!isSold && !isRented && (
-                        <button className="btn-chat" onClick={handleChatClick}>
-                        {existingChat ? 'View Existing Chat' : 'Chat with the Seller'}
-                        </button>
+                        <Link 
+                            to={existingChat 
+                                ? `/messages?conversationId=${existingChat.conversationId}`
+                                : `/messages?listingId=${currentListing.listingId}&sellerId=${seller.id}`
+                            }
+                            onClick={onClose}
+                            className="btn-chat"
+                            style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}
+                        >
+                            {existingChat ? 'View Existing Chat' : 'Chat with the Seller'}
+                        </Link>
                     )}
 
                     {/* Social Links Section - Show for available and rented items, hide for sold */}

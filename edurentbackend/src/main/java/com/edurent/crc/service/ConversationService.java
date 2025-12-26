@@ -43,7 +43,8 @@ public class ConversationService {
     private MessageRepository messageRepository;
 
     // 1. Get Conversations for User (Optimized with batch queries)
-    public List<ConversationEntity> getConversationsForUser(@NonNull Long userId, int page, int size, String filter) {
+    public List<ConversationEntity> getConversationsForUser(@NonNull Long userId, int page, int size, String filter,
+            Long listingId) {
         List<ConversationParticipantEntity> participants = participantRepository
                 .findById_UserIdAndIsDeletedFalse(userId);
 
@@ -68,6 +69,11 @@ public class ConversationService {
 
         for (ConversationParticipantEntity p : participants) {
             ConversationEntity conv = p.getConversation();
+
+            // New: Filter by Listing ID if provided
+            if (listingId != null && !conv.getListing().getListingId().equals(listingId)) {
+                continue;
+            }
 
             // A. Use batch-fetched last message instead of individual query
             MessageEntity lastMsg = lastMessageMap.get(conv.getConversationId());

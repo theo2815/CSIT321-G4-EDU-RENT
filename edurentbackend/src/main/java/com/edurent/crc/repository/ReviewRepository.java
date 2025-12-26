@@ -44,25 +44,17 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
 
        // [NEW] Find reviews where the reviewer was the BUYER
        @Query(value = "SELECT DISTINCT r FROM ReviewEntity r " +
-                     "LEFT JOIN FETCH r.transaction t " +
-                     "LEFT JOIN FETCH t.listing l " +
-                     "LEFT JOIN FETCH r.reviewer " +
-                     "LEFT JOIN FETCH t.buyer " +
-                     "LEFT JOIN FETCH t.seller " +
                      "WHERE r.reviewedUser.userId = :userId " +
-                     "AND r.reviewer.userId = t.buyer.userId " +
+                     "AND r.reviewer.userId = (SELECT t.buyer.userId FROM TransactionEntity t WHERE t.transactionId = r.transaction.transactionId) "
+                     +
                      "ORDER BY r.createdAt DESC", countQuery = "SELECT COUNT(r) FROM ReviewEntity r JOIN r.transaction t WHERE r.reviewedUser.userId = :userId AND r.reviewer.userId = t.buyer.userId")
        Page<ReviewEntity> findReviewsFromBuyers(@Param("userId") Long userId, Pageable pageable);
 
        // [NEW] Find reviews where the reviewer was the SELLER
        @Query(value = "SELECT DISTINCT r FROM ReviewEntity r " +
-                     "LEFT JOIN FETCH r.transaction t " +
-                     "LEFT JOIN FETCH t.listing l " +
-                     "LEFT JOIN FETCH r.reviewer " +
-                     "LEFT JOIN FETCH t.buyer " +
-                     "LEFT JOIN FETCH t.seller " +
                      "WHERE r.reviewedUser.userId = :userId " +
-                     "AND r.reviewer.userId = t.seller.userId " +
+                     "AND r.reviewer.userId = (SELECT t.seller.userId FROM TransactionEntity t WHERE t.transactionId = r.transaction.transactionId) "
+                     +
                      "ORDER BY r.createdAt DESC", countQuery = "SELECT COUNT(r) FROM ReviewEntity r JOIN r.transaction t WHERE r.reviewedUser.userId = :userId AND r.reviewer.userId = t.seller.userId")
        Page<ReviewEntity> findReviewsFromSellers(@Param("userId") Long userId, Pageable pageable);
 

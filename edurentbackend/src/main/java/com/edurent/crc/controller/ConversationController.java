@@ -63,8 +63,10 @@ public class ConversationController {
             @PathVariable @NonNull Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size,
-            @RequestParam(defaultValue = "All") String filter) {
-        List<ConversationEntity> entities = conversationService.getConversationsForUser(userId, page, size, filter);
+            @RequestParam(defaultValue = "All") String filter,
+            @RequestParam(required = false) Long listingId) {
+        List<ConversationEntity> entities = conversationService.getConversationsForUser(userId, page, size, filter,
+                listingId);
 
         if (entities.isEmpty()) {
             return ResponseEntity.ok(Collections.emptyList());
