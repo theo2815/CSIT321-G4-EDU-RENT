@@ -20,17 +20,26 @@ public class CategoryController {
     public List<CategoryEntity> getAllCategories() {
         return categoryService.getAllCategories();
     }
+
     // Get Category by ID
     @GetMapping("/{id}")
-    public ResponseEntity<CategoryEntity> getCategoryById(@PathVariable Long id) { 
+    public ResponseEntity<CategoryEntity> getCategoryById(@PathVariable Long id) {
         return categoryService.getCategoryById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Get Category by Slug
+    @GetMapping("/slug/{slug}")
+    public ResponseEntity<CategoryEntity> getCategoryBySlug(@PathVariable String slug) {
+        return categoryService.getCategoryBySlug(slug)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     // Create Category
     @PostMapping
-    public ResponseEntity<CategoryEntity> createCategory(@RequestBody CategoryEntity category) { 
+    public ResponseEntity<CategoryEntity> createCategory(@RequestBody CategoryEntity category) {
         try {
             CategoryEntity newCategory = categoryService.createCategory(category);
             return new ResponseEntity<>(newCategory, HttpStatus.CREATED);
@@ -46,4 +55,3 @@ public class CategoryController {
         return ResponseEntity.noContent().build();
     }
 }
-

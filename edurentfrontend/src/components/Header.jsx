@@ -420,9 +420,17 @@ export default function Header({
               <span className="header-logo-text">Edu-Rent</span>
             </Link>
             <nav className="header-nav">
-              <Link to="/browse" className={`nav-link ${location.pathname === '/browse' ? 'active' : ''}`}>Browse All Items</Link>
-              <Link to="/for-rent" className={`nav-link ${location.pathname === '/for-rent' ? 'active' : ''}`}>For Rent</Link>
-              <Link to="/for-sale" className={`nav-link ${location.pathname === '/for-sale' ? 'active' : ''}`}>For Sale</Link>
+              {/* Use guest-prefixed URLs for non-logged-in users */}
+              {(() => {
+                const basePath = userData ? '' : '/guest';
+                return (
+                  <>
+                    <Link to={`${basePath}/browse`} className={`nav-link ${location.pathname === '/browse' || location.pathname === '/guest/browse' ? 'active' : ''}`}>Browse All Items</Link>
+                    <Link to={`${basePath}/for-rent`} className={`nav-link ${location.pathname === '/for-rent' || location.pathname === '/guest/for-rent' ? 'active' : ''}`}>For Rent</Link>
+                    <Link to={`${basePath}/for-sale`} className={`nav-link ${location.pathname === '/for-sale' || location.pathname === '/guest/for-sale' ? 'active' : ''}`}>For Sale</Link>
+                  </>
+                );
+              })()}
               <button 
                 onClick={openCategoriesSidebar} 
                 className="nav-link" 

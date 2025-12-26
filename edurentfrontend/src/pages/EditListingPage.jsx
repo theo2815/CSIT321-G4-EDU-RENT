@@ -169,7 +169,7 @@ export default function EditListingPage() {
 
   // --- Photo Handling Logic ---
   
-  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/dashboard'); };
+  const handleLogout = () => { localStorage.removeItem('eduRentUserData'); navigate('/guest/dashboard'); };
 
   // Triggered when user selects files via the file dialog
   const handleFileSelect = (event) => {

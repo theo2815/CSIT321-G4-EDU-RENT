@@ -17,14 +17,25 @@ public class CategoryService {
         return categoryRepository.findAll();
     }
 
-    public Optional<CategoryEntity> getCategoryById(Long id) { 
+    public Optional<CategoryEntity> getCategoryById(Long id) {
         return categoryRepository.findById(id);
+    }
+
+    public Optional<CategoryEntity> getCategoryBySlug(String slug) {
+        return categoryRepository.findBySlug(slug);
     }
 
     public CategoryEntity createCategory(CategoryEntity category) {
         if (categoryRepository.findByName(category.getName()).isPresent()) {
             throw new IllegalStateException("Category '" + category.getName() + "' already exists.");
         }
+
+        // Generate slug from name
+        if (category.getSlug() == null || category.getSlug().isEmpty()) {
+            String slug = category.getName().toLowerCase().replaceAll("[^a-z0-9]", "-");
+            category.setSlug(slug);
+        }
+
         return categoryRepository.save(category);
     }
 
@@ -32,4 +43,3 @@ public class CategoryService {
         categoryRepository.deleteById(id);
     }
 }
-

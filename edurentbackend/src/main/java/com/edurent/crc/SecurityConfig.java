@@ -70,6 +70,7 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/uploads/listing-images/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/username/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/user/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/transaction/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()

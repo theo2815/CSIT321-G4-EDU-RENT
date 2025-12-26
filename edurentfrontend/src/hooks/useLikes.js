@@ -29,7 +29,7 @@ export default function useLikes() {
 
   // --- Data Fetching ---
 
-  const fetchLikes = useCallback(async () => {
+  const fetchLikes = useCallback(async (silent = false) => {
     
     const token = localStorage.getItem('eduRentUserData');
     if (!token) {
@@ -39,7 +39,10 @@ export default function useLikes() {
         return;
     }
 
-    setIsLoadingLikes(true);
+    // Only show loading indicator if not silent (e.g., initial load)
+    if (!silent) {
+      setIsLoadingLikes(true);
+    }
     setLikeError(null);
     
     try {

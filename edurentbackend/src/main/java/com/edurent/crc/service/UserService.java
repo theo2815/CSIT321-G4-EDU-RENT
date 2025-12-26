@@ -76,7 +76,22 @@ public class UserService {
         newUser.setSchool(school);
         newUser.setCreatedAt(LocalDateTime.now());
 
-        // 5. Save the user
+        // 5. Generate unique username from first name
+        String fullName = request.getFullName();
+        String firstName = fullName.split("\\s+")[0]; // Get first word (first name)
+        String baseUsername = firstName.toLowerCase().replaceAll("[^a-z0-9]", ""); // Lowercase and remove special chars
+        if (baseUsername.isEmpty()) {
+            baseUsername = "user"; // Fallback if first name is empty
+        }
+        String uniqueUsername = baseUsername;
+        int suffix = 1;
+        while (userRepository.findByUsername(uniqueUsername).isPresent()) {
+            uniqueUsername = baseUsername + suffix;
+            suffix++;
+        }
+        newUser.setProfileSlug(uniqueUsername);
+
+        // 6. Save the user
         UserEntity savedUser = userRepository.save(newUser);
 
         // 6. Generate and return the token
@@ -112,6 +127,10 @@ public class UserService {
 
     public Optional<UserEntity> getUserByEmail(String email) {
         return userRepository.findByEmail(email);
+    }
+
+    public Optional<UserEntity> getUserByUsername(String username) {
+        return userRepository.findByUsernameWithSchool(username);
     }
 
     public void deleteUser(Long id) {

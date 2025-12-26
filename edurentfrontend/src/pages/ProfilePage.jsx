@@ -28,7 +28,8 @@ import {
   getCurrentUser, 
   deleteReview,
   getReviewsFromBuyers,  // API to fetch reviews where user is the seller
-  getReviewsFromSellers  // API to fetch reviews where user is the buyer
+  getReviewsFromSellers,  // API to fetch reviews where user is the buyer
+  getUserByUsername       // API to fetch user by username
 } from '../services/apiService';
 
 // Styles and Assets
@@ -54,6 +55,16 @@ const fetchUserById = async (id) => {
   const token = storedData ? JSON.parse(storedData).token : null;
   
   return axios.get(`${API_URL}/users/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+};
+
+// Fetch user by username
+const fetchUserByUsername = async (username) => {
+  const storedData = localStorage.getItem('eduRentUserData');
+  const token = storedData ? JSON.parse(storedData).token : null;
+  
+  return axios.get(`${API_URL}/users/username/${username}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
 };
@@ -194,7 +205,12 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
                       onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }} 
                     />
                     <Link 
-                      to={reviewerId ? `/profile/${reviewerId}` : '#'}
+                      to={(() => {
+                        if (!reviewerId) return '#';
+                        const isLoggedIn = !!localStorage.getItem('eduRentUserData');
+                        const basePath = isLoggedIn ? '' : '/guest';
+                        return `${basePath}/profile/${reviewerId}`;
+                      })()}
                       className="review-reviewer"
                       style={{ 
                           color: 'var(--primary-color)', 
@@ -284,7 +300,7 @@ function ReviewCard({ review, onImageClick, currentUserId, onEdit, onDelete }) {
 
 export default function ProfilePage() {
   
-  const { profileId } = useParams();
+  const { username } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -292,6 +308,39 @@ export default function ProfilePage() {
   const { userData: loggedInUser, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
   const likesHook = useLikes();
   const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
+
+  // Track previous userData to detect login/logout transitions
+  const prevUserData = React.useRef(loggedInUser);
+  
+  // Auto-update URL and refresh data: Handle login/logout transitions
+  React.useEffect(() => {
+    const wasLoggedIn = !!prevUserData.current;
+    const wasGuest = !prevUserData.current;
+    const isNowLoggedIn = !!loggedInUser;
+    const isNowGuest = !loggedInUser;
+    
+    if (wasGuest && isNowLoggedIn) {
+      refetchLikes(true);
+      if (location.pathname.startsWith('/guest/profile/')) {
+        const match = location.pathname.match(/\/guest\/profile\/([a-zA-Z0-9]+)/);
+        if (match) {
+          window.history.replaceState(null, '', `/profile/${match[1]}`);
+        }
+      }
+    }
+    
+    if (wasLoggedIn && isNowGuest) {
+      refetchLikes(true);
+      if (location.pathname.startsWith('/profile/') && !location.pathname.startsWith('/guest/')) {
+        const match = location.pathname.match(/\/profile\/([a-zA-Z0-9]+)/);
+        if (match) {
+          window.history.replaceState(null, '', `/guest/profile/${match[1]}`);
+        }
+      }
+    }
+    
+    prevUserData.current = loggedInUser;
+  }, [loggedInUser, location.pathname, refetchLikes]);
 
   // usePageLogic moved down to access originalListings
 
@@ -451,24 +500,37 @@ export default function ProfilePage() {
     }
   }, [refetchLikes]); 
 
-  // Fetch User Data Separate Effect
+  // Fetch User Data Separate Effect - only allows username-based access
   useEffect(() => {
-      const idToFetch = profileId || loggedInUser?.userId;
-      if (idToFetch && !profileUser) {
+      // For username-based URLs, we need to fetch user first to get userId
+      // For own profile (no username), we use loggedInUser
+      if (!profileUser) {
           const fetchUser = async () => {
              try {
                 let userPromise;
-                if (profileId) {
-                    userPromise = fetchUserById(profileId); 
+                
+                if (username) {
+                    // Block numeric IDs - only allow username access
+                    const isNumericId = /^\d+$/.test(username);
+                    if (isNumericId) {
+                        // Show error for numeric ID access attempts
+                        setPageDataError("Invalid profile URL. Please use the username to access profiles.");
+                        return;
+                    }
+                    // Fetch by username
+                    userPromise = fetchUserByUsername(username); 
                 } else {
+                    // Fetch current user's own profile
                     userPromise = getCurrentUser();
                 }
                 const userResponse = await userPromise;
-                setProfileUser(userResponse.data);
+                const userData = userResponse.data;
+                setProfileUser(userData);
                 
-                // Initiate the review fetches only after user is loaded
-                fetchBuyerReviews(idToFetch, 0);
-                fetchSellerReviews(idToFetch, 0);
+                // Use the fetched user's ID for review API calls
+                const userIdToFetch = userData.userId;
+                fetchBuyerReviews(userIdToFetch, 0);
+                fetchSellerReviews(userIdToFetch, 0);
              } catch (err) {
                  console.error("Failed to fetch user:", err);
                  setPageDataError("Failed to load user profile.");
@@ -476,21 +538,22 @@ export default function ProfilePage() {
           };
           fetchUser();
       }
-  }, [profileId, loggedInUser, profileUser, fetchBuyerReviews, fetchSellerReviews]); 
+  }, [username, loggedInUser, profileUser, fetchBuyerReviews, fetchSellerReviews]); 
 
   // Resets current tab data
   const refreshData = useCallback(() => {
-    const idToFetch = profileId || loggedInUser?.userId;
+    // Use profileUser.userId (fetched from username or current user)
+    const idToFetch = profileUser?.userId || loggedInUser?.userId;
     if (idToFetch) {
         fetchTabData(idToFetch, listingFilter, 0);
     }
-  }, [profileId, loggedInUser, fetchTabData, listingFilter]);
+  }, [profileUser, loggedInUser, fetchTabData, listingFilter]);
 
   // Handler for Load More Listings
   // Handler for Load More Listings
   const handleLoadMoreListings = () => {
     if (isLoadingMoreListings) return;
-    const idToFetch = profileId || loggedInUser?.userId;
+    const idToFetch = profileUser?.userId || loggedInUser?.userId;
     
     const currentTabData = tabData[listingFilter];
     
@@ -518,7 +581,7 @@ export default function ProfilePage() {
     ['title', 'description']
   );
 
-  const isMyProfile = !profileId || (loggedInUser && profileUser && String(loggedInUser.userId) === String(profileUser.userId));
+  const isMyProfile = !username || (loggedInUser && profileUser && String(loggedInUser.userId) === String(profileUser.userId));
 
   // --- Handlers ---
 
@@ -561,14 +624,14 @@ export default function ProfilePage() {
   // Initial Data Load & Tab Switching
   // Initial Data Load & Tab Switching
   useEffect(() => {
-    const idToFetch = profileId || loggedInUser?.userId;
+    const idToFetch = profileUser?.userId || loggedInUser?.userId;
     if (idToFetch) {
         // If current tab is not initialized, fetch it
         if (!tabData[listingFilter].initialized) {
             fetchTabData(idToFetch, listingFilter, 0);
         }
     }
-  }, [profileId, loggedInUser?.userId, fetchTabData, listingFilter, tabData]);
+  }, [profileUser?.userId, loggedInUser?.userId, fetchTabData, listingFilter, tabData]);
 
   // Handle Tab Navigation via URL (e.g., from Notifications)
   useEffect(() => {
@@ -706,7 +769,11 @@ export default function ProfilePage() {
         <main className="dashboard-body">
           <div className="empty-state">
              <div className="empty-state-title">User Not Found</div>
-             <Link to="/dashboard" className="empty-state-action">Back to Dashboard</Link>
+             {(() => {
+               const isLoggedIn = !!localStorage.getItem('eduRentUserData');
+               const dashboardPath = isLoggedIn ? '/dashboard' : '/guest/dashboard';
+               return <Link to={dashboardPath} className="empty-state-action">Back to Dashboard</Link>;
+             })()}
           </div>
         </main>
       </div>
@@ -801,23 +868,23 @@ export default function ProfilePage() {
                      <div className="share-social-icons">
                         <SocialIcon 
                           platform="facebook" 
-                          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.userId}`)}`} 
+                          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.profileSlug}`)}`} 
                           title="Share on Facebook" 
                         />
                         <SocialIcon 
                           platform="messenger" 
-                          href={`https://www.facebook.com/dialog/send?link=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.userId}`)}&app_id=291494419107518&redirect_uri=${encodeURIComponent(window.location.origin)}`} 
+                          href={`https://www.facebook.com/dialog/send?link=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.profileSlug}`)}&app_id=291494419107518&redirect_uri=${encodeURIComponent(window.location.origin)}`} 
                           title="Share via Messenger" 
                         />
                         <SocialIcon 
                           platform="teams" 
-                          href={`https://teams.microsoft.com/share?href=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.userId}`)}&msgText=${encodeURIComponent(`Check out ${profileUser?.fullName}'s profile on Edu-Rent!`)}`} 
+                          href={`https://teams.microsoft.com/share?href=${encodeURIComponent(`${window.location.origin}/profile/${profileUser?.profileSlug}`)}&msgText=${encodeURIComponent(`Check out ${profileUser?.fullName}'s profile on Edu-Rent!`)}`} 
                           title="Share on Microsoft Teams" 
                         />
                         <SocialIcon 
                           platform="instagram" 
                           onClick={() => {
-                            const url = `${window.location.origin}/profile/${profileUser?.userId}`;
+                            const url = `${window.location.origin}/profile/${profileUser?.profileSlug}`;
                             navigator.clipboard.writeText(url)
                               .then(() => showSuccess('Profile link copied! Share it on Instagram.'))
                               .catch(() => showError('Failed to copy link.'));
@@ -835,7 +902,7 @@ export default function ProfilePage() {
                          <input 
                            type="text" 
                            readOnly 
-                           value={`${window.location.origin}/profile/${profileUser?.userId}`}
+                           value={`${window.location.origin}/profile/${profileUser?.profileSlug}`}
                            style={{
                              flex: 1,
                              padding: '0.4rem 0.6rem',
@@ -851,7 +918,7 @@ export default function ProfilePage() {
                          />
                          <button
                            onClick={() => {
-                             const url = `${window.location.origin}/profile/${profileUser?.userId}`;
+                             const url = `${window.location.origin}/profile/${profileUser?.profileSlug}`;
                              navigator.clipboard.writeText(url)
                                .then(() => showSuccess('Profile link copied!'))
                                .catch(() => showError('Failed to copy link.'));

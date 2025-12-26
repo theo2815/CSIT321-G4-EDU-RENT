@@ -15,6 +15,11 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
 
     Optional<UserEntity> findByStudentIdNumber(String studentIdNumber);
 
+    Optional<UserEntity> findByUsername(String username);
+
+    @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.school WHERE u.username = :username")
+    Optional<UserEntity> findByUsernameWithSchool(@Param("username") String username);
+
     @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.school WHERE u.userId = :id")
     Optional<UserEntity> findByIdWithSchool(@Param("id") Long id);
 }

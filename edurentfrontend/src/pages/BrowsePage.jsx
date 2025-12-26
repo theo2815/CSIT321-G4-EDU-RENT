@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'; 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // Import custom hooks that handle logic separately to keep this component clean
 import useAuth from '../hooks/useAuth';
@@ -32,6 +32,7 @@ const Icons = {
 
 export default function BrowsePage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Check who is currently logged in and get their details
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
@@ -172,6 +173,35 @@ export default function BrowsePage() {
     handleLikeToggle,
     refetchLikes,
   } = likesHook;
+
+  // Track previous userData to detect login/logout transitions
+  const prevUserData = React.useRef(userData);
+  
+  // Auto-update URL and refresh data: Handle login/logout transitions
+  React.useEffect(() => {
+    const wasLoggedIn = !!prevUserData.current;
+    const wasGuest = !prevUserData.current;
+    const isNowLoggedIn = !!userData;
+    const isNowGuest = !userData;
+    
+    // Detect login transition (was guest, now logged in)
+    if (wasGuest && isNowLoggedIn) {
+      refetchLikes(true);
+      if (location.pathname === '/guest/browse') {
+        window.history.replaceState(null, '', '/browse');
+      }
+    }
+    
+    // Detect logout transition (was logged in, now guest)
+    if (wasLoggedIn && isNowGuest) {
+      refetchLikes(true);
+      if (location.pathname === '/browse') {
+        window.history.replaceState(null, '', '/guest/browse');
+      }
+    }
+    
+    prevUserData.current = userData;
+  }, [userData, location.pathname, refetchLikes]);
 
   // Manage UI interactions like opening modals and handling notifications
   const { 

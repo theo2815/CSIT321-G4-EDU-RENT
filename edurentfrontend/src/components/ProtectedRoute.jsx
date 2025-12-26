@@ -23,9 +23,9 @@ const ProtectedRoute = () => {
     );
   }
 
-  // 2. If not authenticated, redirect to login
+  // 2. If not authenticated, redirect to guest dashboard
   if (!userData) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/guest/dashboard" replace />;
   }
 
   // 3. If authenticated, render the child routes

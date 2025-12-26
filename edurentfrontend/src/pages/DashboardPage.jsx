@@ -1,5 +1,5 @@
 import React from 'react'; 
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 // Import our custom hooks to keep the logic organized
 import useAuth from '../hooks/useAuth';
@@ -74,6 +74,7 @@ export default function DashboardPage() {
   
   // Check who is logged in and get their profile info
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
+  const location = useLocation();
   
   // Fetch the main content (listings and categories) from the server
   const { 
@@ -106,6 +107,36 @@ export default function DashboardPage() {
     handleLikeToggle,
     refetchLikes
   } = likesHook;
+
+  // Track previous userData to detect login/logout transitions
+  const prevUserData = React.useRef(userData);
+  
+  // Auto-update URL and refresh data: Handle login/logout transitions
+  React.useEffect(() => {
+    const wasLoggedIn = !!prevUserData.current;
+    const wasGuest = !prevUserData.current;
+    const isNowLoggedIn = !!userData;
+    const isNowGuest = !userData;
+    
+    // Detect login transition (was guest, now logged in)
+    if (wasGuest && isNowLoggedIn) {
+      refetchLikes(true); // Silent refresh
+      if (location.pathname === '/guest/dashboard') {
+        window.history.replaceState(null, '', '/dashboard');
+      }
+    }
+    
+    // Detect logout transition (was logged in, now guest)
+    if (wasLoggedIn && isNowGuest) {
+      refetchLikes(true); // This will clear likes since there's no token
+      if (location.pathname === '/dashboard') {
+        window.history.replaceState(null, '', '/guest/dashboard');
+      }
+    }
+    
+    // Update ref for next render
+    prevUserData.current = userData;
+  }, [userData, location.pathname, refetchLikes]);
 
   // Handle UI interactions like opening the item detail modal
   const { 

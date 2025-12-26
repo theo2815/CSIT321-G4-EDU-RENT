@@ -42,6 +42,9 @@ public class UserEntity implements UserDetails {
     @Column(name = "student_id_number", nullable = false, unique = true)
     private String studentIdNumber;
 
+    @Column(name = "username", unique = true)
+    private String username; // URL-friendly identifier for profile pages
+
     @Column(nullable = false, unique = true)
     private String email; // This will be our "username" for Spring Security
 
@@ -147,6 +150,14 @@ public class UserEntity implements UserDetails {
 
     public void setStudentIdNumber(String studentIdNumber) {
         this.studentIdNumber = studentIdNumber;
+    }
+
+    public String getProfileSlug() {
+        return username;
+    }
+
+    public void setProfileSlug(String username) {
+        this.username = username;
     }
 
     public String getEmail() {

@@ -92,4 +92,14 @@ public class UserDTO {
     public void setCreatedAt(java.time.LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
+
+    private String profileSlug;
+
+    public String getProfileSlug() {
+        return profileSlug;
+    }
+
+    public void setProfileSlug(String profileSlug) {
+        this.profileSlug = profileSlug;
+    }
 }

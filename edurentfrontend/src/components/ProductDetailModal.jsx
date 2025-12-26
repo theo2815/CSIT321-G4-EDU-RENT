@@ -121,6 +121,7 @@ const getSellerInfo = (listingUser) => {
   return {
     id: user.userId,
     username: user.fullName || 'Seller Unknown',
+    profileSlug: user.profileSlug || user.userId, // Use profileSlug for URL, fallback to userId
     avatarUrl: user.profilePictureUrl || null,
     school: user.school?.name || user.schoolName || 'N/A',
     reviewCount: 'N/A', 
@@ -631,7 +632,13 @@ export default function ProductDetailModal({
                   <img src={seller.avatarUrl ? (seller.avatarUrl.startsWith('http') ? seller.avatarUrl : `http://localhost:8080${seller.avatarUrl}`) : defaultAvatar} alt="Seller Avatar" className="seller-avatar" onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }} />
                   <div className="seller-details">
                     <div className="seller-username">
-                        <Link to={`/profile/${seller.id}`} onClick={onClose} className="seller-link">{seller.username}</Link>
+                        {(() => {
+                          const isLoggedIn = !!localStorage.getItem('eduRentUserData');
+                          const basePath = isLoggedIn ? '' : '/guest';
+                          return (
+                            <Link to={`${basePath}/profile/${seller.profileSlug}`} onClick={onClose} className="seller-link">{seller.username}</Link>
+                          );
+                        })()}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: '#6c757d', marginBottom: '2px' }}>{seller.school}</div>
                       {!isLoadingContext && !isFetchingTransaction && (

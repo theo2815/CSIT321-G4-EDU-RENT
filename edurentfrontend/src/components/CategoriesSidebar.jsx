@@ -115,14 +115,20 @@ export default function CategoriesSidebar({ isVisible, onClose }) {
           ) : visibleCategories.length > 0 ? (
             // Fragment allows us to return the list and the button as siblings
             <>
-              <ul className="category-list">
-                {visibleCategories.map(category => (
-                  <li key={category.categoryId} className="category-list-item">
-                    <Link to={`/category/${category.categoryId}`} onClick={onClose}>
-                      {category.name}
-                    </Link>
-                  </li>
-                ))}
+            <ul className="category-list">
+                {visibleCategories.map(category => {
+                  // Use guest-prefixed URLs for non-logged-in users
+                  const isLoggedIn = !!localStorage.getItem('eduRentUserData');
+                  const basePath = isLoggedIn ? '' : '/guest';
+                  return (
+                    <li key={category.categoryId} className="category-list-item">
+                      {/* Use slug if available, otherwise fallback to ID (though ID will redirect to slug if backend populated) */}
+                      <Link to={`${basePath}/category/${category.slug || category.categoryId}`} onClick={onClose}>
+                        {category.name}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
               
               {/* Only show the 'Load More' button if there are hidden items left */}

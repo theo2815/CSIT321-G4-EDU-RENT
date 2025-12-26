@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'; 
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 
 // Import our custom hooks
 import useAuth from '../hooks/useAuth';
@@ -15,7 +15,7 @@ import PaginationControls from '../components/PaginationControls';
 import LoadMoreButton from '../components/LoadMoreButton';
 
 // Import API functions needed for this specific page
-import { getCategories, getListingsByCategoryId } from '../services/apiService';
+import { getCategories, getCategoryById, getCategoryBySlug, getListingsByCategoryId } from '../services/apiService';
 
 // Import styles
 import '../static/CategoryPage.css';
@@ -32,8 +32,9 @@ const Icons = {
 };
 
 export default function CategoryPage() {
-  const { categoryId } = useParams(); 
+  const { slug } = useParams(); 
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Get the current user's session data
   const { userData, userName, isLoadingAuth, authError, logout, retryAuth } = useAuth();
@@ -53,6 +54,39 @@ export default function CategoryPage() {
     handleLikeToggle,
     refetchLikes
   } = likesHook;
+
+  // Track previous userData to detect login/logout transitions
+  const prevUserData = React.useRef(userData);
+  
+  // Auto-update URL and refresh data: Handle login/logout transitions
+  React.useEffect(() => {
+    const wasLoggedIn = !!prevUserData.current;
+    const wasGuest = !prevUserData.current;
+    const isNowLoggedIn = !!userData;
+    const isNowGuest = !userData;
+    
+    if (wasGuest && isNowLoggedIn) {
+      refetchLikes(true);
+      if (location.pathname.startsWith('/guest/category/')) {
+        const match = location.pathname.match(/\/guest\/category\/([^/]+)/);
+        if (match) {
+          window.history.replaceState(null, '', `/category/${match[1]}`);
+        }
+      }
+    }
+    
+    if (wasLoggedIn && isNowGuest) {
+      refetchLikes(true);
+      if (location.pathname.startsWith('/category/') && !location.pathname.startsWith('/guest/')) {
+        const match = location.pathname.match(/\/category\/([^/]+)/);
+        if (match) {
+          window.history.replaceState(null, '', `/guest/category/${match[1]}`);
+        }
+      }
+    }
+    
+    prevUserData.current = userData;
+  }, [userData, location.pathname, refetchLikes]);
 
   // Manage UI elements like the detail modal and notifications
   const { 
@@ -76,37 +110,41 @@ export default function CategoryPage() {
   
   // Fetch the category name and its listings when the page loads
   useEffect(() => {
-    if (!categoryId) return;
+    if (!slug) return;
 
     const fetchInitialData = async () => {
       setIsLoadingPageData(true);
       setPageDataError(null);
-      const catIdNumber = parseInt(categoryId, 10);
-
-      if (isNaN(catIdNumber)) {
-          setPageDataError("Invalid category specified.");
-          setIsLoadingPageData(false);
-          return;
-      }
-
+      
       try {
-        // Fetch both the full category list (to get the name) and the specific items
-        const categoriesPromise = getCategories(); 
-        const listingsPromise = getListingsByCategoryId(catIdNumber, 0, 8);
+        let categoryPromise;
+        const isNumericId = /^\d+$/.test(slug);
 
-        const [categoriesResponse, listingsResponse] = await Promise.all([
-          categoriesPromise,
-          listingsPromise,
-        ]);
+        if (isNumericId) {
+            // Legacy: fetch by numeric ID
+            categoryPromise = getCategoryById(slug);
+        } else {
+            // New: fetch by slug
+            categoryPromise = getCategoryBySlug(slug);
+        }
 
-        // Find the matching category object
-        const allCategories = categoriesResponse.data || [];
-        const currentCategory = allCategories.find(cat => cat.categoryId === catIdNumber);
+        const categoryResponse = await categoryPromise;
+        const currentCategory = categoryResponse.data;
         
         if (!currentCategory) {
-            throw new Error(`Category with ID ${catIdNumber} not found.`);
+            throw new Error(`Category not found.`);
         }
         setCategoryInfo(currentCategory);
+        
+        // REDIRECT: If user accessed with numeric ID, redirect to slug URL
+        if (isNumericId && currentCategory.slug) {
+            const isLoggedIn = !!localStorage.getItem('eduRentUserData');
+            const basePath = isLoggedIn ? '' : '/guest';
+            window.history.replaceState(null, '', `${basePath}/category/${currentCategory.slug}`);
+        }
+
+        // Fetch listings using the ID we got from the category object
+        const listingsResponse = await getListingsByCategoryId(currentCategory.categoryId, 0, 8);
 
         // Handle Page response
         const data = listingsResponse.data;
@@ -126,7 +164,7 @@ export default function CategoryPage() {
         console.error("Failed to fetch category data:", err);
         let errorMsg = err.message || "Could not load category data. Please try again.";
         if (err.response?.status === 404) {
-          errorMsg = `Category with ID ${categoryId} not found.`;
+          errorMsg = `Category not found.`;
         }
         setPageDataError(errorMsg);
       } finally {
@@ -135,14 +173,16 @@ export default function CategoryPage() {
     };
     
     fetchInitialData();
-  }, [categoryId]); 
+  }, [slug]); 
 
   // Handle load more separately to avoid full page refresh
   const handleLoadMore = async () => {
     if (isLoadingMore || !hasMore) return;
     
     setIsLoadingMore(true);
-    const catIdNumber = parseInt(categoryId, 10);
+    // categoryInfo should be available if we are here
+    const catIdNumber = categoryInfo?.categoryId;
+    if (!catIdNumber) return;
     
     try {
       const response = await getListingsByCategoryId(catIdNumber, currentPage + 1, 8);

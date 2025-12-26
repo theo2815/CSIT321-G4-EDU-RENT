@@ -27,6 +27,9 @@ public class CategoryEntity {
     @Column(nullable = false, unique = true)
     private String name;
 
+    @Column(unique = true)
+    private String slug;
+
     private String description;
 
     @OneToMany(mappedBy = "category", fetch = FetchType.LAZY)
@@ -55,6 +58,14 @@ public class CategoryEntity {
         this.name = name;
     }
 
+    public String getSlug() {
+        return slug;
+    }
+
+    public void setSlug(String slug) {
+        this.slug = slug;
+    }
+
     public String getDescription() {
         return description;
     }
@@ -74,11 +85,13 @@ public class CategoryEntity {
     // equals, hashCode, toString (excluding relationships)
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         CategoryEntity that = (CategoryEntity) o;
         return Objects.equals(categoryId, that.categoryId) &&
-               Objects.equals(name, that.name);
+                Objects.equals(name, that.name);
     }
 
     @Override
@@ -94,4 +107,3 @@ public class CategoryEntity {
                 '}';
     }
 }
-

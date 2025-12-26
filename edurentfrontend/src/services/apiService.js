@@ -122,6 +122,28 @@ export const getUserReviews = (userId) => {
   return apiClient.get(`/reviews/user/${userId}`);
 };
 
+// Gets a user's public profile by their ID
+export const getUserById = async (userId) => {
+  try {
+    const response = await apiClient.get(`/users/${userId}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during getUserById(${userId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+
+// Gets a user's public profile by their username/slug
+export const getUserByUsername = async (username) => {
+  try {
+    const response = await apiClient.get(`/users/username/${username}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during getUserByUsername(${username}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+
 // Updates the current user's profile information
 export const updateUserProfile = async (payload) => {
   try {
@@ -178,6 +200,16 @@ export const getCategoryById = async (id) => {
     return response;
   } catch (error) {
     console.error(`Error during getCategoryById(${id}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+
+export const getCategoryBySlug = async (slug) => {
+  try {
+    const response = await apiClient.get(`/categories/slug/${slug}`);
+    return response;
+  } catch (error) {
+    console.error(`Error during getCategoryBySlug(${slug}) API call:`, error.response || error.message);
     throw error;
   }
 };

@@ -91,9 +91,9 @@ export default function LoginPage() {
     }
   };
 
-  // --- NEW HANDLER: Guest Mode ---
+  // --- Guest Mode Handler ---
   const handleGuestMode = () => {
-    navigate('/dashboard');
+    navigate('/guest/dashboard');
   };
 
   return (

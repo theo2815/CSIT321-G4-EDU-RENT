@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'; 
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 // Import custom hooks
 import useAuth from '../hooks/useAuth';
@@ -33,6 +33,7 @@ const Icons = {
 
 export default function ForRentPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { userData, userName, logout, retryAuth, authError } = useAuth();
   const { openLogin } = useAuthModal();
 
@@ -52,6 +53,33 @@ export default function ForRentPage() {
   const likesHook = useLikes();
   const { likedListingIds, likingInProgress, isLoadingLikes, likeError, handleLikeToggle, refetchLikes } = likesHook;
   const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook, listings); 
+
+  // Track previous userData to detect login/logout transitions
+  const prevUserData = React.useRef(userData);
+  
+  // Auto-update URL and refresh data: Handle login/logout transitions
+  React.useEffect(() => {
+    const wasLoggedIn = !!prevUserData.current;
+    const wasGuest = !prevUserData.current;
+    const isNowLoggedIn = !!userData;
+    const isNowGuest = !userData;
+    
+    if (wasGuest && isNowLoggedIn) {
+      refetchLikes(true);
+      if (location.pathname === '/guest/for-rent') {
+        window.history.replaceState(null, '', '/for-rent');
+      }
+    }
+    
+    if (wasLoggedIn && isNowGuest) {
+      refetchLikes(true);
+      if (location.pathname === '/for-rent') {
+        window.history.replaceState(null, '', '/guest/for-rent');
+      }
+    }
+    
+    prevUserData.current = userData;
+  }, [userData, location.pathname, refetchLikes]); 
 
   // Fetches only "Rent" type listings from the server
   const fetchData = useCallback(async (page = 0, isLoadMore = false) => {

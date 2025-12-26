@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 
 // Components & Context
 import PageLoader from './components/PageLoader.jsx';
@@ -28,9 +28,30 @@ const ManageListingsPage = React.lazy(() => import('./pages/ManageListingsPage.j
 const CategoryPage = React.lazy(() => import('./pages/CategoryPage.jsx'));
 const EditListingPage = React.lazy(() => import('./pages/EditListingPage.jsx'));
 
-// Helper for the root path: Always go to dashboard now (the "Landing Page")
+// Helper for the root path: Redirect based on authentication status
 const RootRoute = () => {
-  return <Navigate to="/dashboard" replace />;
+  const isLoggedIn = !!localStorage.getItem('eduRentUserData');
+  return <Navigate to={isLoggedIn ? "/dashboard" : "/guest/dashboard"} replace />;
+};
+
+// Helper for legacy /dashboard route: Redirect guests to guest version
+const DashboardRoute = () => {
+  const isLoggedIn = !!localStorage.getItem('eduRentUserData');
+  return isLoggedIn ? <DashboardPage /> : <Navigate to="/guest/dashboard" replace />;
+};
+
+// Helper for /profile/:username route: Redirect guests to guest version
+const PublicProfileRoute = () => {
+  const { username } = useParams();
+  const isLoggedIn = !!localStorage.getItem('eduRentUserData');
+  return isLoggedIn ? <ProfilePage /> : <Navigate to={`/guest/profile/${username}`} replace />;
+};
+
+// Helper for /guest/profile/:username route: Redirect logged-in users to regular version
+const GuestProfileRoute = () => {
+  const { username } = useParams();
+  const isLoggedIn = !!localStorage.getItem('eduRentUserData');
+  return isLoggedIn ? <Navigate to={`/profile/${username}`} replace /> : <ProfilePage />;
 };
 
 function App() {
@@ -48,15 +69,23 @@ function App() {
           <Route path="/enter-otp" element={<EnterOtpPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* --- PUBLIC Landing Pages (Visible to everyone) --- */}
-          <Route path="/dashboard" element={<DashboardPage />} />
+          {/* --- Guest Mode Routes (Visible to non-logged-in users) --- */}
+          <Route path="/guest/dashboard" element={<DashboardPage />} />
+          <Route path="/guest/browse" element={<BrowsePage />} />
+          <Route path="/guest/for-rent" element={<ForRentPage />} />
+          <Route path="/guest/for-sale" element={<ForSalePage />} />
+          <Route path="/guest/category/:slug" element={<CategoryPage />} />
+          <Route path="/guest/profile/:username" element={<GuestProfileRoute />} />
+
+          {/* --- Logged-in User Routes (Redirect guests to /guest/* versions) --- */}
+          <Route path="/dashboard" element={<DashboardRoute />} />
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/for-rent" element={<ForRentPage />} />
           <Route path="/for-sale" element={<ForSalePage />} />
-          <Route path="/category/:categoryId" element={<CategoryPage />} />
+          <Route path="/category/:slug" element={<CategoryPage />} />
           
-          {/* Public Profile View (Specific ID) */}
-          <Route path="/profile/:profileId" element={<ProfilePage />} />
+          {/* Public Profile View - Redirects guests to /guest/profile/:username */}
+          <Route path="/profile/:username" element={<PublicProfileRoute />} />
 
           {/* --- Protected Routes (Require Login) --- */}
           <Route element={<ProtectedRoute />}>

@@ -1326,7 +1326,7 @@ export default function MessagesPage() {
               </button>
               <div className="chat-user-info" style={{ flexDirection: 'column', justifyContent: 'center' }}>
               <Link 
-                to={`/profile/${selectedConversation.otherUser.id}`} 
+                to={`/profile/${selectedConversation.otherUser.profileSlug || selectedConversation.otherUser.id}`} 
                 className="user-name" 
                 style={{ textDecoration: 'none', color: 'var(--primary-color)', cursor: 'pointer', lineHeight: '1.2' }}
               >
