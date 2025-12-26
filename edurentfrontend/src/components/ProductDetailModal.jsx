@@ -342,7 +342,15 @@ export default function ProductDetailModal({
     if (!currentUserId) { openLogin(); return; }
 
     if (existingChat) {
-        navigate('/messages', { state: { openConversation: existingChat, openConversationId: existingChat.conversationId } });
+        // Pass preferredFilter to open the correct tab for sold/rented items
+        const filter = (isSold || isRented) ? 'Sold' : undefined;
+        navigate('/messages', { 
+            state: { 
+                openConversation: existingChat, 
+                openConversationId: existingChat.conversationId,
+                preferredFilter: filter
+            } 
+        });
         onClose();
         return;
     }

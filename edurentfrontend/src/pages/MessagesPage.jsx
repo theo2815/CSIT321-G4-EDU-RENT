@@ -308,7 +308,12 @@ export default function MessagesPage() {
           const targetId = location.state.filterByListingId;
           setListingFilterId(targetId);
           setSearchQuery('');
-          setActiveFilter('All Messages'); 
+          // Use 'Sold' filter since this is typically used from sold/rented item modals
+          setActiveFilter('Sold'); 
+      }
+      // Handle preferredFilter from navigation (e.g., from "View Existing Chat" button)
+      if (location.state?.preferredFilter) {
+          setActiveFilter(location.state.preferredFilter);
       }
   }, [location.state]);
 
