@@ -607,7 +607,8 @@ export default function ProductDetailModal({
                         /* --- Available Controls --- */
                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                             <button className="btn-chat" style={{ backgroundColor: "var(--text-muted)", flex: 1 }} onClick={() => { 
-                                navigate(`/edit-listing/${currentListing.listingId}`, { 
+                                const idToUse = currentListing.publicId || currentListing.listingId;
+                                navigate(`/edit-listing/${idToUse}`, { 
                                 state: { 
                                     returnTo: window.location.pathname, 
                                     openListingId: currentListing.listingId 

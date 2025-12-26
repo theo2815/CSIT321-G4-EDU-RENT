@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-import axios from 'axios'; 
 
 // Custom hooks for application logic
 import useAuth from '../hooks/useAuth';
@@ -24,12 +23,10 @@ import LoadMoreButton from '../components/LoadMoreButton';
 // API Services
 import { 
   getUserListings, 
-  getUserReviews, 
-  getCurrentUser, 
   deleteReview,
-  getReviewsFromBuyers,  // API to fetch reviews where user is the seller
-  getReviewsFromSellers,  // API to fetch reviews where user is the buyer
-  getUserByUsername       // API to fetch user by username
+  getReviewsFromBuyers, 
+  getReviewsFromSellers, 
+  getUserByUsername     
 } from '../services/apiService';
 
 // Styles and Assets
@@ -38,8 +35,6 @@ import '../static/DashboardPage.css';
 import SocialIcon from '../components/SocialIcon';
 import defaultAvatar from '../assets/default-avatar.png';
 
-const API_URL = 'http://localhost:8080/api/v1';
-
 // Fallback for missing item images
 const defaultProductPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3e%3crect width='60' height='60' fill='%23f0f0f0'/%3e%3ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='10' fill='%23aaaaaa'%3eItem%3c/text%3e%3c/svg%3e";
 
@@ -47,26 +42,6 @@ const defaultProductPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns
 const getImageUrl = (path) => {
   if (!path) return null;
   return path.startsWith('http') ? path : `http://localhost:8080${path}`;
-};
-
-// Fallback fetcher if the service layer fails
-const fetchUserById = async (id) => {
-  const storedData = localStorage.getItem('eduRentUserData');
-  const token = storedData ? JSON.parse(storedData).token : null;
-  
-  return axios.get(`${API_URL}/users/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
-};
-
-// Fetch user by username
-const fetchUserByUsername = async (username) => {
-  const storedData = localStorage.getItem('eduRentUserData');
-  const token = storedData ? JSON.parse(storedData).token : null;
-  
-  return axios.get(`${API_URL}/users/username/${username}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
 };
 
 // Helper: Calculate Average Rating
@@ -500,45 +475,122 @@ export default function ProfilePage() {
     }
   }, [refetchLikes]); 
 
-  // Fetch User Data Separate Effect - only allows username-based access
+  // Fetch User Data Logic
   useEffect(() => {
-      // For username-based URLs, we need to fetch user first to get userId
-      // For own profile (no username), we use loggedInUser
-      if (!profileUser) {
-          const fetchUser = async () => {
+    let cancel = false;
+
+    const loadProfileUser = async () => {
+        // Case 1: Viewing a specific profile by username
+        if (username) {
+             // Avoid refetching if we already have the correct user loaded
+             // We check against profileSlug (preferred) and username (fallback)
+             if (profileUser && (profileUser.profileSlug === username || profileUser.username === username)) {
+                 return;
+             }
+
+             // Block numeric IDs
+             if (/^\d+$/.test(username)) {
+                 setPageDataError("Invalid profile URL. Please use the username to access profiles.");
+                 setIsLoadingPageData(false);
+                 return;
+             }
+
              try {
-                let userPromise;
-                
-                if (username) {
-                    // Block numeric IDs - only allow username access
-                    const isNumericId = /^\d+$/.test(username);
-                    if (isNumericId) {
-                        // Show error for numeric ID access attempts
-                        setPageDataError("Invalid profile URL. Please use the username to access profiles.");
-                        return;
-                    }
-                    // Fetch by username
-                    userPromise = fetchUserByUsername(username); 
-                } else {
-                    // Fetch current user's own profile
-                    userPromise = getCurrentUser();
-                }
-                const userResponse = await userPromise;
-                const userData = userResponse.data;
-                setProfileUser(userData);
-                
-                // Use the fetched user's ID for review API calls
-                const userIdToFetch = userData.userId;
-                fetchBuyerReviews(userIdToFetch, 0);
-                fetchSellerReviews(userIdToFetch, 0);
+                 const res = await getUserByUsername(username);
+                 if (cancel) return;
+                 
+                 const userData = res.data;
+                 setProfileUser(userData);
+                 
+                 // Fetch reviews for this user
+                 fetchBuyerReviews(userData.userId, 0);
+                 fetchSellerReviews(userData.userId, 0);
              } catch (err) {
+                 if (cancel) return;
                  console.error("Failed to fetch user:", err);
                  setPageDataError("Failed to load user profile.");
+                 setIsLoadingPageData(false);
              }
-          };
-          fetchUser();
-      }
-  }, [username, loggedInUser, profileUser, fetchBuyerReviews, fetchSellerReviews]); 
+        } 
+        // Case 2: Viewing own profile (no username param)
+        else {
+             if (isLoadingAuth) return; // Wait for auth to finish
+             
+             if (loggedInUser) {
+                 // If we switched from another profile to own profile, or initial load
+                 if (!profileUser || profileUser.userId !== loggedInUser.userId) {
+                     setProfileUser(loggedInUser);
+                     fetchBuyerReviews(loggedInUser.userId, 0);
+                     fetchSellerReviews(loggedInUser.userId, 0);
+                 }
+             } else {
+                 // Not logged in and no username param -> Redirect handled by router or empty state
+                 // But strictly speaking, profileUser is null
+                 setProfileUser(null);
+                 setIsLoadingPageData(false);
+             }
+        }
+    };
+
+    loadProfileUser();
+
+    return () => { cancel = true; };
+  }, [username, loggedInUser, isLoadingAuth, fetchBuyerReviews, fetchSellerReviews]); // Removed profileUser form deps to allow controlled updates
+
+  // Fetch Listings (Tab Data) Logic
+  useEffect(() => {
+    const idToFetch = profileUser?.userId;
+    if (!idToFetch) return;
+
+    // Use a unique key to track if we need to fetch for this specific User+Tab combination
+    // preventing duplicate fetches if dependencies shift slightly
+    // Check if the current tab is already initialized for THIS user
+    // Note: robust implementation would key tabData by userId, but for now we assume tabData is reset on user change?
+    // Actually, we should reset tabData when profileUser changes. 
+    
+    if (!tabData[listingFilter].initialized) {
+        fetchTabData(idToFetch, listingFilter, 0);
+    }
+  }, [profileUser?.userId, listingFilter]); // Minimized dependencies
+
+  // specialized effect to reset tabData when switching users
+  useEffect(() => {
+     const currentUserId = profileUser?.userId;
+     if (currentUserId) {
+         setTabData(prev => {
+             // Only reset if we suspect legacy data? 
+             // Ideally we'd compare data owner ID, but for now just trusting the flow.
+             // If we switched users, 'initialized' would still be true from previous user if we don't reset.
+             // But we can't easily detect user switch inside the setter without refs.
+             return prev; 
+         });
+         
+         // Force reset tabs if user ID changed (Needs Ref to track previous ID)
+     }
+  }, [profileUser?.userId]);
+
+  // Actually, easiest way to handle user switching is to reset tabData when username changes
+  useEffect(() => {
+      setTabData({
+          all: { listings: [], page: 0, hasMore: true, initialized: false, totalElements: 0 },
+          rent: { listings: [], page: 0, hasMore: true, initialized: false, totalElements: 0 },
+          sale: { listings: [], page: 0, hasMore: true, initialized: false, totalElements: 0 },
+          sold: { listings: [], page: 0, hasMore: true, initialized: false, totalElements: 0 }
+      });
+  }, [username, loggedInUser?.userId]); // Reset when context changes
+
+  // Handle Tab Navigation via URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam === 'reviews') {
+        setActiveTab('reviews');
+        setTimeout(() => {
+            const reviewSection = document.querySelector('.profile-reviews-section');
+            if (reviewSection) reviewSection.scrollIntoView({ behavior: 'smooth' });
+        }, 500);
+    }
+  }, [location.search]);
 
   // Resets current tab data
   const refreshData = useCallback(() => {
@@ -549,7 +601,6 @@ export default function ProfilePage() {
     }
   }, [profileUser, loggedInUser, fetchTabData, listingFilter]);
 
-  // Handler for Load More Listings
   // Handler for Load More Listings
   const handleLoadMoreListings = () => {
     if (isLoadingMoreListings) return;
@@ -620,32 +671,6 @@ export default function ProfilePage() {
       // Refresh the reviews after editing
       handleRefreshReviews();
   };
-
-  // Initial Data Load & Tab Switching
-  // Initial Data Load & Tab Switching
-  useEffect(() => {
-    const idToFetch = profileUser?.userId || loggedInUser?.userId;
-    if (idToFetch) {
-        // If current tab is not initialized, fetch it
-        if (!tabData[listingFilter].initialized) {
-            fetchTabData(idToFetch, listingFilter, 0);
-        }
-    }
-  }, [profileUser?.userId, loggedInUser?.userId, fetchTabData, listingFilter, tabData]);
-
-  // Handle Tab Navigation via URL (e.g., from Notifications)
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tabParam = params.get('tab');
-    if (tabParam === 'reviews') {
-        setActiveTab('reviews');
-        // Optional: Scroll to reviews section
-        setTimeout(() => {
-            const reviewSection = document.querySelector('.profile-reviews-section');
-            if (reviewSection) reviewSection.scrollIntoView({ behavior: 'smooth' });
-        }, 500);
-    }
-  }, [location.search]);
 
   const openProfileModal = () => setIsProfileModalOpen(true);
   const closeProfileModal = () => setIsProfileModalOpen(false);
@@ -961,7 +986,7 @@ export default function ProfilePage() {
               Listings ({tabData[listingFilter]?.totalElements || 0})
             </button>
             <button className={`tab-button ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>
-              Reviews
+              Reviews ({totalReviewsDisplay})
             </button>
           </div>
 

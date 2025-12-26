@@ -68,7 +68,7 @@ function ListItemSkeleton() {
 const CONDITION_OPTIONS = ['Brand New', 'Like New', 'Lightly Used', 'Well Used', 'Heavily Used'];
 
 export default function EditListingPage() {
-  // Grab the specific listing ID from the URL so we know which item to edit
+  // Grab the specific listing ID (or UUID) from the URL so we know which item to edit
   const { listingId } = useParams(); 
   const [userName, setUserName] = useState('');
   const [categories, setCategories] = useState([]);
@@ -118,6 +118,15 @@ export default function EditListingPage() {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
+
+      // SECURITY: validation to strict UUID only (prevents numeric ID access)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(listingId)) {
+          setError("Invalid Listing URL. Numeric IDs are no longer supported for security.");
+          setIsLoading(false);
+          return;
+      }
+
       try {
         const userPromise = getCurrentUser();
         const categoriesPromise = getCategories();
@@ -138,6 +147,13 @@ export default function EditListingPage() {
         // 3. Pre-fill the form with the existing data from the database
         const listingData = listingResponse.data;
         if (listingData) {
+          // SECURITY CHECK: Ensure the current user is the owner of this listing
+          if (userResponse.data.userId !== listingData.user?.userId) {
+              setError("You do not have permission to edit this listing.");
+              setIsLoading(false);
+              return;
+          }
+
           setTitle(listingData.title || '');
           setSelectedCategory(listingData.category?.categoryId || '');
           setCondition(listingData.condition || '');

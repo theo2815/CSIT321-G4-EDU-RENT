@@ -273,10 +273,14 @@ export default function ManageListingsPage() {
   // --- Item Actions ---
 
   const handleEdit = (itemId) => {
-    navigate(`/edit-listing/${itemId}`, {
+    // Find the item to check if we have a publicId (UUID)
+    const item = allListings.find(l => l.listingId === itemId);
+    const idToUse = item?.publicId || itemId;
+
+    navigate(`/edit-listing/${idToUse}`, {
       state: {
         returnTo: '/manage-listings',
-        openListingId: itemId
+        openListingId: itemId // Keep internal ID for state if needed, or update this too if we fully switch
       }
     });
   };

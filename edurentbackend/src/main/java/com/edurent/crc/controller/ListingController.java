@@ -2,6 +2,7 @@ package com.edurent.crc.controller;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -32,10 +33,18 @@ public class ListingController {
         return listingService.getAllListings(page, size);
     }
 
-    // Fetches a single listing by ID
+    // Fetches a single listing by ID (Numeric or UUID)
     @GetMapping("/{listingId}")
-    public ResponseEntity<ListingEntity> getListingById(@PathVariable Long listingId) {
-        return listingService.getListingById(listingId)
+    public ResponseEntity<ListingEntity> getListingById(@PathVariable String listingId) {
+        Optional<ListingEntity> listing;
+        try {
+            Long id = Long.parseLong(listingId);
+            listing = listingService.getListingById(id);
+        } catch (NumberFormatException e) {
+            listing = listingService.getListingByPublicId(listingId);
+        }
+
+        return listing
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -126,7 +135,7 @@ public class ListingController {
     // deleting old ones)
     @PutMapping(value = "/{listingId}", consumes = { "multipart/form-data" })
     public ResponseEntity<ListingEntity> updateListing(
-            @PathVariable Long listingId,
+            @PathVariable String listingId,
             Authentication authentication,
             @RequestParam("categoryId") Long categoryId,
             @RequestParam("title") String title,
@@ -171,14 +180,30 @@ public class ListingController {
 
     // Updates only the status of a listing (e.g., Active -> Sold, Active ->
     // Inactive)
+    // Note: This one still expects ID for now as it's an internal action or we can
+    // update it too.
+    // For consistency, let's allow it to handle both.
     @PutMapping("/{listingId}/status")
     public ResponseEntity<Void> updateListingStatus(
-            @PathVariable Long listingId,
+            @PathVariable String listingId,
             @RequestParam String status,
             Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         try {
-            listingService.updateListingStatus(listingId, status, currentUser.getUserId());
+            Long id;
+            try {
+                id = Long.parseLong(listingId);
+            } catch (NumberFormatException e) {
+                // For status updates, we might need a service method `updateListingStatus` that
+                // takes string too.
+                // checking logic.. listingService.updateListingStatus takes Long.
+                // We should ideally fetch the listing to get the Long ID first.
+                ListingEntity listing = listingService.getListingByPublicId(listingId)
+                        .orElseThrow(() -> new RuntimeException("Listing not found"));
+                id = listing.getListingId();
+            }
+
+            listingService.updateListingStatus(id, status, currentUser.getUserId());
             return ResponseEntity.ok().build();
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -187,14 +212,23 @@ public class ListingController {
         }
     }
 
-    // Permanently deletes a listing and its associated images
+    // Permanently deletes a listing
     @DeleteMapping("/{listingId}")
     public ResponseEntity<Void> deleteListing(
-            @PathVariable Long listingId,
+            @PathVariable String listingId,
             Authentication authentication) {
         try {
             UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-            listingService.deleteListing(listingId, currentUser.getUserId());
+            Long id;
+            try {
+                id = Long.parseLong(listingId);
+            } catch (NumberFormatException e) {
+                ListingEntity listing = listingService.getListingByPublicId(listingId)
+                        .orElseThrow(() -> new RuntimeException("Listing not found"));
+                id = listing.getListingId();
+            }
+
+            listingService.deleteListing(id, currentUser.getUserId());
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
             if (e instanceof AccessDeniedException) {

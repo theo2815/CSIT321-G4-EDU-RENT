@@ -59,4 +59,7 @@ public interface ListingRepository extends JpaRepository<ListingEntity, Long> {
 
         List<ListingEntity> findByCategory_CategoryIdAndStatus(Long categoryId, String status);
 
+        @Query("SELECT DISTINCT l FROM ListingEntity l LEFT JOIN FETCH l.user LEFT JOIN FETCH l.category LEFT JOIN FETCH l.images WHERE l.publicId = :publicId")
+        Optional<ListingEntity> findByPublicId(@Param("publicId") String publicId);
+
 }

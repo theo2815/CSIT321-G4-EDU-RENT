@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
+import jakarta.persistence.PrePersist;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -32,6 +34,9 @@ public class ListingEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "listing_id")
     private Long listingId;
+
+    @Column(name = "public_id", unique = true, updatable = false)
+    private String publicId;
 
     @Column(nullable = false)
     private String title;
@@ -294,5 +299,20 @@ public class ListingEntity {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        if (publicId == null) {
+            publicId = UUID.randomUUID().toString();
+        }
+    }
+
+    public String getPublicId() {
+        return publicId;
+    }
+
+    public void setPublicId(String publicId) {
+        this.publicId = publicId;
     }
 }

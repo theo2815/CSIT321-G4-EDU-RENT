@@ -115,15 +115,22 @@ public class ListingService {
 
     @Transactional
     public ListingEntity updateListing(
-            Long listingId,
+            String listingIdentifier,
             Long currentUserId,
             Long categoryId,
             ListingEntity updateData,
             List<Long> imagesToDelete,
             List<MultipartFile> newImages) throws IOException {
 
-        ListingEntity existingListing = listingRepository.findById(listingId)
-                .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
+        ListingEntity existingListing;
+        try {
+            Long id = Long.parseLong(listingIdentifier);
+            existingListing = listingRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Listing not found: " + listingIdentifier));
+        } catch (NumberFormatException e) {
+            existingListing = listingRepository.findByPublicId(listingIdentifier)
+                    .orElseThrow(() -> new RuntimeException("Listing not found: " + listingIdentifier));
+        }
 
         if (!existingListing.getUser().getUserId().equals(currentUserId)) {
             throw new AccessDeniedException("You do not have permission to edit this listing.");
@@ -149,7 +156,7 @@ public class ListingService {
             List<ListingImageEntity> imagesToRemove = listingImageRepository.findAllById(imagesToDelete);
 
             for (ListingImageEntity image : imagesToRemove) {
-                if (image.getListing().getListingId().equals(listingId)) {
+                if (image.getListing().getListingId().equals(existingListing.getListingId())) {
                     cloudinaryService.deleteImage(image.getImageUrl());
                     existingListing.getImages().remove(image);
                 }
@@ -218,6 +225,10 @@ public class ListingService {
 
     public Optional<ListingEntity> getListingById(Long listingId) {
         return listingRepository.findById(listingId);
+    }
+
+    public Optional<ListingEntity> getListingByPublicId(String publicId) {
+        return listingRepository.findByPublicId(publicId);
     }
 
     // Fetches listings for a specific user.
