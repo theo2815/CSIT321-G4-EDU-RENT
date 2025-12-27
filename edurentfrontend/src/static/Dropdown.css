@@ -95,15 +95,17 @@
     min-width: 150px; /* Give it a default min width since header might be small */
 }
 
-/* Hover state to show options */
-.select-container:hover > .options-list {
+/* Hover state to show options (ONLY for non-manual toggle) */
+.select-container:not(.manual-toggle):hover > .options-list,
+.select-container.manual-toggle.open > .options-list {
   opacity: 1;
   visibility: visible;
   top: 100%; /* Slide down to correct position */
 }
 
-/* Rotate arrow on hover */
-.select-container:hover > .selected-header .arrow-icon {
+/* Rotate arrow on hover (or when open) */
+.select-container:not(.manual-toggle):hover > .selected-header .arrow-icon,
+.select-container.manual-toggle.open > .selected-header .arrow-icon {
   transform: rotate(0deg);
 }
 

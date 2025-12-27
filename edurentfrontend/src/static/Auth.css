@@ -23,11 +23,19 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- 2. Main Auth Layout (2-Column) --- */
+/* --- 2. Main Auth Layout (Responsive) --- */
 .auth-container {
   display: flex;
   min-height: 100vh;
   width: 100%;
+  flex-direction: column; /* Default to column for mobile */
+}
+
+/* Tablet & Desktop: Row layout */
+@media (min-width: 768px) {
+  .auth-container {
+    flex-direction: row;
+  }
 }
 
 /* Utilities */
@@ -45,19 +53,21 @@ body {
   .auth-title { font-size: 1.5rem; }
 }
 
-/* --- 3. Branding Panel (Left Side) --- */
+/* --- 3. Branding Panel (Left Side / Top on Mobile) --- */
 .auth-branding-panel {
-  flex: 1;
-  display: none; /* Hidden on mobile by default */
+  display: flex; /* Always visible now */
   flex-direction: column;
   justify-content: center;
   align-items: center;
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%);
   color: #ffffff;
-  padding: 3rem;
+  padding: 2rem 1.5rem; /* Reduced padding for mobile */
   text-align: center;
   position: relative;
   overflow: hidden;
+  /* Mobile specific: shorter height */
+  min-height: 200px; 
+  flex: 0 0 auto; 
 }
 
 /* subtle decorative pattern */
@@ -70,10 +80,13 @@ body {
   pointer-events: none;
 }
 
-/* Show branding panel on medium screens and up */
+/* Desktop Styles for Branding Panel */
 @media (min-width: 768px) {
   .auth-branding-panel {
-    display: flex;
+    flex: 1; /* Take up half width */
+    height: auto; /* Full height */
+    padding: 3rem;
+    min-height: auto;
   }
 }
 
@@ -81,22 +94,37 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem; /* Small gap between logo and text */
+  gap: 0.25rem; 
   text-decoration: none;
-  margin-bottom: 1.5rem; /* Replaces margin from logo */
+  margin-bottom: 1rem; 
 }
 
 .auth-branding-text {
-  font-size: 2rem;
+  font-size: 1.75rem; /* Slightly smaller on mobile */
   font-weight: 700;
   color: #ffffff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
   letter-spacing: 0.05em;
 }
 
+@media (min-width: 768px) {
+    .auth-branding-text {
+        font-size: 2rem;
+    }
+}
+
 .auth-logo {
-  max-width: clamp(120px, 18vw, 180px);
-  margin-bottom: 0; /* Let wrapper handle spacing */
+  max-width: 100px; /* Smaller logo on mobile */
+  margin-bottom: 0; 
+}
+
+@media (min-width: 768px) {
+    .auth-logo {
+        max-width: clamp(120px, 18vw, 180px);
+    }
+    .auth-logo-wrapper {
+        margin-bottom: 1.5rem;
+    }
 }
 
 /* Dark mode: Make logo white */
@@ -105,10 +133,25 @@ body {
 }
 
 .auth-tagline {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 500;
   max-width: 400px;
-  line-height: 1.6;
+  line-height: 1.5;
+  display: none; /* Hide tagline on very small screens to save space? Optional. Let's keep it but small. */
+}
+
+@media (min-width: 480px) {
+    .auth-tagline {
+        display: block;
+    }
+}
+
+@media (min-width: 768px) {
+    .auth-tagline {
+        font-size: 1.25rem;
+        line-height: 1.6;
+        display: block;
+    }
 }
 
 /* --- 4. Form Panel (Right Side) --- */
@@ -116,21 +159,37 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: center; /* Center vertically if space allows */
   align-items: center;
-  padding: 2rem 1rem;
+  padding: 1rem; /* Less padding on mobile */
   background-color: var(--bg-color);
+  width: 100%; /* Ensure full width */
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+    .auth-form-panel {
+        padding: 2rem 1rem;
+    }
 }
 
 .auth-form-container {
   width: 100%;
-  max-width: 420px; /* A bit wider for modern feel */
+  max-width: 420px; 
   background-color: var(--bg-light);
-  padding: 2.25rem;
+  padding: 1.5rem; /* Smaller padding inside card on mobile */
   border-radius: 14px;
   border: 1px solid rgba(0, 0, 0, 0.04);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
   transition: box-shadow 180ms ease, transform 180ms ease;
+  margin-top: -2rem; /* Pull up slightly to overlap branding if desired, or just margin. Let's keep distinct for now. */
+  margin-top: 0;
+}
+
+@media (min-width: 480px) {
+    .auth-form-container {
+        padding: 2.25rem;
+    }
 }
 
 @media (min-width: 1024px) {
@@ -143,11 +202,18 @@ body {
 
 .auth-title {
   text-align: center;
-  font-size: 1.875rem;
+  font-size: 1.5rem; /* Smaller title on mobile */
   font-weight: 700;
   color: var(--text-color);
   letter-spacing: -0.01em;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+    .auth-title {
+        font-size: 1.875rem;
+        margin-bottom: 1.75rem;
+    }
 }
 
 /* --- 5. Shared Form Elements --- */

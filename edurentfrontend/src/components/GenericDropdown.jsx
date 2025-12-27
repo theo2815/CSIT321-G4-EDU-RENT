@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import '../static/Dropdown.css';
 
 export default function GenericDropdown({ 
@@ -11,6 +11,8 @@ export default function GenericDropdown({
     placeholder = 'Select an option',
     badgeCounts = {} /* Map of option value to count for badges */
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   // Helper to determine display label
   const getLabel = (opt) => (typeof opt === 'object' ? opt.label : opt);
@@ -23,20 +25,36 @@ export default function GenericDropdown({
         : selectedOption)
     : placeholder;
   
-  // If SelectedOption is passed but no label found (maybe pre-loading?), fallback to placeholder or raw value?
-  // Logic: "label" prop overrides everything if passed as a fixed string (like in MessagesPage),
-  // but for forms we usually pass "selectedOption" and want to derive the label.
-  // In MessagesPage, we passed `label={activeFilter}` which was the string itself.
-  // Let's support both: if `label` prop is explicit, use it. If not, derive from selectedOption.
-  
   const finalDisplayLabel = label !== undefined ? label : displayLabel;
   
   // Get badge count for the currently selected option (for header display)
   const headerBadgeCount = badgeCounts[selectedOption] || 0;
 
+  // Handle click outside to close
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleDropdown = () => setIsOpen(!isOpen);
+
+  const handleSelect = (val) => {
+      onSelect(val);
+      setIsOpen(false);
+  };
+
   return (
-    <div className={`select-container ${variant === 'borderless' ? 'borderless' : ''}`} style={{ width: width }}>
-      <div className="selected-header">
+    <div 
+        className={`select-container ${variant === 'borderless' ? 'borderless' : ''} manual-toggle ${isOpen ? 'open' : ''}`} 
+        style={{ width: width }}
+        ref={dropdownRef}
+    >
+      <div className="selected-header" onClick={toggleDropdown}>
         <span className="user-name-span">
             {finalDisplayLabel}
             {headerBadgeCount > 0 && (
@@ -82,7 +100,7 @@ export default function GenericDropdown({
                     className={`option-item ${isSelected ? 'active' : ''}`}
                     onClick={(e) => {
                         e.stopPropagation(); 
-                        onSelect(optValue);
+                        handleSelect(optValue);
                     }}
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
