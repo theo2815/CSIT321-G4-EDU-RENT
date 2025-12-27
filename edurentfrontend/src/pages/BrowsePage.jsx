@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 // Import custom hooks that handle logic separately to keep this component clean
 import useAuth from '../hooks/useAuth';
-import useSearch from '../hooks/useSearch';
+// import useSearch from '../hooks/useSearch'; // Removed in refactor
+import useFilteredListings from '../hooks/useFilteredListings';
 import usePageLogic from '../hooks/usePageLogic';
 import useLikes from '../hooks/useLikes';
 import { useAuthModal } from '../hooks/useAuthModal';
@@ -147,21 +148,29 @@ export default function BrowsePage() {
   };
 
   // --- Search Functionality ---
-  const { searchQuery, handleSearch, filteredListings: filteredSale } = useSearch(
-    saleListings,
-    ['title', 'description', 'category.name'] 
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const handleSearch = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const searchKeys = ['title', 'description', 'category.name'];
+
+  // Apply search to sale listings
+  const filteredSale = useFilteredListings(
+    saleListings, 
+    'all', 
+    searchQuery, 
+    searchKeys
   );
 
-  // Apply search to rent listings manually (useSearch only returns one filtered list)
-  const filteredRent = rentListings.filter(listing => {
-    if (!searchQuery) return true;
-    const lowerQuery = searchQuery.toLowerCase();
-    return (
-      listing.title?.toLowerCase().includes(lowerQuery) ||
-      listing.description?.toLowerCase().includes(lowerQuery) ||
-      listing.category?.name?.toLowerCase().includes(lowerQuery)
-    );
-  });
+  // Apply search to rent listings
+  const filteredRent = useFilteredListings(
+    rentListings, 
+    'all', 
+    searchQuery, 
+    searchKeys
+  );
   
   // Handle the logic for liking and unliking items
   const likesHook = useLikes();

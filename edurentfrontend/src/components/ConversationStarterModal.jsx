@@ -1,7 +1,7 @@
 // This compotent is used in profile page to select a listing to start conversation about
 import React, { useState } from 'react';
 import ListingCard from './ListingCard';
-import useSearch from '../hooks/useSearch';
+// import useSearch from '../hooks/useSearch'; // Removed in refactor
 import useFilteredListings from '../hooks/useFilteredListings';
 import '../static/ConversationStarterModal.css';
 
@@ -17,15 +17,17 @@ export default function ConversationStarterModal({
 }) {
   // Controls which filter tab is currently active
   const [filterType, setFilterType] = useState('all'); 
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const handleSearch = (e) => setSearchQuery(e.target.value);
 
-  // Filter the raw listing data based on the user's search input
-  const { searchQuery, handleSearch, filteredListings: searchedListings } = useSearch(
-    listings,
+  // Apply both search and type filtering in one go
+  const finalDisplayListings = useFilteredListings(
+    listings, 
+    filterType, 
+    searchQuery, 
     ['title', 'description', 'category.name']
   );
-
-  // Apply the specific type filter (Rent/Sale) to the search results
-  const finalDisplayListings = useFilteredListings(searchedListings, filterType);
 
   if (!isOpen) return null;
 
