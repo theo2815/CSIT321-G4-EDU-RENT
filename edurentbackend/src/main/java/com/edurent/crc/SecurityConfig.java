@@ -86,7 +86,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Add CorsFilter at high priority before JWT filter
-                .addFilterBefore(new org.springframework.web.filter.CorsFilter(corsConfigurationSource()),
+                .addFilterBefore(
+                        new org.springframework.web.filter.CorsFilter(
+                                java.util.Objects.requireNonNull(corsConfigurationSource())),
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
