@@ -23,12 +23,13 @@ public class MailService {
     private String frontendUrl;
 
     /**
-     * Send password reset email with token link
+     * Send password reset email with token link (async for non-blocking)
      */
+    @Async
     public void sendPasswordResetEmail(String toEmail, String token, String userName) {
         try {
             String resetLink = frontendUrl + "/reset-password?token=" + token;
-            
+
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromName + " <" + fromEmail + ">");
             message.setTo(toEmail);
@@ -36,11 +37,12 @@ public class MailService {
             message.setText(buildEmailContent(userName, resetLink));
 
             mailSender.send(message);
-            
+
             System.out.println("✅ Password reset email sent to: " + toEmail);
         } catch (Exception e) {
+            // Log the error - can't throw to caller since this is async
             System.err.println("❌ Failed to send password reset email: " + e.getMessage());
-            throw new RuntimeException("Failed to send email. Please try again later.");
+            e.printStackTrace();
         }
     }
 
@@ -49,19 +51,19 @@ public class MailService {
      */
     private String buildEmailContent(String userName, String resetLink) {
         return String.format(
-            "Hello %s,\n\n" +
-            "We received a request to reset your password for your EduRent account.\n\n" +
-            "Click the link below to reset your password:\n" +
-            "%s\n\n" +
-            "This link will expire in 30 minutes.\n\n" +
-            "If you didn't request a password reset, please ignore this email. Your password will remain unchanged.\n\n" +
-            "Best regards,\n" +
-            "The EduRent Team\n\n" +
-            "---\n" +
-            "This is an automated message, please do not reply to this email.",
-            userName,
-            resetLink
-        );
+                "Hello %s,\n\n" +
+                        "We received a request to reset your password for your EduRent account.\n\n" +
+                        "Click the link below to reset your password:\n" +
+                        "%s\n\n" +
+                        "This link will expire in 30 minutes.\n\n" +
+                        "If you didn't request a password reset, please ignore this email. Your password will remain unchanged.\n\n"
+                        +
+                        "Best regards,\n" +
+                        "The EduRent Team\n\n" +
+                        "---\n" +
+                        "This is an automated message, please do not reply to this email.",
+                userName,
+                resetLink);
     }
 
     /**
@@ -77,7 +79,7 @@ public class MailService {
             message.setText(body);
 
             mailSender.send(message);
-            
+
             System.out.println("✅ Email sent to: " + to);
         } catch (Exception e) {
             System.err.println("❌ Failed to send email: " + e.getMessage());

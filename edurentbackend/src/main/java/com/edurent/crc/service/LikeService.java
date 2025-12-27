@@ -52,7 +52,7 @@ public class LikeService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
-        ListingEntity listing = listingRepository.findByIdWithUser(listingId)
+        ListingEntity listing = listingRepository.findByListingId(listingId)
                 .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
 
         LikeIdEntity likeId = new LikeIdEntity(userId, listingId);
@@ -123,7 +123,7 @@ public class LikeService {
 
         UserEntity unliker = userRepository.findById(userId)
                 .orElse(null);
-        ListingEntity listing = listingRepository.findByIdWithUser(listingId)
+        ListingEntity listing = listingRepository.findByListingId(listingId)
                 .orElse(null);
 
         if (unliker == null || listing == null) {

@@ -22,9 +22,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.NamedAttributeNode;
+import jakarta.persistence.NamedEntityGraph;
+import jakarta.persistence.NamedEntityGraphs;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "listings", indexes = {
@@ -34,12 +38,31 @@ import jakarta.persistence.Table;
         @Index(name = "idx_listing_public_id", columnList = "public_id")
 })
 @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
+@NamedEntityGraphs({
+        @NamedEntityGraph(name = "Listing.withUserAndCategory", attributeNodes = {
+                @NamedAttributeNode("user"),
+                @NamedAttributeNode("category")
+        }),
+        @NamedEntityGraph(name = "Listing.withDetails", attributeNodes = {
+                @NamedAttributeNode("user"),
+                @NamedAttributeNode("category"),
+                @NamedAttributeNode("images")
+        })
+})
 public class ListingEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "listing_id")
     private Long listingId;
+
+    /**
+     * Version field for optimistic locking.
+     * Prevents race conditions when multiple users update the same listing.
+     */
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     @Column(name = "public_id", unique = true, updatable = false)
     private String publicId;

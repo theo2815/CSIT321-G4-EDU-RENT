@@ -18,6 +18,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "transactions")
@@ -27,6 +28,14 @@ public class TransactionEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "transaction_id")
     private Long transactionId;
+
+    /**
+     * Version field for optimistic locking.
+     * Prevents race conditions when multiple users update the same transaction.
+     */
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     @Column(name = "transaction_type", nullable = false)
     private String transactionType;

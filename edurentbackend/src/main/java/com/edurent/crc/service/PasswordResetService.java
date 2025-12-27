@@ -65,17 +65,11 @@ public class PasswordResetService {
                 expiresAt);
         tokenRepository.save(resetToken);
 
-        // Send email
-        try {
-            mailService.sendPasswordResetEmail(user.getEmail(), token, user.getFullName());
-            System.out.println("✅ Password reset token created for user: " + user.getEmail());
-        } catch (Exception e) {
-            System.err.println("❌ Failed to send reset email: " + e.getMessage());
-            // Delete the token if email fails
-            tokenRepository.delete(resetToken);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed to send reset email. Please try again later.");
-        }
+        // Send email asynchronously (non-blocking)
+        // Note: Email sending happens in background. Token is already saved,
+        // so even if email fails, the token exists and will expire naturally.
+        mailService.sendPasswordResetEmail(user.getEmail(), token, user.getFullName());
+        System.out.println("✅ Password reset requested for user: " + user.getEmail());
     }
 
     /**

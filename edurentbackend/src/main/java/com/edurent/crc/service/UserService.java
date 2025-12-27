@@ -125,7 +125,7 @@ public class UserService {
     }
 
     public Optional<UserEntity> getUserById(@NonNull Long id) {
-        return userRepository.findByIdWithSchool(id);
+        return userRepository.findWithSchoolByUserId(id);
     }
 
     public Optional<UserEntity> getUserByEmail(String email) {
@@ -133,7 +133,7 @@ public class UserService {
     }
 
     public Optional<UserEntity> getUserByUsername(String username) {
-        return userRepository.findByUsernameWithSchool(username);
+        return userRepository.findWithSchoolByUsername(username);
     }
 
     public void deleteUser(@NonNull Long id) {
