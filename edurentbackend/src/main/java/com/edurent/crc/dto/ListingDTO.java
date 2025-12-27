@@ -24,6 +24,7 @@ public class ListingDTO {
     // private UserDTO user; // Aliased to owner
     private CategoryDTO category;
     private List<ListingImageDTO> images;
+    private List<TransactionDTO> transactions;
 
     // Constructors
     public ListingDTO() {
@@ -172,6 +173,14 @@ public class ListingDTO {
 
     public void setImages(List<ListingImageDTO> images) {
         this.images = images;
+    }
+
+    public List<TransactionDTO> getTransactions() {
+        return transactions;
+    }
+
+    public void setTransactions(List<TransactionDTO> transactions) {
+        this.transactions = transactions;
     }
 
     // --- Backward Compatibility Fields (for existing controller usage) ---

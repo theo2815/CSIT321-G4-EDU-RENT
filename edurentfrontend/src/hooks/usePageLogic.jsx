@@ -1,10 +1,10 @@
 // This hooks manages page logic for listing modals, including like functionality and pre-fetching context data
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useLikes from './useLikes';
 import { useListingCache } from './useListingCache';
 import { getListingById, getUserReviews, getConversationsForUser, getTransactionByListing } from '../services/apiService';
-import ProductDetailModal from '../components/ProductDetailModal';
+const ProductDetailModal = lazy(() => import('../components/ProductDetailModal'));
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 
 export default function usePageLogic(userData, likeData = null, availableListings = []) {
@@ -266,19 +266,22 @@ export default function usePageLogic(userData, likeData = null, availableListing
   // Using useCallback to memoize the render function
   const ModalComponent = useCallback(() => (
     <>
+      {/* Modal is lazy loaded so we wrap in Suspense with Skeleton fallback */}
       {isModalOpen && selectedListing && (
-         <ProductDetailModal 
-           listing={selectedListing} 
-           onClose={closeModal} 
-           currentUserId={userData?.userId}
-           isLiked={likedListingIds.has(selectedListing.listingId)}
-           onLikeClick={handleLikeToggle}
-           isLiking={likingInProgress.has(selectedListing.listingId)}
-           sellerRatingInitialData={sellerRatingData}
-           initialContext={modalContext} // Pass the pre-calculated context
-           initialAction={modalContext?.initialAction} // Pass intent
-           isLoadingContext={isContextLoading} // Pass loading state
-         />
+         <Suspense fallback={<ProductDetailModalSkeleton onClose={closeModal} />}>
+           <ProductDetailModal 
+             listing={selectedListing} 
+             onClose={closeModal} 
+             currentUserId={userData?.userId}
+             isLiked={likedListingIds.has(selectedListing.listingId)}
+             onLikeClick={handleLikeToggle}
+             isLiking={likingInProgress.has(selectedListing.listingId)}
+             sellerRatingInitialData={sellerRatingData}
+             initialContext={modalContext} // Pass the pre-calculated context
+             initialAction={modalContext?.initialAction} // Pass intent
+             isLoadingContext={isContextLoading} // Pass loading state
+           />
+         </Suspense>
       )}
       {isModalLoading && (
         <ProductDetailModalSkeleton onClose={() => setIsModalLoading(false)} />

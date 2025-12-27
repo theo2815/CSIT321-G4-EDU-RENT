@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Components
 import Header from '../components/Header';
-import ProductDetailModal from '../components/ProductDetailModal';
+const ProductDetailModal = lazy(() => import('../components/ProductDetailModal'));
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 import MarkAsSoldModal from '../components/MarkAsSoldModal';
 import LoadMoreButton from '../components/LoadMoreButton';
@@ -873,14 +873,16 @@ export default function ManageListingsPage() {
       </main>
 
        {isModalOpen && selectedListing && (
-         <ProductDetailModal
-           listing={selectedListing}
-           onClose={closeModal}
-           currentUserId={userData?.userId} 
-           isLiked={likedListingIds.has(selectedListing.listingId)}
-           onLikeClick={handleLikeToggle}
-           isLiking={likingInProgress.has(selectedListing.listingId)}
-         />
+         <Suspense fallback={<ProductDetailModalSkeleton onClose={closeModal} />}>
+           <ProductDetailModal
+             listing={selectedListing}
+             onClose={closeModal}
+             currentUserId={userData?.userId} 
+             isLiked={likedListingIds.has(selectedListing.listingId)}
+             onLikeClick={handleLikeToggle}
+             isLiking={likingInProgress.has(selectedListing.listingId)}
+           />
+         </Suspense>
        )}
 
        {isMarkSoldModalOpen && listingToMarkSold && (

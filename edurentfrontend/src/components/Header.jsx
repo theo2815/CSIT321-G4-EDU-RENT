@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import CategoriesSidebar from './CategoriesSidebar';
-import NotificationsPopup from './NotificationsPopup';
-import UserDropdown from './UserDropdown';
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
+
+// Lazy-loaded components (only load when needed)
+const CategoriesSidebar = lazy(() => import('./CategoriesSidebar'));
+const NotificationsPopup = lazy(() => import('./NotificationsPopup'));
+import UserDropdown from './UserDropdown';
 
 // Hooks for handling Auth state and the Auth Modals
 import useAuth from '../hooks/useAuth';
@@ -516,28 +518,32 @@ export default function Header({
         </div>
       </header>
 
-      {/* Categories Sidebar */}
-      <CategoriesSidebar
-        isVisible={isCategoriesSidebarVisible}
-        onClose={closeCategoriesSidebar}
-      />
+      {/* Categories Sidebar - Lazy loaded */}
+      <Suspense fallback={null}>
+        <CategoriesSidebar
+          isVisible={isCategoriesSidebarVisible}
+          onClose={closeCategoriesSidebar}
+        />
+      </Suspense>
       
       {/* Notification Popup - Only render this if the user is actually logged in */}
       {userData && (
-        <NotificationsPopup
-          isVisible={isNotificationsOpen}
-          onClose={closeNotifications}
-          notifications={notifications}
-          onRefresh={fetchNotifications}
-          currentFilter={notificationFilter}
-          onFilterChange={setNotificationFilter}
-          onNotificationClick={onNotificationClick}
-          onMarkAllAsRead={handleMarkAllAsRead} 
-          onMarkAsRead={handleMarkAsRead}
-          onMarkAsUnread={handleMarkAsUnread}
-          onDelete={handleDelete}
-          isLoading={isLoadingNotifications}
-        />
+        <Suspense fallback={null}>
+          <NotificationsPopup
+            isVisible={isNotificationsOpen}
+            onClose={closeNotifications}
+            notifications={notifications}
+            onRefresh={fetchNotifications}
+            currentFilter={notificationFilter}
+            onFilterChange={setNotificationFilter}
+            onNotificationClick={onNotificationClick}
+            onMarkAllAsRead={handleMarkAllAsRead} 
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAsUnread={handleMarkAsUnread}
+            onDelete={handleDelete}
+            isLoading={isLoadingNotifications}
+          />
+        </Suspense>
       )}
     </>
   );

@@ -15,7 +15,9 @@ import com.edurent.crc.dto.UserDTO;
 import com.edurent.crc.entity.CategoryEntity;
 import com.edurent.crc.entity.ListingEntity;
 import com.edurent.crc.entity.ListingImageEntity;
+import com.edurent.crc.entity.TransactionEntity;
 import com.edurent.crc.entity.UserEntity;
+import com.edurent.crc.dto.TransactionDTO;
 
 /**
  * Mapper component for converting between Entity and DTO objects.
@@ -65,6 +67,13 @@ public class ListingMapper {
             dto.setImages(toImageDTOList(entity.getImages()));
         } else {
             dto.setImages(Collections.emptyList());
+        }
+
+        // Map Transactions
+        if (entity.getTransactions() != null && !entity.getTransactions().isEmpty()) {
+            dto.setTransactions(toTransactionDTOList(entity.getTransactions()));
+        } else {
+            dto.setTransactions(Collections.emptyList());
         }
 
         return dto;
@@ -152,5 +161,32 @@ public class ListingMapper {
                 entity.getImageId(),
                 entity.getImageUrl(),
                 entity.isCoverPhoto());
+    }
+
+    /**
+     * Converts a List of TransactionEntity to a List of TransactionDTO.
+     */
+    public List<TransactionDTO> toTransactionDTOList(List<TransactionEntity> entities) {
+        if (entities == null) {
+            return Collections.emptyList();
+        }
+        return entities.stream()
+                .map(this::toTransactionDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Converts a TransactionEntity to a TransactionDTO.
+     */
+    public TransactionDTO toTransactionDTO(TransactionEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+        return new TransactionDTO(
+                entity.getTransactionId(),
+                entity.getTransactionType(),
+                entity.getStatus(),
+                entity.getStartDate(),
+                entity.getEndDate());
     }
 }

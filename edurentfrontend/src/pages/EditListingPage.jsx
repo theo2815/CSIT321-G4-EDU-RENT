@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom'; 
 import Header from '../components/Header';
 import LoadingOverlay from '../components/LoadingOverlay';
-import ProductDetailModal from '../components/ProductDetailModal'; 
+const ProductDetailModal = lazy(() => import('../components/ProductDetailModal'));
 import ProductDetailModalSkeleton from '../components/ProductDetailModalSkeleton';
 import ToggleSwitch from '../components/ToggleSwitch';
 
@@ -521,30 +521,32 @@ export default function EditListingPage() {
       </form>
       </div>
 
-      {/* Notification Detail Modal */}
-      {isModalOpen && selectedListingForModal && (
-         <ProductDetailModal
-           listing={selectedListingForModal}
-           onClose={() => setIsModalOpen(false)}
-           currentUserId={userData?.userId}
-           // Simple check for "isLiked" based on the listing data itself
-           isLiked={selectedListingForModal.likes?.some(l => l.id?.userId === userData?.userId)}
-           onLikeClick={async (id) => {
-               // Simple inline toggle handler since we don't have global like state on this page
-               try {
-                   const isLiked = selectedListingForModal.likes?.some(l => l.id?.userId === userData?.userId);
-                   if (isLiked) await unlikeListing(id);
-                   else await likeListing(id);
-                   
-                   // Refresh the modal data to show the new like status
-                   const res = await getListingById(id);
-                   setSelectedListingForModal(res.data);
-               } catch (e) {
-                   console.error("Like toggle failed", e);
-               }
-           }}
-         />
-       )}
+       {/* Notification Detail Modal */}
+       {isModalOpen && selectedListingForModal && (
+          <Suspense fallback={<ProductDetailModalSkeleton onClose={() => setIsModalOpen(false)} />}>
+            <ProductDetailModal
+              listing={selectedListingForModal}
+              onClose={() => setIsModalOpen(false)}
+              currentUserId={userData?.userId}
+              // Simple check for "isLiked" based on the listing data itself
+              isLiked={selectedListingForModal.likes?.some(l => l.id?.userId === userData?.userId)}
+              onLikeClick={async (id) => {
+                  // Simple inline toggle handler since we don't have global like state on this page
+                  try {
+                      const isLiked = selectedListingForModal.likes?.some(l => l.id?.userId === userData?.userId);
+                      if (isLiked) await unlikeListing(id);
+                      else await likeListing(id);
+                      
+                      // Refresh the modal data to show the new like status
+                      const res = await getListingById(id);
+                      setSelectedListingForModal(res.data);
+                  } catch (e) {
+                      console.error("Like toggle failed", e);
+                  }
+              }}
+            />
+          </Suspense>
+        )}
 
        {/* Loading Skeleton */}
        {isNotificationLoading && (
