@@ -142,7 +142,7 @@ export default function MarkAsSoldModal({ listing, currentUser, onClose, onSucce
                       checked={selectedBuyerId === buyer.userId}
                     />
                     <img 
-                      src={buyer.profilePictureUrl ? `http://localhost:8080${buyer.profilePictureUrl}` : defaultAvatar} 
+                      src={buyer.profilePictureUrl ? `${import.meta.env.VITE_BACKEND_URL}${buyer.profilePictureUrl}` : defaultAvatar} 
                       alt={buyer.fullName} 
                       className="buyer-avatar"
                       onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}

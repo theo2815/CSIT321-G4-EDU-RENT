@@ -134,7 +134,7 @@ export default function Header({
   useEffect(() => {
     if (!userData) return;
 
-    const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:8080/ws';
+    const wsUrl = import.meta.env.VITE_WS_URL;
     const socket = new SockJS(wsUrl);
     const stompClient = Stomp.over(socket);
     stompClient.debug = null; // Disable debug logs

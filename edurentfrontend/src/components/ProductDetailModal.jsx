@@ -322,7 +322,7 @@ export default function ProductDetailModal({
 
   const getFullImageUrl = (path) => {
       if (!path) return PLACEHOLDER_NO_IMAGE;
-      return path.startsWith('http') ? path : `http://localhost:8080${path}`;
+      return path.startsWith('http') ? path : `${import.meta.env.VITE_BACKEND_URL}${path}`;
   };
 
   const chatCount = initialContext?.chatCount || 0;
@@ -457,7 +457,7 @@ export default function ProductDetailModal({
             {isOwner ? (
               <>
                 <div className="seller-info-header">
-                  <img src={seller.avatarUrl ? (seller.avatarUrl.startsWith('http') ? seller.avatarUrl : `http://localhost:8080${seller.avatarUrl}`) : defaultAvatar} alt="Seller Avatar" className="seller-avatar" onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }} />
+                  <img src={seller.avatarUrl ? (seller.avatarUrl.startsWith('http') ? seller.avatarUrl : `${import.meta.env.VITE_BACKEND_URL}${seller.avatarUrl}`) : defaultAvatar} alt="Seller Avatar" className="seller-avatar" onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }} />
                   <div className="seller-details">
                     <div className="seller-username">{seller.username} (You)</div>
                     <div style={{ fontSize: '0.8rem', color: '#6c757d', marginBottom: '2px' }}>{seller.school}</div>
@@ -621,7 +621,7 @@ export default function ProductDetailModal({
               /* VIEW 2: BUYER / VISITOR */
               <>
                 <div className="seller-info-header">
-                  <img src={seller.avatarUrl ? (seller.avatarUrl.startsWith('http') ? seller.avatarUrl : `http://localhost:8080${seller.avatarUrl}`) : defaultAvatar} alt="Seller Avatar" className="seller-avatar" onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }} />
+                  <img src={seller.avatarUrl ? (seller.avatarUrl.startsWith('http') ? seller.avatarUrl : `${import.meta.env.VITE_BACKEND_URL}${seller.avatarUrl}`) : defaultAvatar} alt="Seller Avatar" className="seller-avatar" onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }} />
                   <div className="seller-details">
                     <div className="seller-username">
                         {(() => {

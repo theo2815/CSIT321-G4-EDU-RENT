@@ -10,7 +10,7 @@ import { useToast } from '../hooks/useToast';
 // Helper function to resolve image paths (handles both relative paths from DB and absolute URLs)
 const getImageUrl = (path) => {
   if (!path) return '';
-  return path.startsWith('http') ? path : `http://localhost:8080${path}`;
+  return path.startsWith('http') ? path : `${import.meta.env.VITE_BACKEND_URL}${path}`;
 };
 
 export default function ReviewModal({ 

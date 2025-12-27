@@ -8,7 +8,7 @@ export default function UserDropdown({ userName, profilePictureUrl, onLogout }) 
   // Helper to format the avatar URL
   const getAvatarUrl = (url) => {
     if (!url) return defaultAvatar;
-    return url.startsWith('http') ? url : `http://localhost:8080${url}`;
+    return url.startsWith('http') ? url : `${import.meta.env.VITE_BACKEND_URL}${url}`;
   };
 
   return (

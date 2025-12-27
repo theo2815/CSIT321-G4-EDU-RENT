@@ -84,7 +84,7 @@ export default function ListingCard({
 
   const getFullImageUrl = (path) => {
       if (!path) return null;
-      return path.startsWith('http') ? path : `http://localhost:8080${path}`;
+      return path.startsWith('http') ? path : `${import.meta.env.VITE_BACKEND_URL}${path}`;
   };
 
   const formatDate = (dateString) => {

@@ -116,7 +116,7 @@ function EditProfileForm({ userData, profileData, onChange, onSave, onCancel, on
       if (userData.profilePictureUrl.startsWith('http')) {
         return userData.profilePictureUrl;
       }
-      return `http://localhost:8080${userData.profilePictureUrl}`;
+      return `${import.meta.env.VITE_BACKEND_URL}${userData.profilePictureUrl}`;
     }
 
     // 3. Fallback to default

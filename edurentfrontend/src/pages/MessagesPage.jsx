@@ -663,7 +663,7 @@ export default function MessagesPage() {
       let socket = null;
       
       const connect = () => {
-          const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:8080/ws';
+          const wsUrl = import.meta.env.VITE_WS_URL;
           socket = new SockJS(wsUrl);
           const stompClient = Stomp.over(socket);
           // stompClient.debug = null; // Uncomment to disable extensive logging

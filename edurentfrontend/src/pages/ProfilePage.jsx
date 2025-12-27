@@ -41,7 +41,7 @@ const defaultProductPlaceholder = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns
 // Ensure image paths are absolute
 const getImageUrl = (path) => {
   if (!path) return null;
-  return path.startsWith('http') ? path : `http://localhost:8080${path}`;
+  return path.startsWith('http') ? path : `${import.meta.env.VITE_BACKEND_URL}${path}`;
 };
 
 // Helper: Calculate Average Rating
@@ -828,7 +828,7 @@ export default function ProfilePage() {
              <img 
                src={
                  profileUser.profilePictureUrl 
-                   ? (profileUser.profilePictureUrl.startsWith('http') ? profileUser.profilePictureUrl : `http://localhost:8080${profileUser.profilePictureUrl}`)
+                   ? (profileUser.profilePictureUrl.startsWith('http') ? profileUser.profilePictureUrl : `${import.meta.env.VITE_BACKEND_URL}${profileUser.profilePictureUrl}`)
                    : defaultAvatar
                }
                alt={`${profileUser.fullName}'s profile`} 

@@ -47,7 +47,7 @@ export default function ResetPasswordPage() {
 
     try {
       // Call your Spring Boot backend API to reset password
-      const response = await fetch('http://localhost:8080/api/v1/auth/reset-password', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
