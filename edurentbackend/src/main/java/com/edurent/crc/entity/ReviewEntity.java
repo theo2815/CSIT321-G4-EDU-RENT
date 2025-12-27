@@ -6,12 +6,16 @@ import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import java.util.ArrayList; 
-import java.util.List;     
+import java.util.ArrayList;
+import java.util.List;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
-@Table(name = "reviews")
+@Table(name = "reviews", indexes = {
+        @Index(name = "idx_review_reviewer", columnList = "reviewer_id"),
+        @Index(name = "idx_review_reviewed_user", columnList = "reviewed_user_id"),
+        @Index(name = "idx_review_transaction", columnList = "transaction_id")
+})
 public class ReviewEntity {
 
     @Id
@@ -30,18 +34,22 @@ public class ReviewEntity {
 
     // --- Relationships ---
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "transaction_id", nullable = false) 
+    @JoinColumn(name = "transaction_id", nullable = false)
     @JsonBackReference(value = "transaction-review")
     private TransactionEntity transaction;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewer_id", nullable = false)
-    @JsonIgnoreProperties({"reviewsGiven", "reviewsReceived", "transactionsAsBuyer", "transactionsAsSeller", "listings", "school", "likes", "conversationParticipants", "messagesSent", "notifications", "passwordHash", "hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({ "reviewsGiven", "reviewsReceived", "transactionsAsBuyer", "transactionsAsSeller",
+            "listings", "school", "likes", "conversationParticipants", "messagesSent", "notifications", "passwordHash",
+            "hibernateLazyInitializer", "handler" })
     private UserEntity reviewer;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_user_id", nullable = false)
-    @JsonIgnoreProperties({"reviewsGiven", "reviewsReceived", "transactionsAsBuyer", "transactionsAsSeller", "listings", "school", "likes", "conversationParticipants", "messagesSent", "notifications", "passwordHash", "hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({ "reviewsGiven", "reviewsReceived", "transactionsAsBuyer", "transactionsAsSeller",
+            "listings", "school", "likes", "conversationParticipants", "messagesSent", "notifications", "passwordHash",
+            "hibernateLazyInitializer", "handler" })
     private UserEntity reviewedUser;
 
     // --- NEW RELATIONSHIP ---
@@ -110,12 +118,12 @@ public class ReviewEntity {
         this.reviewedUser = reviewedUser;
     }
 
-    public List<ReviewImageEntity> getImages() { 
-        return images; 
+    public List<ReviewImageEntity> getImages() {
+        return images;
     }
 
-    public void setImages(List<ReviewImageEntity> images) { 
-        this.images = images; 
+    public void setImages(List<ReviewImageEntity> images) {
+        this.images = images;
     }
 
     public void addImage(ReviewImageEntity image) {
@@ -126,8 +134,10 @@ public class ReviewEntity {
     // equals, hashCode, toString (excluding relationships)
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         ReviewEntity that = (ReviewEntity) o;
         return Objects.equals(reviewId, that.reviewId);
     }
@@ -145,4 +155,3 @@ public class ReviewEntity {
                 '}';
     }
 }
-

@@ -4,6 +4,7 @@ import org.springframework.lang.NonNull;
 import java.util.Objects;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import java.io.IOException;
 
@@ -24,7 +25,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.edurent.crc.entity.UserEntity;
 import com.edurent.crc.dto.UpdateUserRequest;
+import com.edurent.crc.dto.UserDTO;
 import com.edurent.crc.service.UserService;
+import com.edurent.crc.mapper.ListingMapper;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -32,72 +35,45 @@ import com.edurent.crc.service.UserService;
 public class UserController {
 
     private final UserService userService;
+    private final ListingMapper listingMapper;
 
     @Autowired
-    public UserController(UserService userService) {
+    public UserController(UserService userService, ListingMapper listingMapper) {
         this.userService = userService;
+        this.listingMapper = listingMapper;
     }
 
     // Example endpoint to get the currently authenticated user
     @GetMapping("/me")
-    public ResponseEntity<UserEntity> getMyProfile(Authentication authentication) {
-        // Spring Security, via the JwtAuthFilter, places the UserEntity in the
-        // 'principal'
+    public ResponseEntity<UserDTO> getMyProfile(Authentication authentication) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-        return ResponseEntity.ok(currentUser);
+        return ResponseEntity.ok(listingMapper.toUserDTO(currentUser));
     }
 
     // Get All Users
     @GetMapping
-    public ResponseEntity<List<UserEntity>> getAllUsers() {
+    public ResponseEntity<List<UserDTO>> getAllUsers() {
         List<UserEntity> users = userService.getAllUsers();
-        return ResponseEntity.ok(users);
+        List<UserDTO> dtos = users.stream()
+                .map(listingMapper::toUserDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(dtos);
     }
 
     // Get User by ID (Public Profile - Returns DTO to hide sensitive info)
     @GetMapping("/{id}")
-    public ResponseEntity<com.edurent.crc.dto.UserDTO> getUserById(@PathVariable @NonNull Long id) {
+    public ResponseEntity<UserDTO> getUserById(@PathVariable @NonNull Long id) {
         return userService.getUserById(id)
-                .map(user -> {
-                    com.edurent.crc.dto.UserDTO dto = new com.edurent.crc.dto.UserDTO(
-                            user.getUserId(),
-                            user.getFullName(),
-                            user.getProfilePictureUrl());
-                    if (user.getSchool() != null) {
-                        dto.setSchoolName(user.getSchool().getName());
-                    }
-                    dto.setFacebookUrl(user.getFacebookUrl());
-                    dto.setInstagramUrl(user.getInstagramUrl());
-                    dto.setAddress(user.getAddress());
-                    dto.setBio(user.getBio());
-                    dto.setCreatedAt(user.getCreatedAt());
-                    dto.setProfileSlug(user.getProfileSlug());
-                    return dto;
-                })
+                .map(listingMapper::toUserDTO)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     // Get User by Username (Public Profile - Returns DTO to hide sensitive info)
     @GetMapping("/username/{username}")
-    public ResponseEntity<com.edurent.crc.dto.UserDTO> getUserByUsername(@PathVariable String username) {
+    public ResponseEntity<UserDTO> getUserByUsername(@PathVariable String username) {
         return userService.getUserByUsername(username)
-                .map(user -> {
-                    com.edurent.crc.dto.UserDTO dto = new com.edurent.crc.dto.UserDTO(
-                            user.getUserId(),
-                            user.getFullName(),
-                            user.getProfilePictureUrl());
-                    if (user.getSchool() != null) {
-                        dto.setSchoolName(user.getSchool().getName());
-                    }
-                    dto.setFacebookUrl(user.getFacebookUrl());
-                    dto.setInstagramUrl(user.getInstagramUrl());
-                    dto.setAddress(user.getAddress());
-                    dto.setBio(user.getBio());
-                    dto.setCreatedAt(user.getCreatedAt());
-                    dto.setProfileSlug(user.getProfileSlug());
-                    return dto;
-                })
+                .map(listingMapper::toUserDTO)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -118,11 +94,11 @@ public class UserController {
 
     // Update Current User Profile
     @PutMapping("/me")
-    public ResponseEntity<UserEntity> updateMyProfile(Authentication authentication,
+    public ResponseEntity<UserDTO> updateMyProfile(Authentication authentication,
             @RequestBody UpdateUserRequest request) {
         UserEntity currentUser = (UserEntity) authentication.getPrincipal();
         UserEntity updated = userService.updateCurrentUser(Objects.requireNonNull(currentUser), request);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(listingMapper.toUserDTO(updated));
     }
 
     @PostMapping("/me/image")

@@ -90,18 +90,21 @@ public class MessageService {
         UserEntity sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new RuntimeException("Sender not found: " + senderId));
 
-        // If User A deleted the chat, this will "undelete" it so they see the new
-        // message.
+        // When a new message is sent, un-delete the conversation for participants
+        // so they can see the new message. The lastDeletedAt timestamp is preserved,
+        // so User A only sees messages AFTER their deletion time.
+        // User B continues to see the full history.
         if (conversation.getParticipants() != null) {
             for (ConversationParticipantEntity participant : conversation.getParticipants()) {
                 boolean updated = false;
 
-                // 1. Undelete if deleted
+                // Un-delete if deleted (the lastDeletedAt is preserved for message filtering)
                 if (participant.getIsDeleted()) {
                     participant.setIsDeleted(false);
                     updated = true;
                 }
 
+                // Un-archive as well
                 if (participant.getIsArchived()) {
                     participant.setIsArchived(false);
                     updated = true;

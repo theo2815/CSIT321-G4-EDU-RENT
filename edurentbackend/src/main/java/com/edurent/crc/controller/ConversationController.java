@@ -108,6 +108,8 @@ public class ConversationController {
                 listingDto.setListingId(entity.getListing().getListingId());
                 listingDto.setTitle(entity.getListing().getTitle());
                 listingDto.setPrice(entity.getListing().getPrice());
+                listingDto.setStatus(entity.getListing().getStatus());
+                listingDto.setListingType(entity.getListing().getListingType());
 
                 if (entity.getListing().getImages() != null && !entity.getListing().getImages().isEmpty()) {
                     listingDto.setImageUrl(entity.getListing().getImages().iterator().next().getImageUrl());
@@ -122,6 +124,15 @@ public class ConversationController {
                     listingDto.setOwner(ownerDto);
                 }
                 dto.setListing(listingDto);
+
+                // Populate isListingSold for frontend badge display
+                String listingStatus = entity.getListing().getStatus();
+                boolean isListingSold = "Sold".equalsIgnoreCase(listingStatus)
+                        || "Rented".equalsIgnoreCase(listingStatus);
+                dto.setListingSold(isListingSold);
+
+                // Populate archived status
+                dto.setArchivedForCurrentUser(entity.getIsArchivedForCurrentUser());
 
                 // Use batch-fetched transaction instead of individual query
                 TransactionEntity transaction = txMap.get(entity.getListing().getListingId());
@@ -157,24 +168,44 @@ public class ConversationController {
         return ResponseEntity.ok(dtos);
     }
 
+    // --- 1.5. Get Unread Counts Per Filter (for tab badges) ---
+    @GetMapping("/user/{userId}/unread-counts")
+    public ResponseEntity<Map<String, Integer>> getUnreadCountsPerFilter(
+            @PathVariable @NonNull Long userId) {
+        Map<String, Integer> counts = conversationService.getUnreadCountsPerFilter(userId);
+        return ResponseEntity.ok(counts);
+    }
+
+    @Autowired
+    private com.edurent.crc.mapper.ConversationMapper conversationMapper;
+
+    // ... (keep existing fields)
+
+    // --- 1. Get User's Conversations (DTO) ---
+    // (This method already returns DTOs with optimized fetching, so we leave it as
+    // is)
+
+    // ...
+
     // --- 2. Start Conversation ---
     @PostMapping
-    public ResponseEntity<ConversationEntity> startConversation(
+    public ResponseEntity<?> startConversation(
             @RequestParam @NonNull Long listingId,
             @RequestParam @NonNull Long starterId,
             @RequestParam @NonNull Long receiverId) {
         try {
             ConversationEntity newConversation = conversationService.startConversation(listingId, starterId,
                     receiverId);
-            return new ResponseEntity<>(newConversation, HttpStatus.CREATED);
+            return new ResponseEntity<>(conversationMapper.toDTO(newConversation), HttpStatus.CREATED);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Error starting conversation: " + e.getMessage());
         }
     }
 
     // --- 3. Updated: Get Messages (With Pagination) ---
     @GetMapping("/{conversationId}/messages")
-    public ResponseEntity<List<MessageEntity>> getMessages(
+    public ResponseEntity<List<com.edurent.crc.dto.MessageDTO>> getMessages(
             @PathVariable @NonNull Long conversationId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -184,12 +215,12 @@ public class ConversationController {
         // Pass userId to service
         List<MessageEntity> messages = messageService.getMessagesForConversation(conversationId,
                 Objects.requireNonNull(currentUser.getUserId()), page, size);
-        return ResponseEntity.ok(messages);
+        return ResponseEntity.ok(conversationMapper.toMessageDTOList(messages));
     }
 
     // --- 4. NEW: Send Message ---
     @PostMapping("/{conversationId}/messages")
-    public ResponseEntity<MessageEntity> sendMessage(
+    public ResponseEntity<com.edurent.crc.dto.MessageDTO> sendMessage(
             @PathVariable @NonNull Long conversationId,
             @RequestBody MessageEntity message,
             Authentication authentication) {
@@ -198,7 +229,7 @@ public class ConversationController {
         try {
             MessageEntity sentMessage = messageService.sendMessage(message, conversationId,
                     Objects.requireNonNull(currentUser.getUserId()));
-            return new ResponseEntity<>(sentMessage, HttpStatus.CREATED);
+            return new ResponseEntity<>(conversationMapper.toMessageDTO(sentMessage), HttpStatus.CREATED);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }

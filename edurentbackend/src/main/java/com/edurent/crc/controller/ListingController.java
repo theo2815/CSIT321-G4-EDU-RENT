@@ -16,8 +16,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.edurent.crc.dto.ListingDTO;
 import com.edurent.crc.entity.ListingEntity;
 import com.edurent.crc.entity.UserEntity;
+import com.edurent.crc.mapper.ListingMapper;
 import com.edurent.crc.service.ListingService;
 
 @RestController
@@ -28,17 +30,21 @@ public class ListingController {
     @Autowired
     private ListingService listingService;
 
+    @Autowired
+    private ListingMapper listingMapper;
+
     // Retrieves a list of all available listings (Hides Inactive by default)
     @GetMapping
-    public Page<ListingEntity> getAllListings(
+    public Page<ListingDTO> getAllListings(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return listingService.getAllListings(page, size);
+        Page<ListingEntity> entities = listingService.getAllListings(page, size);
+        return listingMapper.toDTOPage(entities);
     }
 
     // Fetches a single listing by ID (Numeric or UUID)
     @GetMapping("/{listingId}")
-    public ResponseEntity<ListingEntity> getListingById(@PathVariable String listingId) {
+    public ResponseEntity<ListingDTO> getListingById(@PathVariable String listingId) {
         Optional<ListingEntity> listing;
         try {
             Long id = Long.parseLong(listingId);
@@ -47,14 +53,16 @@ public class ListingController {
             listing = listingService.getListingByPublicId(listingId);
         }
 
-        return listing.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        return listing
+                .map(entity -> ResponseEntity.ok(listingMapper.toDTO(entity)))
+                .orElse(ResponseEntity.notFound().build());
     }
 
     // Retrieves listings for a specific user.
     // 'includeInactive' param allows fetching private/inactive items (e.g., for
     // Manage Listings page)
     @GetMapping("/user/{userId}")
-    public ResponseEntity<Page<ListingEntity>> getListingsByUserId(
+    public ResponseEntity<Page<ListingDTO>> getListingsByUserId(
             @PathVariable @NonNull Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -62,40 +70,40 @@ public class ListingController {
             @RequestParam(required = false) String statusGroup, // "active", "sold", or null (default)
             @RequestParam(required = false) String listingType // "rent", "sale" or null
     ) {
-        Page<ListingEntity> listings = listingService.getListingsByUserId(userId, page, size, includeInactive,
+        Page<ListingEntity> entities = listingService.getListingsByUserId(userId, page, size, includeInactive,
                 statusGroup, listingType);
-        return ResponseEntity.ok(listings);
+        return ResponseEntity.ok(listingMapper.toDTOPage(entities));
     }
 
     // Retrieves listings by category
     @GetMapping("/category/{categoryId}")
-    public ResponseEntity<Page<ListingEntity>> getListingsByCategoryId(
+    public ResponseEntity<Page<ListingDTO>> getListingsByCategoryId(
             @PathVariable @NonNull Long categoryId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Page<ListingEntity> listings = listingService.getListingsByCategoryId(categoryId, page, size);
-        if (listings.isEmpty()) {
+        Page<ListingEntity> entities = listingService.getListingsByCategoryId(categoryId, page, size);
+        if (entities.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
-        return ResponseEntity.ok(listings);
+        return ResponseEntity.ok(listingMapper.toDTOPage(entities));
     }
 
     // Filters listings by type (Rent/Sale)
     @GetMapping("/type/{listingType}")
-    public ResponseEntity<Page<ListingEntity>> getListingsByType(
+    public ResponseEntity<Page<ListingDTO>> getListingsByType(
             @PathVariable String listingType,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         String formattedType = listingType.equalsIgnoreCase("rent") ? "For Rent"
                 : listingType.equalsIgnoreCase("sale") ? "For Sale" : listingType;
 
-        Page<ListingEntity> listings = listingService.getListingsByType(formattedType, page, size);
-        return ResponseEntity.ok(listings);
+        Page<ListingEntity> entities = listingService.getListingsByType(formattedType, page, size);
+        return ResponseEntity.ok(listingMapper.toDTOPage(entities));
     }
 
     // Creates a new listing with image upload support
     @PostMapping(consumes = { "multipart/form-data" })
-    public ResponseEntity<ListingEntity> createListing(
+    public ResponseEntity<ListingDTO> createListing(
             Authentication authentication,
             @RequestParam("categoryId") @NonNull Long categoryId,
             @RequestParam("title") String title,
@@ -125,7 +133,7 @@ public class ListingController {
         try {
             ListingEntity createdListing = listingService.createListingWithImages(
                     newListing, Objects.requireNonNull(userId), categoryId, images);
-            return new ResponseEntity<>(createdListing, HttpStatus.CREATED);
+            return new ResponseEntity<>(listingMapper.toDTO(createdListing), HttpStatus.CREATED);
         } catch (RuntimeException | IOException e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
@@ -135,7 +143,7 @@ public class ListingController {
     // Updates an existing listing (supports text updates, adding new images, and
     // deleting old ones)
     @PutMapping(value = "/{listingId}", consumes = { "multipart/form-data" })
-    public ResponseEntity<ListingEntity> updateListing(
+    public ResponseEntity<ListingDTO> updateListing(
             @PathVariable String listingId,
             Authentication authentication,
             @RequestParam("categoryId") @NonNull Long categoryId,
@@ -171,7 +179,7 @@ public class ListingController {
                     listingUpdateData,
                     imagesToDelete,
                     newImages);
-            return ResponseEntity.ok(updatedListing);
+            return ResponseEntity.ok(listingMapper.toDTO(updatedListing));
 
         } catch (RuntimeException | IOException e) {
             e.printStackTrace();

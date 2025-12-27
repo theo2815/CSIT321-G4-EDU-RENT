@@ -12,6 +12,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -56,6 +58,7 @@ public class ListingService {
     // --- Core Listing Logic ---
 
     @Transactional
+    @CacheEvict(value = "listings", allEntries = true)
     public ListingEntity createListingWithImages(ListingEntity listing, @NonNull Long userId, @NonNull Long categoryId,
             List<MultipartFile> images) throws IOException {
         // 1. Fetch User and Category
@@ -116,6 +119,7 @@ public class ListingService {
     }
 
     @Transactional
+    @CacheEvict(value = "listings", allEntries = true)
     public ListingEntity updateListing(
             String listingIdentifier,
             @NonNull Long currentUserId,
@@ -220,6 +224,7 @@ public class ListingService {
 
     // --- Data Retrieval Methods ---
 
+    @Cacheable(value = "listings", key = "'all_' + #page + '_' + #size")
     public Page<ListingEntity> getAllListings(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         // Only return visible statuses to the public feed
@@ -270,6 +275,7 @@ public class ListingService {
         return getListingsByUserId(userId, page, size, includeInactive, null, null);
     }
 
+    @Cacheable(value = "listings", key = "'category_' + #categoryId + '_' + #page + '_' + #size")
     public Page<ListingEntity> getListingsByCategoryId(@NonNull Long categoryId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return listingRepository.findByCategory_CategoryIdAndStatusIn(categoryId, PUBLIC_STATUSES, pageable);
@@ -283,6 +289,7 @@ public class ListingService {
     // --- Listing Management ---
 
     @Transactional
+    @CacheEvict(value = "listings", allEntries = true)
     public void deleteListing(@NonNull Long listingId, @NonNull Long currentUserId) {
         ListingEntity existingListing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));
@@ -301,6 +308,7 @@ public class ListingService {
     }
 
     @Transactional
+    @CacheEvict(value = "listings", allEntries = true)
     public void updateListingStatus(@NonNull Long listingId, String newStatus, @NonNull Long currentUserId) {
         ListingEntity listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new RuntimeException("Listing not found: " + listingId));

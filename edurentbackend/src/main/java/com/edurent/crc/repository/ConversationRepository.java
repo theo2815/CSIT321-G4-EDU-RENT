@@ -12,22 +12,26 @@ import com.edurent.crc.entity.ConversationEntity;
 
 @Repository
 public interface ConversationRepository extends JpaRepository<ConversationEntity, Long> {
-    
 
-    // Method to find conversations by listing ID
-    @Query("SELECT c FROM ConversationEntity c WHERE c.listing.listingId = :listingId")
-    List<ConversationEntity> findByListingId(@Param("listingId") Long listingId);
+        // OPTIMIZED: Fetch listing and user in one query to avoid N+1
+        @Query("SELECT DISTINCT c FROM ConversationEntity c " +
+                        "LEFT JOIN FETCH c.listing l " +
+                        "LEFT JOIN FETCH l.user " +
+                        "LEFT JOIN FETCH l.category " +
+                        "WHERE c.listing.listingId = :listingId")
+        List<ConversationEntity> findByListingId(@Param("listingId") Long listingId);
 
-    // Method to find existing conversation between two users for a listing
-    @Query("SELECT c FROM ConversationEntity c " +
-           "JOIN c.participants p1 " +
-           "JOIN c.participants p2 " +
-           "WHERE c.listing.listingId = :listingId " +
-           "AND p1.user.userId = :user1Id " +
-           "AND p2.user.userId = :user2Id")
-    Optional<ConversationEntity> findExistingConversation(
-            @Param("listingId") Long listingId, 
-            @Param("user1Id") Long user1Id, 
-            @Param("user2Id") Long user2Id
-    );
+        // Fix: Removed JOIN FETCH to avoid aggregation errors with GROUP BY
+        // We only need to find if it exists. Lazy loading is acceptable for single
+        // result.
+        @Query("SELECT c FROM ConversationEntity c " +
+                        "JOIN c.participants p " +
+                        "WHERE c.listing.listingId = :listingId " +
+                        "AND p.user.userId IN (:user1Id, :user2Id) " +
+                        "GROUP BY c " +
+                        "HAVING COUNT(DISTINCT p.user.userId) = 2")
+        Optional<ConversationEntity> findExistingConversation(
+                        @Param("listingId") Long listingId,
+                        @Param("user1Id") Long user1Id,
+                        @Param("user2Id") Long user2Id);
 }

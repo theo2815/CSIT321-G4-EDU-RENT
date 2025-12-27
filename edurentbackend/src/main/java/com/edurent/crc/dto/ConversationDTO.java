@@ -12,31 +12,90 @@ public class ConversationDTO {
     private boolean isUnread;
     private Long transactionId;
     private boolean hasReviewed;
+    private boolean isListingSold; // For frontend badge display
+    private boolean isArchivedForCurrentUser; // For frontend display
 
     // Constructors, Getters, Setters
-    public ConversationDTO() {}
-    
-    public Long getConversationId() { return conversationId; }
-    public void setConversationId(Long conversationId) { this.conversationId = conversationId; }
-    
-    public ListingDTO getListing() { return listing; }
-    public void setListing(ListingDTO listing) { this.listing = listing; }
-    
-    public List<UserDTO> getParticipants() { return participants; }
-    public void setParticipants(List<UserDTO> participants) { this.participants = participants; }
-    
-    public String getLastMessageContent() { return lastMessageContent; }
-    public void setLastMessageContent(String lastMessageContent) { this.lastMessageContent = lastMessageContent; }
-    
-    public LocalDateTime getLastMessageTimestamp() { return lastMessageTimestamp; }
-    public void setLastMessageTimestamp(LocalDateTime lastMessageTimestamp) { this.lastMessageTimestamp = lastMessageTimestamp; }
+    public ConversationDTO() {
+    }
 
-    public boolean getIsUnread() { return isUnread; }
-    public void setIsUnread(boolean isUnread) { this.isUnread = isUnread; }
+    public Long getConversationId() {
+        return conversationId;
+    }
 
-    public Long getTransactionId() { return transactionId; }
-    public void setTransactionId(Long transactionId) { this.transactionId = transactionId; }
+    public void setConversationId(Long conversationId) {
+        this.conversationId = conversationId;
+    }
 
-    public boolean isHasReviewed() { return hasReviewed; }
-    public void setHasReviewed(boolean hasReviewed) { this.hasReviewed = hasReviewed; }
+    public ListingDTO getListing() {
+        return listing;
+    }
+
+    public void setListing(ListingDTO listing) {
+        this.listing = listing;
+    }
+
+    public List<UserDTO> getParticipants() {
+        return participants;
+    }
+
+    public void setParticipants(List<UserDTO> participants) {
+        this.participants = participants;
+    }
+
+    public String getLastMessageContent() {
+        return lastMessageContent;
+    }
+
+    public void setLastMessageContent(String lastMessageContent) {
+        this.lastMessageContent = lastMessageContent;
+    }
+
+    public LocalDateTime getLastMessageTimestamp() {
+        return lastMessageTimestamp;
+    }
+
+    public void setLastMessageTimestamp(LocalDateTime lastMessageTimestamp) {
+        this.lastMessageTimestamp = lastMessageTimestamp;
+    }
+
+    public boolean getIsUnread() {
+        return isUnread;
+    }
+
+    public void setIsUnread(boolean isUnread) {
+        this.isUnread = isUnread;
+    }
+
+    public Long getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(Long transactionId) {
+        this.transactionId = transactionId;
+    }
+
+    public boolean isHasReviewed() {
+        return hasReviewed;
+    }
+
+    public void setHasReviewed(boolean hasReviewed) {
+        this.hasReviewed = hasReviewed;
+    }
+
+    public boolean isListingSold() {
+        return isListingSold;
+    }
+
+    public void setListingSold(boolean isListingSold) {
+        this.isListingSold = isListingSold;
+    }
+
+    public boolean isArchivedForCurrentUser() {
+        return isArchivedForCurrentUser;
+    }
+
+    public void setArchivedForCurrentUser(boolean isArchivedForCurrentUser) {
+        this.isArchivedForCurrentUser = isArchivedForCurrentUser;
+    }
 }

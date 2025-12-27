@@ -17,10 +17,10 @@ import com.edurent.crc.entity.MessageEntity;
 public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
 
     // Method to find messages by conversation ID with pagination
-    @Query("SELECT m FROM MessageEntity m WHERE m.conversation.conversationId = :conversationId")
+    @Query("SELECT m FROM MessageEntity m JOIN FETCH m.sender WHERE m.conversation.conversationId = :conversationId")
     Page<MessageEntity> findByConversationId(@Param("conversationId") Long conversationId, Pageable pageable);
 
-    @Query("SELECT m FROM MessageEntity m WHERE m.conversation.conversationId = :conversationId AND m.sentAt > :after")
+    @Query("SELECT m FROM MessageEntity m JOIN FETCH m.sender WHERE m.conversation.conversationId = :conversationId AND m.sentAt > :after")
     Page<MessageEntity> findByConversationIdAndSentAtAfter(@Param("conversationId") Long conversationId,
             @Param("after") LocalDateTime after, Pageable pageable);
 

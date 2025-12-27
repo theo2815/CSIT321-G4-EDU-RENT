@@ -51,7 +51,11 @@ public class SecurityConfig {
                 // Debug for logging auth errors
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((request, response, authException) -> {
-                            log.error("⚠️ SECURITY BLOCK (401): {}", authException.getMessage());
+                            log.error("⚠️ SECURITY BLOCK (401) for {} {}: {} | Auth header present: {}",
+                                    request.getMethod(),
+                                    request.getRequestURI(),
+                                    authException.getMessage(),
+                                    request.getHeader("Authorization") != null ? "YES" : "NO");
                             response.sendError(401, authException.getMessage());
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
@@ -81,6 +85,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/conversations/**").authenticated()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Add CorsFilter at high priority before JWT filter
+                .addFilterBefore(new org.springframework.web.filter.CorsFilter(corsConfigurationSource()),
+                        org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -95,7 +102,11 @@ public class SecurityConfig {
                 .setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000", "http://localhost:4173"));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        // FIX: Explicitly list headers instead of wildcard to ensure Authorization is
+        // allowed
+        configuration
+                .setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+        configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -37,8 +37,13 @@ import {
   markConversationAsRead,
   markConversationAsUnread,
   uploadMessageImage,
-  getUserReviews 
+  getUserReviews,
+  getUnreadCounts 
 } from '../services/apiService';
+
+// Utilities - use centralized formatters instead of duplicating
+import { formatRelativeTime, formatChatTimestamp, getDateLabel } from '../utils/messageFormatters';
+import { processConversationData } from '../utils/conversationUtils';
 
 // Styles
 import '../static/MessagesPage.css';
@@ -119,36 +124,8 @@ function MessagesSkeleton() {
   );
 }
 
-// --- Formatters ---
-const formatRelativeTime = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
-  
-    if (diffInSeconds < 60) return 'Just now';
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) return `${diffInMinutes} mins ago`;
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-    const diffInWeeks = Math.floor(diffInDays / 7);
-    return `${diffInWeeks} week${diffInWeeks > 1 ? 's' : ''} ago`;
-};
-  
-const formatChatTimestamp = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    const timeOptions = { hour: 'numeric', minute: '2-digit' };
-  
-    if (isToday) return date.toLocaleTimeString([], timeOptions);
-    const diffInHours = (now - date) / 1000 / 60 / 60;
-    if (diffInHours < 24 * 6) return date.toLocaleDateString([], { weekday: 'short' }) + ' ' + date.toLocaleTimeString([], timeOptions);
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + date.toLocaleTimeString([], timeOptions);
-};
+// --- Formatters imported from ../utils/messageFormatters ---
+// (Removed duplicate definitions - now using centralized utilities)
 
 export default function MessagesPage() {
   // Access our new feedback tools
@@ -166,6 +143,7 @@ export default function MessagesPage() {
       'Buying': { data: [], page: 0, hasMore: true, initialized: false },
       'Unread': { data: [], page: 0, hasMore: true, initialized: false },
       'Sold': { data: [], page: 0, hasMore: true, initialized: false },
+      'Purchased': { data: [], page: 0, hasMore: true, initialized: false },
       'Archived': { data: [], page: 0, hasMore: true, initialized: false }
   });
   
@@ -222,6 +200,7 @@ export default function MessagesPage() {
   // Pagination state (Messages inside chat)
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [filterCounts, setFilterCounts] = useState({}); // New state for dropdown badges
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   
   // Image preview state
@@ -288,18 +267,7 @@ export default function MessagesPage() {
   const likesHook = { likedListingIds, likingInProgress, handleLikeToggle };
   const { openModal, handleNotificationClick, ModalComponent } = usePageLogic(userData, likesHook);
 
-  const getDateLabel = (dateString) => {
-    if (!dateString) return null;
-    const date = new Date(dateString);
-    const now = new Date();
-    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const n = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const y = new Date(n);
-    y.setDate(n.getDate() - 1);
-    if (d.getTime() === n.getTime()) return 'Today';
-    if (d.getTime() === y.getTime()) return 'Yesterday';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+  // getDateLabel is imported from ../utils/messageFormatters
 
   // --- Effects & Data Fetching ---
 
@@ -311,19 +279,25 @@ export default function MessagesPage() {
   useEffect(() => {
       // 1. Check for Listing Filter (State OR Query Param)
       const listingIdParam = searchParams.get('listingId');
+      const sellerIdParam = searchParams.get('sellerId'); // Used when initiating new chat from buyer side
       const stateListingId = location.state?.filterByListingId;
       
-      if (listingIdParam || stateListingId) {
-          // If in URL, use that. Else use state.
+      // If listingId + sellerId are present, this is a CHAT INITIATION from buyer's ProductDetailModal
+      // In this case, we should NOT filter to 'Sold' or set listingFilterId - use 'All Messages' instead
+      const isChatInitiation = listingIdParam && sellerIdParam;
+      
+      if ((listingIdParam || stateListingId) && !isChatInitiation) {
+          // Only apply listing filter if this is NOT a chat initiation
           const targetId = listingIdParam ? parseInt(listingIdParam) : stateListingId;
           setListingFilterId(targetId);
           setSearchQuery('');
-          
-          // Default to 'Sold' if filtering by listing (common pattern), unless overridden below
+          // Default to 'Sold' for owner viewing their listing's chats
           setActiveFilter('Sold'); 
       }
+      // For chat initiation, we skip the filter - let it stay on 'All Messages'
+      // The fetchData will handle finding/creating the conversation
 
-      // 2. Check for Preferred Filter (Filter Name)
+      // 2. Check for Preferred Filter (Filter Name) - this can override defaults
       const filterParam = searchParams.get('filter');
       const stateFilter = location.state?.preferredFilter;
       
@@ -558,28 +532,14 @@ export default function MessagesPage() {
                       initiateChat.sellerId
                   );
                   
-                  const raw = newConvRes.data;
-                  const img = raw.listing?.images?.[0]?.imageUrl || raw.listing?.imageUrl || null;
-                  
-                  const newUiConv = {
-                      id: raw.conversationId,
-                      otherUser: {
-                          id: initiateChat.sellerId,
-                          name: raw.participants?.find(p => p.user.userId !== currentUser.userId)?.user.fullName || 'User',
-                          avatar: raw.participants?.find(p => p.user.userId !== currentUser.userId)?.user.profilePictureUrl
-                      },
-                      product: {
-                          id: raw.listing.listingId,
-                          title: raw.listing.title,
-                          price: raw.listing.price,
-                          ownerId: raw.listing.user?.userId,
-                          image: img,
-                          iconUrl: img
-                      },
-                      lastMessagePreview: 'Start a conversation',
-                      lastMessageDate: new Date().toISOString(),
-                      isUnread: false
-                  };
+                  const newUiConv = processConversationData([newConvRes.data], currentUser.userId)[0];
+
+                  // Safety check: if conversation processing failed, don't crash
+                  if (!newUiConv || !newUiConv.id) {
+                      console.error("Failed to process new conversation data:", newConvRes.data);
+                      toast.showError("Chat created but could not be opened. Please refresh.");
+                      return;
+                  }
 
                   // Add to map
                   setConversationsMap(prev => ({
@@ -600,10 +560,15 @@ export default function MessagesPage() {
           window.history.replaceState({}, document.title);
       }
 
-      // 4. Fetch Liked Listings
-      const likesResponse = await getLikedListings();
-      const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
-      setLikedListingIds(likedIds);
+      // 4. Fetch Liked Listings (with error handling - non-critical failure)
+      try {
+        const likesResponse = await getLikedListings();
+        const likedIds = new Set(likesResponse.data.map(listing => listing.listingId));
+        setLikedListingIds(likedIds);
+      } catch (likesErr) {
+        console.error("Failed to fetch liked listings", likesErr);
+        // Don't fail the whole page for likes - just leave likes empty
+      }
 
     } catch {
       setError("Could not load messages.");
@@ -614,57 +579,32 @@ export default function MessagesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, location.state]); // Removed activeFilter to prevent full reload on tab switch
 
+  // Fetch unread counts for the dropdown badges
+  const fetchFilterCounts = useCallback(async () => {
+      if(!userData) return;
+      try {
+          const res = await getUnreadCounts(userData.userId);
+          setFilterCounts(res.data || {});
+      } catch (err) {
+          console.error("Failed to fetch filter counts", err);
+      }
+  }, [userData]);
+
+  useEffect(() => {
+    fetchFilterCounts();
+    // Listen for global read/unread events to refresh counts
+    const refreshCounts = () => fetchFilterCounts();
+    window.addEventListener('message-read', refreshCounts);
+    window.addEventListener('message-unread', refreshCounts);
+    return () => {
+        window.removeEventListener('message-read', refreshCounts);
+        window.removeEventListener('message-unread', refreshCounts);
+    };
+  }, [fetchFilterCounts]);
+
   // Helper to process raw conversation data
-  const processConversationData = (convs, userId) => {
-      return convs.map(conv => {
-            if (!conv.participants) return null;
-            const otherParticipant = conv.participants.find(p => {
-                const pUserId = p.userId || p.user?.userId || p.user?.id; 
-                return pUserId !== userId;
-            });
-            const otherUserObj = otherParticipant || otherParticipant?.user || {};
-            const otherUser = { 
-                userId: otherUserObj.userId || otherUserObj.id || 0, 
-                fullName: otherUserObj.fullName || otherUserObj.name || 'Unknown User', 
-                profilePictureUrl: otherUserObj.profilePictureUrl || otherUserObj.avatar || null,
-                school: otherUserObj.schoolName || 'N/A',
-                profileSlug: otherUserObj.profileSlug 
-            };
-            
-            let productImageUrl = null;
-            if (conv.listing) {
-                 productImageUrl = conv.listing.imageUrl 
-                      || (conv.listing.listingImages && conv.listing.listingImages.length > 0 ? conv.listing.listingImages[0].imageUrl : null)
-                      || (conv.listing.images && conv.listing.images.length > 0 ? conv.listing.images[0].imageUrl : null);
-            }
-  
-            return {
-                id: conv.conversationId,
-                otherUser: {
-                    id: otherUser.userId,
-                    name: otherUser.fullName,
-                    avatar: otherUser.profilePictureUrl,
-                    school: otherUser.school,
-                    profileSlug: otherUser.profileSlug
-                },
-                product: conv.listing ? {
-                    ...conv.listing, 
-                    id: conv.listing.listingId,
-                    title: conv.listing.title,
-                    price: conv.listing.price,
-                    ownerId: conv.listing.owner?.userId || conv.listing.user?.userId, 
-                    image: productImageUrl, 
-                    iconUrl: productImageUrl 
-                } : null,
-                lastMessagePreview: conv.lastMessageContent || 'Start a conversation', 
-                lastMessageDate: conv.lastMessageTimestamp || conv.listing?.createdAt,
-                isUnread: conv.isUnread || false,
-                isArchived: conv.isArchivedForCurrentUser || false,
-                transactionId: conv.transactionId || null,
-                hasReviewed: conv.hasReviewed || false 
-            };
-        }).filter(Boolean);
-  };
+  // Imported from ../utils/conversationUtils
+
 
   // Note: fetchData is called via the effect at line ~657, not here (removed duplicate) 
   
@@ -717,78 +657,95 @@ export default function MessagesPage() {
   // This effect runs ONCE when userData is available to establish the socket connection.
   useEffect(() => {
     if (userData) {
-      const socket = new SockJS('http://localhost:8080/ws');
-      const stompClient = Stomp.over(socket);
+      let reconnectAttempts = 0;
+      const MAX_RECONNECT_ATTEMPTS = 5;
+      const RECONNECT_DELAY = 3000;
+      let socket = null;
+      
+      const connect = () => {
+          const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:8080/ws';
+          socket = new SockJS(wsUrl);
+          const stompClient = Stomp.over(socket);
+          // stompClient.debug = null; // Uncomment to disable extensive logging
 
-      stompClient.connect({}, () => {
-        stompClientRef.current = stompClient;
-        setIsConnected(true);
+          stompClient.connect({}, () => {
+            stompClientRef.current = stompClient;
+            setIsConnected(true);
+            reconnectAttempts = 0; // Reset on successful connection
 
-        // Subscribe to sidebar updates (Global user topic)
-        stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
-          const payload = JSON.parse(message.body);
+            // Subscribe to sidebar updates (Global user topic)
+            stompClient.subscribe(`/topic/user.${userData.userId}`, (message) => {
+              const payload = JSON.parse(message.body);
 
-          if (!payload.conversationId) return;
-
-          // Check if we already have this conversation loaded in any view
-          const currentMap = conversationsMapRef.current;
-          let existsLocally = false;
-          
-          Object.values(currentMap).forEach(tab => {
-              if (tab.data.some(c => c.id === payload.conversationId)) {
-                  existsLocally = true;
-              }
-          });
-
-          if (!existsLocally) {
-               // New Conversation! Refresh the current active tab to show it (if applicable)
-               // We assume the user wants to see it. Reloading page 0 pulls it to the top.
-               console.log("New conversation detected, refreshing tab...");
-               loadTab(activeFilterRef.current, 0);
-          } else {
-               // Update existing in place
-               setConversationsMap(prevMap => {
-                  const newMap = { ...prevMap };
+              // Handle Conversation Updates
+              if (payload.conversationId) {
+                  // Check if we already have this conversation loaded in any view
+                  const currentMap = conversationsMapRef.current;
+                  let existsLocally = false;
                   
-                  Object.keys(newMap).forEach(key => {
-                      const tabData = newMap[key];
-                      const convIndex = tabData.data.findIndex(c => c.id === payload.conversationId);
-                      
-                      if (convIndex > -1) {
-                          // Update existing
-                          const updatedConv = {
-                              ...tabData.data[convIndex],
-                              lastMessagePreview: payload.text || '📷 Image',
-                              lastMessageDate: payload.timestamp || payload.sentAt,
-                              isUnread: payload.senderId !== userData.userId
-                          };
-                          
-                          // Move to top
-                          const newDataList = [...tabData.data];
-                          newDataList.splice(convIndex, 1);
-                          newDataList.unshift(updatedConv);
-                          
-                          newMap[key] = { ...tabData, data: newDataList };
+                  Object.values(currentMap).forEach(tab => {
+                      if (tab.data.some(c => c.id === payload.conversationId)) {
+                          existsLocally = true;
                       }
                   });
-                  return newMap;
-              });
-          }
-      
-          // If it matches the open conversation, we might want to trigger read status or other updates?
-          // (Handled by active chat subscription usually)
-        });
-      }, (err) => {
-        console.error("Socket connection error:", err);
-        setIsConnected(false);
-      });
+
+                  if (!existsLocally) {
+                      console.log("New conversation detected, refreshing tab...");
+                      loadTab(activeFilterRef.current, 0);
+                  } else {
+                      // Update existing in place
+                      setConversationsMap(prevMap => {
+                          const newMap = { ...prevMap };
+                          
+                          Object.keys(newMap).forEach(key => {
+                              const tabData = newMap[key];
+                              const convIndex = tabData.data.findIndex(c => c.id === payload.conversationId);
+                              
+                              if (convIndex > -1) {
+                                  const updatedConv = {
+                                      ...tabData.data[convIndex],
+                                      lastMessagePreview: payload.text || '📷 Image',
+                                      lastMessageDate: payload.timestamp || payload.sentAt,
+                                      isUnread: payload.senderId !== userData.userId
+                                  };
+                                  
+                                  const newDataList = [...tabData.data];
+                                  newDataList.splice(convIndex, 1);
+                                  newDataList.unshift(updatedConv);
+                                  
+                                  newMap[key] = { ...tabData, data: newDataList };
+                              }
+                          });
+                          return newMap;
+                      });
+                  }
+              }
+              // Refresh counts whenever a new message arrives
+              fetchFilterCounts();
+            });
+          }, (err) => {
+            console.error("Socket connection error:", err);
+            setIsConnected(false);
+            
+            // Reconnect Logic
+            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                console.log(`Reconnecting in ${RECONNECT_DELAY}ms... (Attempt ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+                setTimeout(() => {
+                    reconnectAttempts++;
+                    connect();
+                }, RECONNECT_DELAY);
+            }
+          });
+      };
+
+      connect();
 
       return () => { 
         if (stompClientRef.current) stompClientRef.current.disconnect(); 
         setIsConnected(false);
       };
     }
-  }, [userData, loadTab]); // Added loadTab dependency (stable via useCallback)
+  }, [userData, loadTab, fetchFilterCounts]); // Added fetchFilterCounts dependency
 
   // --- WEBSOCKET SUBSCRIPTION (Active Chat) ---
   // This effect handles subscribing/unsubscribing to the specific conversation topic
@@ -806,7 +763,8 @@ export default function MessagesPage() {
         const payload = JSON.parse(message.body);
         
         // Prevent duplicate messages if sender is self (handled optimistically)
-        if (payload.senderId === userData.userId) return;
+        // Also guard against userData being null during unmount/logout
+        if (!userData || payload.senderId === userData.userId) return;
 
         const newMsg = {
             id: payload.id, 
@@ -836,7 +794,10 @@ export default function MessagesPage() {
 
   // Load the message history when the user clicks on a conversation
   const handleSelectConversation = async (conversation) => {
-    if (activeListMenuId) return; 
+    // If a menu is open, just close it and proceed with selection
+    if (activeListMenuId) {
+        setActiveListMenuId(null);
+    } 
     setIsMessagesLoading(true);
     setSelectedConversation(conversation);
     setIsChatVisible(true); 
@@ -854,7 +815,8 @@ export default function MessagesPage() {
     // so we don't need to manually subscribe here anymore.
 
     try {
-      const [messagesRes, ratingRes] = await Promise.all([
+      // Note: markConversationAsRead result is intentionally ignored (fire-and-forget)
+      const [messagesRes, ratingRes, /* markReadRes */] = await Promise.all([
           getMessages(conversation.id, 0),
           getUserReviews(conversation.otherUser.id),
           markConversationAsRead(conversation.id)
@@ -944,22 +906,19 @@ export default function MessagesPage() {
         await archiveConversation(conv.id); 
         toast.showSuccess(conv.isArchived ? "Conversation unarchived" : "Conversation archived");
         // Re-fetch to ensure consistency? Or trust optimistic.
-        // If we really want to remove it from the list immediately if we are in a text-specific filter context:
-        // E.g. if we are in "Archived" tab and we Unarchive, it should disappear.
-        // The optimistic update above just toggles the flag.
-        
-        // Let's refine the map update to respect the filter immediately?
-        // Actually simplest is to just re-fetch the current tab logic or filter locally.
+        // Note: conv.isArchived still holds the ORIGINAL value (before the optimistic toggle)
+        // because the optimistic update at line 894 updated the map, not the captured 'conv' variable.
+        // This means:
+        // - conv.isArchived = true => it WAS archived, and we just unarchived it (action = unarchive)
+        // - conv.isArchived = false => it was NOT archived, and we just archived it (action = archive)
         setConversationsMap(prevMap => {
              const newMap = { ...prevMap };
-             // If active filter is "Archived" and we unarchived, remove it from this tab
-             if (activeFilter === 'Archived' && conv.isArchived) { // was archived, now unarchived
+             // If active filter is "Archived" and we UNARCHIVED (original was archived), remove from Archived tab
+             if (activeFilter === 'Archived' && conv.isArchived) {
                   newMap['Archived'].data = newMap['Archived'].data.filter(c => c.id !== conv.id);
              }
-             // If active filter is "All" and we archive, it usually stays visible but marked archived? 
-             // Logic in backend: "All" excludes archived usually.
-             // If "All" excludes archived, then archiving should remove it from "All".
-             if (activeFilter === 'All Messages' && !conv.isArchived) { // was not archived, now is
+             // If active filter is "All Messages" and we ARCHIVED (original was NOT archived), remove from All Messages
+             if (activeFilter === 'All Messages' && !conv.isArchived) {
                   newMap['All Messages'].data = newMap['All Messages'].data.filter(c => c.id !== conv.id);
              }
              return newMap;
@@ -970,6 +929,8 @@ export default function MessagesPage() {
         // Revert is hard without previous state history, so just refetch active tab
         loadTab(activeFilter, conversationsMap[activeFilter]?.page || 0);
         toast.showError("Action failed. Reloading...");
+    } finally {
+        fetchFilterCounts(); // Refresh counts
     }
   };
 
@@ -995,21 +956,38 @@ export default function MessagesPage() {
         console.error("Delete failed", err); 
         loadTab(activeFilter, 0); // Reload on error
         toast.showError("Failed to delete conversation");
+    } finally {
+        fetchFilterCounts(); // Refresh counts
     }
   };
 
   const handleReadUnreadAction = async (e, conv) => {
-    e.stopPropagation(); setActiveListMenuId(null);
+    e.stopPropagation(); 
+    setActiveListMenuId(null);
+    setIsChatMenuOpen(false); // Close active chat menu if open
+    
     const newStatus = !conv.isUnread; 
     
+    // Optimistic update in sidebar map
     updateConversationInMap(conv.id, c => ({ ...c, isUnread: newStatus }));
 
+    // If this is the currently selected conversation, update its state too
+    if (selectedConversation && selectedConversation.id === conv.id) {
+        setSelectedConversation(prev => ({ ...prev, isUnread: newStatus }));
+    }
+
     try { 
-        if (newStatus) await markConversationAsUnread(conv.id); 
-        else await markConversationAsRead(conv.id); 
+        if (newStatus) {
+            await markConversationAsUnread(conv.id);
+            window.dispatchEvent(new Event('message-unread'));
+        } 
+        else {
+            await markConversationAsRead(conv.id); 
+            window.dispatchEvent(new Event('message-read'));
+        } 
     } catch (err) { 
         console.error("Toggle failed", err); 
-        // loadTab(activeFilter, conversationsPage);
+        // Revert on failure if needed, or reload tab
     }
   };
 
@@ -1044,7 +1022,7 @@ export default function MessagesPage() {
           }
           
           const optimisticMsg = {
-              id: Date.now(), 
+              id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Use temp prefix to avoid collision with server IDs
               senderId: userData.userId, 
               text: textToSend,
               attachmentUrl: imageUrl,
@@ -1193,7 +1171,7 @@ export default function MessagesPage() {
       );
   }
 
-  const filterOptions = ['All Messages', 'Selling', 'Buying', 'Unread', 'Sold', 'Archived'];
+  const filterOptions = ['All Messages', 'Selling', 'Buying', 'Purchased', 'Unread', 'Sold', 'Archived'];
 
   return (
     <div className="profile-page">
@@ -1220,6 +1198,7 @@ export default function MessagesPage() {
                         onSelect={setActiveFilter}
                         selectedOption={activeFilter}
                         variant="borderless"
+                        badgeCounts={filterCounts}
                     />
                 </div>
            </div>
@@ -1281,6 +1260,21 @@ export default function MessagesPage() {
                             {conv.lastMessagePreview.length > 30 ? conv.lastMessagePreview.substring(0,30)+'...' : conv.lastMessagePreview}
                          </span>
                       </div>
+                      
+                      {/* Status Badge */}
+                      {conv.isListingSold && (
+                          <div style={{ 
+                              fontSize: '0.7rem', 
+                              color: 'white', 
+                              backgroundColor: (conv.product?.type && conv.product.type.toLowerCase().includes('rent')) ? '#3498db' : '#e74c3c', // Blue for Rented, Red for Sold
+                              padding: '2px 6px', 
+                              borderRadius: '4px', 
+                              display: 'inline-block', 
+                              marginTop: '4px' 
+                          }}>
+                              {(conv.product?.type && conv.product.type.toLowerCase().includes('rent')) ? 'Rented' : 'Sold'}
+                          </div>
+                      )}
                   </div>
 
                   <div className="conversation-meta-wrapper">
@@ -1363,6 +1357,20 @@ export default function MessagesPage() {
                 <Icons.BackArrow />
               </button>
               <div className="chat-user-info" style={{ flexDirection: 'column', justifyContent: 'center' }}>
+              
+              {/* Trade Role Indicator */}
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#6c757d',
+                marginBottom: '2px',
+                paddingLeft: '8px',
+                borderLeft: `3px solid ${selectedConversation.product?.ownerId === userData?.userId ? '#40c057' : '#228be6'}`,
+                lineHeight: '1',
+                fontWeight: '500'
+              }}>
+                {selectedConversation.product?.ownerId === userData?.userId ? 'Selling to' : 'Buying from'}
+              </div>
+
               <Link 
                 to={`/profile/${selectedConversation.otherUser.profileSlug || selectedConversation.otherUser.id}`} 
                 className="user-name" 
@@ -1423,6 +1431,9 @@ export default function MessagesPage() {
                     </button>
                     {isChatMenuOpen && (
                         <div className="filter-dropdown-menu" style={{ right: 0, left: 'auto', top: '100%', width: '150px', zIndex: 100 }}>
+                            <button className="filter-option" onClick={(e) => handleReadUnreadAction(e, selectedConversation)}>
+                                {selectedConversation.isUnread ? 'Mark as Read' : 'Mark as Unread'}
+                            </button>
                             <button className="filter-option" onClick={handleArchiveChat}>
                                 {selectedConversation.isArchived ? 'Unarchive' : 'Archive'}
                             </button>
@@ -1546,11 +1557,19 @@ export default function MessagesPage() {
         </div>
       )}
 
-      {/* Image Modal */}
+      {/* Image Modal - with keyboard accessibility */}
       {selectedImage && (
-        <div className="image-modal-overlay" onClick={() => setSelectedImage(null)}>
+        <div 
+          className="image-modal-overlay" 
+          onClick={() => setSelectedImage(null)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setSelectedImage(null); }}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          ref={(el) => el?.focus()}
+        >
           <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="image-modal-close" onClick={() => setSelectedImage(null)}>✕</button>
+            <button className="image-modal-close" onClick={() => setSelectedImage(null)} aria-label="Close image">✕</button>
             <img src={selectedImage} alt="Full size" className="image-modal-img" />
           </div>
         </div>

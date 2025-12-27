@@ -121,14 +121,20 @@ public class ConversationService {
                     if (!isSeller && !isSold && !conv.getIsArchivedForCurrentUser())
                         match = true;
                     break;
+                case "Purchased":
+                    // Completed purchases: user is buyer AND item is sold/rented (not archived)
+                    if (!isSeller && isSold && !conv.getIsArchivedForCurrentUser())
+                        match = true;
+                    break;
                 case "Unread":
                     // Unread conversations (not archived, any sold status)
                     if (conv.getIsUnread() && !conv.getIsArchivedForCurrentUser())
                         match = true;
                     break;
                 case "Sold":
-                    // Conversations for sold/rented items (not archived)
-                    if (isSold && !conv.getIsArchivedForCurrentUser())
+                case "My Sales":
+                    // Completed sales: user is seller AND item is sold/rented (not archived)
+                    if (isSeller && isSold && !conv.getIsArchivedForCurrentUser())
                         match = true;
                     break;
                 case "Archived":
@@ -143,8 +149,9 @@ public class ConversationService {
                     break;
                 case "All Messages":
                 default:
-                    // All active conversations (not sold, not archived)
-                    if (!isSold && !conv.getIsArchivedForCurrentUser())
+                    // All conversations including sold (not archived) - FIX: Now includes sold
+                    // items
+                    if (!conv.getIsArchivedForCurrentUser())
                         match = true;
                     break;
             }
@@ -170,6 +177,89 @@ public class ConversationService {
         }
 
         return conversations.subList(start, end);
+    }
+
+    // 1.5 Get Unread Counts Per Filter (for tab badges)
+    public java.util.Map<String, Integer> getUnreadCountsPerFilter(@NonNull Long userId) {
+        List<ConversationParticipantEntity> participants = participantRepository
+                .findById_UserIdAndIsDeletedFalse(userId);
+
+        if (participants.isEmpty()) {
+            return java.util.Map.of(
+                    "All Messages", 0, "Selling", 0, "Buying", 0,
+                    "Purchased", 0, "Sold", 0, "Unread", 0, "Archived", 0);
+        }
+
+        // Collect conversation IDs for batch processing
+        List<Long> conversationIds = participants.stream()
+                .map(p -> p.getConversation().getConversationId())
+                .toList();
+
+        // Batch fetch all last messages
+        List<MessageEntity> lastMessages = messageRepository.findLastMessagesForConversations(conversationIds);
+        java.util.Map<Long, MessageEntity> lastMessageMap = lastMessages.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        msg -> msg.getConversation().getConversationId(),
+                        msg -> msg,
+                        (a, b) -> a.getSentAt().isAfter(b.getSentAt()) ? a : b));
+
+        // Initialize counters
+        int allMessages = 0, selling = 0, buying = 0, purchased = 0, sold = 0, unread = 0, archived = 0;
+
+        for (ConversationParticipantEntity p : participants) {
+            ConversationEntity conv = p.getConversation();
+
+            // Get unread status
+            MessageEntity lastMsg = lastMessageMap.get(conv.getConversationId());
+            boolean isUnread = false;
+            if (lastMsg != null) {
+                if (p.getLastDeletedAt() == null || lastMsg.getSentAt().isAfter(p.getLastDeletedAt())) {
+                    isUnread = !Boolean.TRUE.equals(lastMsg.getRead())
+                            && !lastMsg.getSender().getUserId().equals(userId);
+                }
+            }
+
+            if (!isUnread)
+                continue; // Only count unread conversations
+
+            boolean isArchivedForUser = p.getIsArchived();
+            boolean isSeller = conv.getListing().getUser().getUserId().equals(userId);
+            String listingStatus = conv.getListing().getStatus();
+            boolean isSold = "Sold".equalsIgnoreCase(listingStatus) || "Rented".equalsIgnoreCase(listingStatus);
+
+            // Count by filter category
+            if (isArchivedForUser) {
+                archived++;
+            } else {
+                // All non-archived unread messages go into All Messages
+                allMessages++;
+                unread++; // Unread tab
+
+                if (isSeller) {
+                    if (isSold) {
+                        sold++; // My Sales
+                    } else {
+                        selling++; // Active selling
+                    }
+                } else {
+                    if (isSold) {
+                        purchased++; // Completed purchases
+                    } else {
+                        buying++; // Active buying
+                    }
+                }
+            }
+        }
+
+        java.util.Map<String, Integer> result = new java.util.HashMap<>();
+        result.put("All Messages", allMessages);
+        result.put("Selling", selling);
+        result.put("Buying", buying);
+        result.put("Purchased", purchased);
+        result.put("Sold", sold);
+        result.put("Unread", unread);
+        result.put("Archived", archived);
+        return result;
     }
 
     // 2. Start Conversation
@@ -220,8 +310,14 @@ public class ConversationService {
                 savedConversation, receiver);
         participantRepository.save(receiverParticipant);
 
-        return conversationRepository.findById(Objects.requireNonNull(savedConversation.getConversationId()))
-                .orElse(savedConversation);
+        // FIX: Manually add participants to the entity before returning
+        // This avoids lazy loading issues where participants are not fetched
+        java.util.Set<ConversationParticipantEntity> participants = new java.util.HashSet<>();
+        participants.add(starterParticipant);
+        participants.add(receiverParticipant);
+        savedConversation.setParticipants(participants);
+
+        return savedConversation;
     }
 
     // 3. Delete Conversation for User (Soft Delete)

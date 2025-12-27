@@ -10,6 +10,29 @@ public class UserDTO {
     private String address;
     private String bio;
     private java.time.LocalDateTime createdAt;
+    private String email;
+    private String phoneNumber;
+    private SchoolInfo school; // Nested for frontend compatibility
+
+    // Nested class for school (frontend expects user.school.name)
+    public static class SchoolInfo {
+        private String name;
+
+        public SchoolInfo() {
+        }
+
+        public SchoolInfo(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+    }
 
     // Constructors, Getters, Setters
     public UserDTO() {
@@ -101,5 +124,29 @@ public class UserDTO {
 
     public void setProfileSlug(String profileSlug) {
         this.profileSlug = profileSlug;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public SchoolInfo getSchool() {
+        return school;
+    }
+
+    public void setSchool(SchoolInfo school) {
+        this.school = school;
     }
 }

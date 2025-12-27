@@ -11,12 +11,16 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "messages")
+@Table(name = "messages", indexes = {
+        @Index(name = "idx_message_conversation", columnList = "conversation_id"),
+        @Index(name = "idx_message_sent_at", columnList = "sent_at")
+})
 public class MessageEntity {
 
     @Id
@@ -50,7 +54,7 @@ public class MessageEntity {
     public MessageEntity() {
     }
 
-    // Getters and Setters 
+    // Getters and Setters
 
     public String getAttachmentUrl() {
         return attachmentUrl;
@@ -59,6 +63,7 @@ public class MessageEntity {
     public void setAttachmentUrl(String attachmentUrl) {
         this.attachmentUrl = attachmentUrl;
     }
+
     public Long getMessageId() {
         return messageId;
     }
@@ -110,8 +115,10 @@ public class MessageEntity {
     // equals, hashCode, toString (excluding relationships)
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         MessageEntity that = (MessageEntity) o;
         return Objects.equals(messageId, that.messageId);
     }
@@ -129,4 +136,3 @@ public class MessageEntity {
                 '}';
     }
 }
-

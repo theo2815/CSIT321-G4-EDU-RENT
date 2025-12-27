@@ -300,7 +300,17 @@ export default function ProductDetailModal({
   displayLikeCount = Math.max(0, displayLikeCount);
 
   // Image Logic
-  const rawImages = currentListing.listingImages || currentListing.images || [];
+  // Inline SVG placeholder to avoid external service dependency
+  const PLACEHOLDER_NO_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect fill='%23f0f0f0' width='400' height='400'/%3E%3Ctext fill='%23999' font-family='Arial,sans-serif' font-size='24' text-anchor='middle' x='200' y='200'%3ENo Image%3C/text%3E%3C/svg%3E";
+  const PLACEHOLDER_IMAGE_ERROR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect fill='%23f0f0f0' width='400' height='400'/%3E%3Ctext fill='%23999' font-family='Arial,sans-serif' font-size='24' text-anchor='middle' x='200' y='200'%3EImage Error%3C/text%3E%3C/svg%3E";
+
+  // Build image array - handle both full listing data (arrays) and partial data (single iconUrl/image)
+  let rawImages = currentListing.listingImages || currentListing.images || [];
+  // Fallback for partial data from MessagesPage which has iconUrl/image but not arrays
+  if ((!rawImages || rawImages.length === 0) && (currentListing.iconUrl || currentListing.image)) {
+    const singleImageUrl = currentListing.iconUrl || currentListing.image;
+    rawImages = [{ imageUrl: singleImageUrl }];
+  }
   const images = Array.isArray(rawImages) ? rawImages.map(img => img.imageUrl) : [];
   const initialImageIndex = Math.max(0, images.findIndex(img => 
       rawImages.find(li => li.imageUrl === img)?.isCoverPhoto 
@@ -308,10 +318,10 @@ export default function ProductDetailModal({
 
   const [currentImageIndex, setCurrentImageIndex] = useState(initialImageIndex);
   const showArrows = images.length > 1;
-  const currentImageUrl = images[currentImageIndex] || 'https://via.placeholder.com/400x400?text=No+Image';
+  const currentImageUrl = images[currentImageIndex] || PLACEHOLDER_NO_IMAGE;
 
   const getFullImageUrl = (path) => {
-      if (!path) return 'https://via.placeholder.com/400x400?text=No+Image';
+      if (!path) return PLACEHOLDER_NO_IMAGE;
       return path.startsWith('http') ? path : `http://localhost:8080${path}`;
   };
 
@@ -330,6 +340,16 @@ export default function ProductDetailModal({
     if (onLikeClick) onLikeClick(currentListing.listingId);
   };
 
+  const handleChatClick = (e) => {
+    if (!currentUserId) {
+      e.preventDefault();
+      e.stopPropagation();
+      openLogin();
+    } else {
+      onClose();
+    }
+  };
+
 
 
 
@@ -346,7 +366,7 @@ export default function ProductDetailModal({
             src={getFullImageUrl(currentImageUrl)}
             alt={`${currentListing.title || 'Listing'} - Image ${currentImageIndex + 1}`}
             className="product-image-main"
-            onError={(e) => { e.target.onerror = null; e.target.src="https://via.placeholder.com/400x400?text=Image+Error"; }}
+            onError={(e) => { e.target.onerror = null; e.target.src=PLACEHOLDER_IMAGE_ERROR; }}
           />
           {showArrows && (
             <>
@@ -642,7 +662,7 @@ export default function ProductDetailModal({
                                     </div>
                                     {/* Review Seller Logic */}
                                     <Link 
-                                        to={`/messages?listingId=${currentListing.listingId}&filter=Sold`}
+                                        to={`/messages?listingId=${currentListing.listingId}&filter=Purchased`}
                                         onClick={onClose}
                                         className="btn-chat" 
                                         style={{ 
@@ -711,7 +731,7 @@ export default function ProductDetailModal({
                                         ✓ Rented to You
                                     </div>
                                     <Link 
-                                        to={`/messages?listingId=${currentListing.listingId}&filter=Sold`}
+                                        to={`/messages?listingId=${currentListing.listingId}&filter=Purchased`}
                                         onClick={onClose}
                                         className="btn-chat" 
                                         style={{ 
@@ -764,7 +784,7 @@ export default function ProductDetailModal({
                                             ? `/messages?conversationId=${existingChat.conversationId}`
                                             : `/messages?listingId=${currentListing.listingId}&sellerId=${seller.id}`
                                         }
-                                        onClick={onClose}
+                                        onClick={handleChatClick}
                                         className="btn-chat" 
                                         style={{ marginTop: '0.5rem', display: 'block', textDecoration: 'none', textAlign: 'center' }} 
                                     >
@@ -785,7 +805,7 @@ export default function ProductDetailModal({
                                 ? `/messages?conversationId=${existingChat.conversationId}`
                                 : `/messages?listingId=${currentListing.listingId}&sellerId=${seller.id}`
                             }
-                            onClick={onClose}
+                            onClick={handleChatClick}
                             className="btn-chat"
                             style={{ display: 'block', textDecoration: 'none', textAlign: 'center' }}
                         >

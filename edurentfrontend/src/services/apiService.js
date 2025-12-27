@@ -422,47 +422,73 @@ export const markNotificationAsUnread = async (notificationId) => {
 // Table: notification_preferences
 // Columns: user_id (int8, PK), all_notifications (bool), email (bool), likes (bool), messages (bool), updated_at (timestamp)
 
+// Track if we've already logged the Supabase error to avoid console spam
+let supabaseErrorLogged = false;
+
+const getDefaultPreferences = (userId) => ({
+  user_id: userId,
+  all_notifications: true,
+  email: false,
+  likes: true,
+  messages: true,
+});
+
 export const getNotificationPreferences = async (userId) => {
-  const { data, error } = await supabase
-    .from('notification_preferences')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
-  if (error && error.code !== 'PGRST116') { // PGRST116: No rows returned
-    console.error('Supabase getNotificationPreferences error:', error);
-    throw error;
-  }
-  // Default preferences if none exist
-  return (
-    data || {
-      user_id: userId,
-      all_notifications: true,
-      email: false,
-      likes: true,
-      messages: true,
+  try {
+    // Use .maybeSingle() instead of .single() - returns null instead of 406 when no rows
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (error) {
+      // Log only once to avoid console spam
+      if (!supabaseErrorLogged) {
+        console.warn('Supabase notification_preferences error:', error.message);
+        supabaseErrorLogged = true;
+      }
+      return getDefaultPreferences(userId);
     }
-  );
+    
+    return data || getDefaultPreferences(userId);
+  } catch {
+    // Catch network errors, etc.
+    if (!supabaseErrorLogged) {
+      console.warn('Supabase connection failed, using default preferences');
+      supabaseErrorLogged = true;
+    }
+    return getDefaultPreferences(userId);
+  }
 };
 
 export const upsertNotificationPreferences = async (prefs) => {
-  const payload = {
-    user_id: prefs.user_id,
-    all_notifications: !!prefs.all_notifications,
-    email: !!prefs.email,
-    likes: !!prefs.likes,
-    messages: !!prefs.messages,
-    updated_at: new Date().toISOString(),
-  };
-  const { data, error } = await supabase
-    .from('notification_preferences')
-    .upsert(payload, { onConflict: 'user_id' })
-    .select()
-    .single();
-  if (error) {
-    console.error('Supabase upsertNotificationPreferences error:', error);
-    throw error;
+  try {
+    const payload = {
+      user_id: prefs.user_id,
+      all_notifications: !!prefs.all_notifications,
+      email: !!prefs.email,
+      likes: !!prefs.likes,
+      messages: !!prefs.messages,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .upsert(payload, { onConflict: 'user_id' })
+      .select()
+      .single();
+    
+    if (error) {
+      console.warn('Failed to save notification preferences to Supabase:', error.message);
+      // Return the payload as if it was saved (optimistic)
+      return payload;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Failed to save notification preferences:', err.message);
+    // Return the payload as if it was saved (optimistic)
+    return prefs;
   }
-  return data;
 };
 
 // --- Chat & Conversations ---
@@ -470,16 +496,19 @@ export const upsertNotificationPreferences = async (prefs) => {
 // Initiates a new chat regarding a specific listing
 export const startConversation = async (listingId, starterId, receiverId) => {
   try {
-    const response = await apiClient.post('/conversations', null, {
+    const response = await apiClient.post('/conversations', {}, {
       params: {
         listingId,
         starterId,
         receiverId
+      },
+      headers: {
+        'Content-Type': 'application/json'
       }
     });
     return response;
   } catch (error) {
-    console.error("Error during startConversation API call:", error.response || error.message);
+    console.error("Error starting conversation:", error.response?.data || error.message);
     throw error;
   }
 };
@@ -493,6 +522,17 @@ export const getConversationsForUser = async (userId, page = 0, size = 5, filter
     return response;
   } catch (error) {
     console.error(`Error during getConversationsForUser(${userId}) API call:`, error.response || error.message);
+    throw error;
+  }
+};
+
+// Fetches unread message counts per filter tab
+export const getUnreadCounts = async (userId) => {
+  try {
+    const response = await apiClient.get(`/conversations/user/${userId}/unread-counts`);
+    return response;
+  } catch (error) {
+    console.error(`Error during getUnreadCounts(${userId}) API call:`, error.response || error.message);
     throw error;
   }
 };

@@ -8,7 +8,8 @@ export default function GenericDropdown({
     selectedOption, /* Currently selected value to highlight */
     variant = 'default', /* 'default' or 'borderless' */
     width = 'fit-content',
-    placeholder = 'Select an option'
+    placeholder = 'Select an option',
+    badgeCounts = {} /* Map of option value to count for badges */
 }) {
 
   // Helper to determine display label
@@ -29,12 +30,31 @@ export default function GenericDropdown({
   // Let's support both: if `label` prop is explicit, use it. If not, derive from selectedOption.
   
   const finalDisplayLabel = label !== undefined ? label : displayLabel;
+  
+  // Get badge count for the currently selected option (for header display)
+  const headerBadgeCount = badgeCounts[selectedOption] || 0;
 
   return (
     <div className={`select-container ${variant === 'borderless' ? 'borderless' : ''}`} style={{ width: width }}>
       <div className="selected-header">
         <span className="user-name-span">
             {finalDisplayLabel}
+            {headerBadgeCount > 0 && (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '18px',
+                height: '18px',
+                padding: '0 5px',
+                marginLeft: '6px',
+                fontSize: '0.7rem',
+                fontWeight: '700',
+                color: '#fff',
+                backgroundColor: '#e74c3c',
+                borderRadius: '9px'
+              }}>{headerBadgeCount > 99 ? '99+' : headerBadgeCount}</span>
+            )}
         </span>
         
         <svg
@@ -54,6 +74,7 @@ export default function GenericDropdown({
             const optValue = getValue(option);
             const optLabel = getLabel(option);
             const isSelected = selectedOption === optValue;
+            const badgeCount = badgeCounts[optValue] || 0;
 
             return (
                 <button 
@@ -63,8 +84,24 @@ export default function GenericDropdown({
                         e.stopPropagation(); 
                         onSelect(optValue);
                     }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
-                    {optLabel}
+                    <span>{optLabel}</span>
+                    {badgeCount > 0 && (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '18px',
+                        height: '18px',
+                        padding: '0 5px',
+                        fontSize: '0.65rem',
+                        fontWeight: '700',
+                        color: '#fff',
+                        backgroundColor: '#e74c3c',
+                        borderRadius: '9px'
+                      }}>{badgeCount > 99 ? '99+' : badgeCount}</span>
+                    )}
                 </button>
             );
         })}

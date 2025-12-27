@@ -99,10 +99,12 @@ export default function Header({
 
     window.addEventListener('active-chat-change', handler);
     window.addEventListener('message-read', readHandler); // New listener
+    window.addEventListener('message-unread', readHandler); // New listener
     
     return () => {
         window.removeEventListener('active-chat-change', handler);
         window.removeEventListener('message-read', readHandler);
+        window.removeEventListener('message-unread', readHandler);
     };
   }, [fetchUnreadMessagesCount]);
 
@@ -130,7 +132,8 @@ export default function Header({
   useEffect(() => {
     if (!userData) return;
 
-    const socket = new SockJS('http://localhost:8080/ws');
+    const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:8080/ws';
+    const socket = new SockJS(wsUrl);
     const stompClient = Stomp.over(socket);
     stompClient.debug = null; // Disable debug logs
     socketClientRef.current = stompClient;
