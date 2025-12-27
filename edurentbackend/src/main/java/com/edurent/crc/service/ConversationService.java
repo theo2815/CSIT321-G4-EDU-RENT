@@ -302,13 +302,15 @@ public class ConversationService {
                 savedConversation.getConversationId(), starter.getUserId());
         ConversationParticipantEntity starterParticipant = new ConversationParticipantEntity(starterIdObj,
                 savedConversation, starter);
-        participantRepository.save(starterParticipant);
+        // participantRepository.save(starterParticipant); REMOVED to avoid duplicate
+        // session object
 
         ConversationParticipantIdEntity receiverIdObj = new ConversationParticipantIdEntity(
                 savedConversation.getConversationId(), receiver.getUserId());
         ConversationParticipantEntity receiverParticipant = new ConversationParticipantEntity(receiverIdObj,
                 savedConversation, receiver);
-        participantRepository.save(receiverParticipant);
+        // participantRepository.save(receiverParticipant); REMOVED to avoid duplicate
+        // session object
 
         // FIX: Manually add participants to the entity before returning
         // This avoids lazy loading issues where participants are not fetched
@@ -317,7 +319,7 @@ public class ConversationService {
         participants.add(receiverParticipant);
         savedConversation.setParticipants(participants);
 
-        return savedConversation;
+        return conversationRepository.save(savedConversation);
     }
 
     // 3. Delete Conversation for User (Soft Delete)

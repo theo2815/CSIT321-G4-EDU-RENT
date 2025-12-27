@@ -32,7 +32,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #f8f9fa;
+  background-color: var(--bg-light);
 }
 
 .starter-modal-title {
@@ -60,7 +60,7 @@
 /* Controls Section (Sticky top inside modal) */
 .starter-controls {
   padding: 1rem 1.5rem;
-  background-color: #fff;
+  background-color: var(--bg-light);
   border-bottom: 1px solid var(--border-color, #eee);
   display: flex;
   flex-direction: column;
@@ -85,7 +85,7 @@
 }
 
 .starter-tab:hover {
-  background-color: #f1f3f5;
+  background-color: var(--bg-color);
 }
 
 .starter-tab.active {
@@ -101,6 +101,8 @@
   border-radius: 8px;
   font-size: 0.9rem;
   outline: none;
+  background-color: var(--bg-light);
+  color: var(--text-color);
 }
 
 .starter-search-input:focus {
@@ -115,15 +117,16 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1rem;
-  background-color: #f8f9fa;
+  background-color: var(--bg-color); /* Matches page background */
   flex-grow: 1; /* Takes remaining height */
   align-content: start;
 }
 
 /* Adjust ListingCard specifically for this modal context */
 .starter-card-wrapper .listing-card {
-  /*height: 100%;*/
-  height: fit-content;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
   transition: transform 0.2s;
 }
@@ -131,6 +134,12 @@
 .starter-card-wrapper .listing-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+/* Ensure badges are smaller in this tight grid */
+.starter-card-wrapper .listing-type {
+  font-size: 0.65rem;
+  padding: 0.2rem 0.5rem;
 }
 
 /* Empty State */

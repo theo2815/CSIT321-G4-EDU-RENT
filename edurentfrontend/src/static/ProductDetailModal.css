@@ -303,12 +303,12 @@
 }
 
 .buyer-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--bg-color);
 }
 
 .buyer-item.selected {
   border-color: var(--primary-color);
-  background-color: #e7f5ff;
+  background-color: var(--info-bg);
 }
 
 .buyer-item input[type="radio"] {
