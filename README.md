@@ -11,7 +11,9 @@
 - [Purpose](#-purpose)
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
+- [Architecture](#-architecture)
 - [Prerequisites](#-prerequisites)
+- [Environment Variables](#-environment-variables)
 - [Setup & Installation](#-setup--installation)
 - [How to Run the Project](#-how-to-run-the-project)
 - [Usage Guide](#-usage-guide)
@@ -23,7 +25,9 @@
 -----
 
 ## 🌟 Overview
-Edu-Rent is a campus-based e-commerce platform where students can rent, sell, and buy items from fellow students. It eliminates the need to use multiple platforms or deal with distant or unreliable sellers. Everything happens within the school community, ensuring convenience, accessibility, and trust.
+Edu-Rent is a full-stack, campus-based e-commerce platform where students can rent, sell, and buy items from fellow students. It eliminates the need to use multiple platforms or deal with distant or unreliable sellers. Everything happens within the school community, ensuring convenience, accessibility, and trust.
+
+The platform features real-time messaging between buyers and sellers, a notification system, user ratings and reviews, image uploads via Cloudinary, and JWT-based authentication.
 
 ## 🎯 Purpose
 The purpose of Edu-Rent is to:
@@ -31,52 +35,131 @@ The purpose of Edu-Rent is to:
 - Improve accessibility to needed items on campus
 - Simplify renting, selling, and buying
 - Promote student-to-student trust and convenience
+- Enable real-time communication between campus community members
 
 ## ✨ Features
 ### 🧑‍🎓 Student Marketplace
-- Browse available items
-- Rent, buy, or sell products
-- Upload item listings with images and descriptions
+- Browse available items for rent or for sale
+- Rent, buy, or sell products within the campus community
+- Upload item listings with multiple images and descriptions
+- Category-based browsing and filtering
+- Infinite scroll pagination for seamless browsing
 
 ### 🔐 Account & Profile Management
-- Register/Login
-- Manage personal listings
-- View rental or purchase history
+- Register/Login with JWT authentication
+- OTP-based email verification
+- Password reset via email tokens
+- Manage personal listings (create, edit, mark as sold)
+- View rental or purchase transaction history
+- User profiles with ratings and reviews
+
+### 💬 Real-Time Messaging
+- WebSocket-based chat between buyers and sellers (SockJS/StompJS)
+- Send and receive messages with image attachments
+- Conversation management per listing
+
+### 🔔 Notifications
+- Real-time in-app notifications
+- Notification preferences management
+
+### ❤️ Social Features
+- Like/Unlike listings
+- Leave reviews and star ratings for other users
+- View user reputation scores
+
+### 🔎 Search & Filter
+- Search items by category, price, or availability
+- Sidebar filters for refined browsing
 
 ### 📊 Admin Dashboard (Future Scope)
 - Approve suspicious listings
 - Manage users and transactions
 
-### 🔎 Search & Filter
-- Search items by category, price, or availability
-
 -----
 
 ## 🛠 Tech Stack
-*Backend*  
-- Java Spring Boot  
-- Maven  
-- RESTful APIs  
 
-*Frontend*  
-- React x vite  
-- Node.js  
-- npm 
+### Backend
+| Technology | Purpose |
+|---|---|
+| Java 21 + Spring Boot 3 | Core backend framework |
+| Spring Security + JWT | Authentication & authorization |
+| Spring Data JPA + Hibernate | ORM and database access |
+| Spring WebSocket (SockJS/StompJS) | Real-time messaging |
+| Spring Mail | Email notifications & password reset |
+| Spring Cache + Caffeine | Server-side caching |
+| Cloudinary | Image hosting and management |
+| Apache Maven | Build and dependency management |
 
-*Database*  
-- Supabase
+### Frontend
+| Technology | Purpose |
+|---|---|
+| React 19 + Vite | UI framework and build tool |
+| TailwindCSS 4 | Utility-first styling |
+| React Router DOM 7 | Client-side routing |
+| Axios | HTTP API communication |
+| SockJS + StompJS | WebSocket client for real-time chat |
+| Supabase JS | Real-time database subscriptions |
+| DOMPurify | XSS prevention |
+| Browser Image Compression | Client-side image optimization |
+
+### Database & Cloud
+| Technology | Purpose |
+|---|---|
+| Supabase (PostgreSQL) | Primary database (AWS ap-south-1) |
+| Cloudinary | Image storage and CDN |
+| Gmail SMTP | Transactional email delivery |
 
 *Version Control*  
 - Git & GitHub
 
 -----
 
+## 🏗 Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                        Frontend (React)                       │
+│  Pages → Components → Services → Axios / WebSocket Client    │
+│               ↕                           ↕                  │
+│         React Context              Supabase JS Client         │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ HTTP / WebSocket
+┌──────────────────────────▼───────────────────────────────────┐
+│               Backend (Spring Boot REST API)                  │
+│   Controllers → Services → Repositories → PostgreSQL (Supabase) │
+│        ↕              ↕                                       │
+│  JWT Security    Cloudinary / Gmail SMTP                      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+-----
+
 ## 📋 Prerequisites
 Before running the project, make sure you have:
-- Java Development Kit (JDK 17+)
+- Java Development Kit (JDK 21+)
 - Apache Maven
 - Node.js & npm
-- Supabase
+- A Supabase project (PostgreSQL database)
+- A Cloudinary account (for image uploads)
+- A Gmail account with an app password (for email delivery)
+
+-----
+
+## 🔑 Environment Variables
+The backend requires the following environment variables. Create a `.env` file inside `edurentbackend/` (see `run_dev.ps1` for reference):
+
+```env
+DB_PASSWORD=<supabase-database-password>
+JWT_SECRET=<your-jwt-secret-key>
+MAIL_PASSWORD=<gmail-app-password>
+SUPABASE_ANON_KEY=<supabase-anonymous-key>
+CLOUDINARY_CLOUD_NAME=<cloudinary-cloud-name>
+CLOUDINARY_API_KEY=<cloudinary-api-key>
+CLOUDINARY_API_SECRET=<cloudinary-api-secret>
+```
+
+> ⚠️ Never commit your `.env` file to version control.
 
 -----
 
@@ -260,16 +343,43 @@ Frontend runs at: http://localhost:5173
 -----
 
 ## 📁 Project Structure
-    CSIT321-G4-EDU-RENT/
-    │
-    ├── edurentbackend/        # Spring Boot backend
-    │   └── src/main/java/
-    │   └── src/main/resources/
-    │
-    ├── edurentfrontend/       # React frontend
-    │   └── src/
-    │
-    └── README.md
+```
+CSIT321-G4-EDU-RENT/
+│
+├── edurentbackend/              # Spring Boot REST API Backend (Java 21)
+│   ├── src/main/java/com/edurent/crc/
+│   │   ├── controller/          # REST API endpoint controllers
+│   │   ├── service/             # Business logic layer
+│   │   ├── entity/              # JPA database entity models
+│   │   ├── repository/          # Spring Data JPA repositories
+│   │   ├── dto/                 # Data Transfer Objects
+│   │   ├── config/              # Spring configuration (CORS, WebSocket, etc.)
+│   │   ├── security/            # JWT authentication & Spring Security
+│   │   ├── mapper/              # Entity ↔ DTO mappers
+│   │   └── exception/           # Global exception handling
+│   ├── src/main/resources/
+│   │   └── application.properties
+│   ├── pom.xml
+│   └── run_dev.ps1              # Windows dev startup script (loads .env)
+│
+├── edurentfrontend/             # React + Vite Frontend
+│   ├── src/
+│   │   ├── components/          # Reusable UI components
+│   │   │   └── auth/            # Authentication-related components
+│   │   ├── pages/               # Full page-level route components
+│   │   ├── context/             # React Context for global state
+│   │   ├── hooks/               # Custom React hooks
+│   │   ├── services/            # Axios API service functions
+│   │   ├── utils/               # Utility/helper functions
+│   │   ├── assets/              # Images and static assets
+│   │   ├── App.jsx              # Root app component with routing
+│   │   ├── main.jsx             # Application entry point
+│   │   └── supabaseClient.js    # Supabase real-time client setup
+│   ├── package.json
+│   └── vite.config.js
+│
+└── README.md
+```
 
 -----
 
